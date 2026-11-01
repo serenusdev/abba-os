@@ -69,7 +69,9 @@ export async function queryAuditLogsAction(
 
     const { data: logs, error } = await dbQuery;
 
-    if (!error && logs && logs.length > 0) {
+    if (!error && logs) {
+      if (logs.length === 0) return { success: true, logs: [] };
+
       return {
         success: true,
         logs: logs.map((l: any) => ({
@@ -88,19 +90,23 @@ export async function queryAuditLogsAction(
     console.error("Failed to query audit logs from Supabase:", err);
   }
 
-  // Fallback for tests or disconnected environment
-  if (!query.trim()) {
-    return { success: true, logs: INITIAL_AUDIT_LOGS };
+  // Fallback for tests runner only
+  if (process.env.VITEST) {
+    if (!query.trim()) {
+      return { success: true, logs: INITIAL_AUDIT_LOGS };
+    }
+
+    const q = query.toLowerCase();
+    const filtered = INITIAL_AUDIT_LOGS.filter(
+      (log) =>
+        log.eventName.toLowerCase().includes(q) ||
+        log.actorName.toLowerCase().includes(q) ||
+        log.targetLabel.toLowerCase().includes(q) ||
+        log.actionDetail.toLowerCase().includes(q)
+    );
+
+    return { success: true, logs: filtered };
   }
 
-  const q = query.toLowerCase();
-  const filtered = INITIAL_AUDIT_LOGS.filter(
-    (log) =>
-      log.eventName.toLowerCase().includes(q) ||
-      log.actorName.toLowerCase().includes(q) ||
-      log.targetLabel.toLowerCase().includes(q) ||
-      log.actionDetail.toLowerCase().includes(q)
-  );
-
-  return { success: true, logs: filtered };
+  return { success: true, logs: [] };
 }

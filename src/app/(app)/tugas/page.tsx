@@ -2,10 +2,6 @@
 
 import * as React from "react";
 import {
-  INITIAL_PROJECTS,
-  INITIAL_TASKS,
-} from "@/modules/tasks/data";
-import {
   ProjectItem,
   TaskItem,
   TaskPriority,
@@ -25,13 +21,13 @@ type ViewTab = "my_tasks" | "kanban" | "projects";
 export default function TugasPage() {
   const [activeTab, setActiveTab] = React.useState<ViewTab>("my_tasks");
   const [timeFilter, setTimeFilter] = React.useState<TaskTimeFilter>("all");
-  const [tasks, setTasks] = React.useState<TaskItem[]>(INITIAL_TASKS);
-  const [projects, setProjects] = React.useState<ProjectItem[]>(INITIAL_PROJECTS);
+  const [tasks, setTasks] = React.useState<TaskItem[]>([]);
+  const [projects, setProjects] = React.useState<ProjectItem[]>([]);
 
   React.useEffect(() => {
     Promise.all([getTasksAction(), getProjectsAction()]).then(([tData, pData]) => {
-      if (tData && tData.length > 0) setTasks(tData);
-      if (pData && pData.length > 0) setProjects(pData);
+      setTasks(tData || []);
+      setProjects(pData || []);
     });
   }, []);
   const [toastMessage, setToastMessage] = React.useState<{
@@ -42,7 +38,7 @@ export default function TugasPage() {
   // New Task Dialog State
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [newTitle, setNewTitle] = React.useState("");
-  const [newProjectId, setNewProjectId] = React.useState(projects[0].id);
+  const [newProjectId, setNewProjectId] = React.useState(projects[0]?.id || "proj-general");
   const [newPriority, setNewPriority] = React.useState<TaskPriority>("normal");
   const [newDueDate, setNewDueDate] = React.useState("Hari Ini (20:00 WIB)");
   const [newRequiresReview, setNewRequiresReview] = React.useState(false);
@@ -291,12 +287,12 @@ export default function TugasPage() {
                     Proyek Prioritas
                   </span>
                   <span className="font-headline-sm text-[16px] text-on-surface font-semibold leading-tight">
-                    Integrasi Presensi V2
+                    {projects[0]?.name || "Belum Ada Proyek"}
                   </span>
                 </div>
               </div>
               <span className="px-2.5 py-0.5 rounded-md bg-secondary-container text-on-secondary-container font-label-sm text-xs">
-                Sentra Digital
+                {projects[0]?.teamName || "Sentra Santri"}
               </span>
             </div>
 
@@ -318,22 +314,24 @@ export default function TugasPage() {
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       fill="none"
                       stroke="currentColor"
-                      strokeDasharray="75, 100"
+                      strokeDasharray={`${projects[0]?.progressPercent || 0}, 100`}
                       strokeLinecap="round"
                       strokeWidth="3.5"
                     />
                   </svg>
                   <span className="absolute font-code-md text-xs font-bold text-primary">
-                    75%
+                    {projects[0]?.progressPercent || 0}%
                   </span>
                 </div>
                 <div className="flex flex-col">
                   <span className="font-label-md text-label-md text-on-surface">
-                    6 dari 8 Selesai
+                    {projects[0]
+                      ? `${projects[0].completedTasks} dari ${projects[0].totalTasks} Selesai`
+                      : "0 dari 0 Selesai"}
                   </span>
-                  <span className="font-body-sm text-xs text-error flex items-center gap-1 font-medium">
+                  <span className="font-body-sm text-xs text-muted-foreground flex items-center gap-1 font-medium">
                     <span className="material-symbols-outlined text-[14px]">flag</span>
-                    1 tugas terhambat
+                    {projects[0]?.blockedTasks || 0} tugas terhambat
                   </span>
                 </div>
               </div>
@@ -471,6 +469,20 @@ export default function TugasPage() {
 
               {/* Task Groups Section (TSK-009) */}
               <div className="space-y-4">
+                {filteredTasks.length === 0 ? (
+                  <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2">
+                    <span className="material-symbols-outlined text-[40px] text-muted-foreground">
+                      assignment_turned_in
+                    </span>
+                    <p className="font-label-md text-on-surface text-[15px]">
+                      Belum ada tugas tercatat
+                    </p>
+                    <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                      Tekan tombol &quot;+ Tambah Tugas Baru&quot; untuk membuat tugas baru bagi Anda atau tim sentra.
+                    </p>
+                  </div>
+                ) : (
+                  <>
                 {/* GROUP 1: Mendesak / Terlambat */}
                 {urgentTasks.length > 0 && (
                   <div className="space-y-2">
@@ -582,6 +594,8 @@ export default function TugasPage() {
                     ))}
                   </div>
                 )}
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -653,11 +667,24 @@ export default function TugasPage() {
           {/* TAB 3: Daftar Proyek */}
           {activeTab === "projects" && (
             <div className="space-y-3">
-              {projects.map((proj) => (
-                <div
-                  key={proj.id}
-                  className="p-4 sm:p-5 bg-card rounded-xl border border-border shadow-xs space-y-3"
-                >
+              {projects.length === 0 ? (
+                <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2">
+                  <span className="material-symbols-outlined text-[40px] text-muted-foreground">
+                    folder_off
+                  </span>
+                  <p className="font-label-md text-on-surface text-[15px]">
+                    Belum ada proyek dibuat
+                  </p>
+                  <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                    Daftar proyek dan inisiatif santri akan tampil di sini setelah ditambahkan oleh pembina atau koordinator.
+                  </p>
+                </div>
+              ) : (
+                projects.map((proj) => (
+                  <div
+                    key={proj.id}
+                    className="p-4 sm:p-5 bg-card rounded-xl border border-border shadow-xs space-y-3"
+                  >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-accent text-accent-foreground flex items-center justify-center shrink-0">
@@ -697,7 +724,7 @@ export default function TugasPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
           )}
         </div>
@@ -764,11 +791,15 @@ export default function TugasPage() {
                     onChange={(e) => setNewProjectId(e.target.value)}
                     className="w-full h-10 px-2.5 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
+                    {projects.length === 0 ? (
+                      <option value="proj-general">Operasional Santri</option>
+                    ) : (
+                      projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 

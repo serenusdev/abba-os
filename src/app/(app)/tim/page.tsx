@@ -1,11 +1,6 @@
 "use client";
 
 import * as React from "react";
-import {
-  INITIAL_PEOPLE_PROFILES,
-  INITIAL_TEAMS,
-  PEOPLE_STATS,
-} from "@/modules/people/data";
 import { PersonProfile, TeamStructureItem } from "@/modules/people/types";
 import {
   revealContactNumberAction,
@@ -19,18 +14,29 @@ export default function TimPage() {
   const [activeTab, setActiveTab] = React.useState<ViewTab>("anggota");
   const [roleFilter, setRoleFilter] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [profiles, setProfiles] = React.useState<PersonProfile[]>(INITIAL_PEOPLE_PROFILES);
-  const [teams, setTeams] = React.useState<TeamStructureItem[]>(INITIAL_TEAMS);
+  const [profiles, setProfiles] = React.useState<PersonProfile[]>([]);
+  const [teams, setTeams] = React.useState<TeamStructureItem[]>([]);
 
   React.useEffect(() => {
     Promise.all([getPeopleAction(), getTeamsAction()]).then(([pData, tData]) => {
-      if (pData && pData.length > 0) setProfiles(pData);
-      if (tData && tData.length > 0) setTeams(tData);
+      setProfiles(pData || []);
+      setTeams(tData || []);
     });
   }, []);
   const [selectedPerson, setSelectedPerson] = React.useState<PersonProfile | null>(null);
   const [unmaskedPhones, setUnmaskedPhones] = React.useState<Record<string, string>>({});
   const [toastNotice, setToastNotice] = React.useState<string | null>(null);
+
+  // Dynamic member statistics
+  const stats = React.useMemo(() => {
+    return {
+      total: profiles.length,
+      santri: profiles.filter((p) => p.memberType === "santri").length,
+      ustadz: profiles.filter((p) => p.memberType === "ustadz").length,
+      pengurus: profiles.filter((p) => p.memberType === "pengurus").length,
+      yayasan: profiles.filter((p) => p.memberType === "yayasan").length,
+    };
+  }, [profiles]);
 
   // Filter people based on role & search query
   const filteredProfiles = React.useMemo(() => {
@@ -109,11 +115,11 @@ export default function TimPage() {
         <div className="flex flex-wrap items-center gap-2 bg-surface-container-high px-3.5 py-2.5 rounded-xl text-on-surface-variant text-xs sm:text-sm">
           <span className="inline-flex w-2 h-2 rounded-full bg-success animate-pulse"></span>
           <span className="font-label-sm font-semibold text-on-surface">
-            {PEOPLE_STATS.totalActiveMembers} Anggota Aktif
+            {stats.total} Anggota Aktif
           </span>
           <span className="text-outline-variant">•</span>
           <span className="font-body-sm text-muted-foreground">
-            {PEOPLE_STATS.totalTeams} Tim Kolaborasi
+            {teams.length} Tim Kolaborasi
           </span>
           <div className="ml-auto flex items-center gap-1 text-primary">
             <span className="material-symbols-outlined text-[16px]">
@@ -186,11 +192,11 @@ export default function TimPage() {
           {/* Filter chips scroll */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-nowrap">
             {[
-              { id: "all", label: "Semua", count: PEOPLE_STATS.totalActiveMembers },
-              { id: "santri", label: "Santri", count: PEOPLE_STATS.santriCount },
-              { id: "ustadz", label: "Ustadz", count: PEOPLE_STATS.ustadzCount },
-              { id: "pengurus", label: "Pengurus", count: PEOPLE_STATS.pengurusCount },
-              { id: "yayasan", label: "Yayasan", count: PEOPLE_STATS.yayasanCount },
+              { id: "all", label: "Semua", count: stats.total },
+              { id: "santri", label: "Santri", count: stats.santri },
+              { id: "ustadz", label: "Ustadz", count: stats.ustadz },
+              { id: "pengurus", label: "Pengurus", count: stats.pengurus },
+              { id: "yayasan", label: "Yayasan", count: stats.yayasan },
             ].map((chip) => (
               <button
                 key={chip.id}
@@ -238,32 +244,36 @@ export default function TimPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-2.5">
-              {teams.map((t) => (
-                <div
-                  key={t.id}
-                  onClick={() => setActiveTab("tim")}
-                  className="p-3 rounded-xl bg-surface-container-low hover:bg-accent/40 cursor-pointer flex items-center justify-between gap-3 transition-all border border-border/40"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-surface text-primary flex items-center justify-center shrink-0 border border-border/40">
-                      <span className="material-symbols-outlined text-[18px]">
-                        {t.icon}
-                      </span>
+              {teams.length === 0 ? (
+                <p className="text-center text-xs text-muted-foreground py-3">Belum ada tim aktif</p>
+              ) : (
+                teams.map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => setActiveTab("tim")}
+                    className="p-3 rounded-xl bg-surface-container-low hover:bg-accent/40 cursor-pointer flex items-center justify-between gap-3 transition-all border border-border/40"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-surface text-primary flex items-center justify-center shrink-0 border border-border/40">
+                        <span className="material-symbols-outlined text-[18px]">
+                          {t.icon}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-label-md text-xs font-semibold text-on-surface truncate">
+                          {t.name}
+                        </h4>
+                        <p className="font-body-sm text-[11px] text-muted-foreground truncate">
+                          Koord: {t.coordinatorName}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-label-md text-xs font-semibold text-on-surface truncate">
-                        {t.name}
-                      </h4>
-                      <p className="font-body-sm text-[11px] text-muted-foreground truncate">
-                        Koord: {t.coordinatorName}
-                      </p>
-                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-fixed font-label-sm text-[10px] font-semibold shrink-0">
+                      {t.badgeLabel}
+                    </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-fixed font-label-sm text-[10px] font-semibold shrink-0">
-                    {t.badgeLabel}
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
 
@@ -300,7 +310,20 @@ export default function TimPage() {
 
               {/* Members List */}
               <div className="space-y-3.5">
-                {filteredProfiles.map((person) => {
+                {filteredProfiles.length === 0 ? (
+                  <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2">
+                    <span className="material-symbols-outlined text-[40px] text-muted-foreground">
+                      person_off
+                    </span>
+                    <p className="font-label-md text-on-surface text-[15px]">
+                      Belum ada personil terdaftar
+                    </p>
+                    <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                      Daftar santri, pengurus, dan staf pondok akan tampil di sini setelah akun aktif dibuat.
+                    </p>
+                  </div>
+                ) : (
+                  filteredProfiles.map((person) => {
                   const revealedPhone = unmaskedPhones[person.id];
 
                   return (
@@ -469,7 +492,7 @@ export default function TimPage() {
                       </div>
                     </article>
                   );
-                })}
+                }))}
               </div>
             </div>
           )}
@@ -482,58 +505,71 @@ export default function TimPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {teams.map((t) => (
-                  <div
-                    key={t.id}
-                    className="p-5 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between space-y-4"
-                  >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="w-10 h-10 rounded-xl bg-accent text-accent-foreground flex items-center justify-center">
-                          <span className="material-symbols-outlined text-[22px]">
-                            {t.icon}
+                {teams.length === 0 ? (
+                  <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2 col-span-full">
+                    <span className="material-symbols-outlined text-[40px] text-muted-foreground">
+                      diversity_3
+                    </span>
+                    <p className="font-label-md text-on-surface text-[15px]">
+                      Belum ada struktur tim
+                    </p>
+                    <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                      Sentra dan divisi kerja pondok akan ditampilkan di sini.
+                    </p>
+                  </div>
+                ) : (
+                  teams.map((t) => (
+                    <div
+                      key={t.id}
+                      className="p-5 rounded-2xl bg-card border border-border shadow-xs flex flex-col justify-between space-y-4"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="w-10 h-10 rounded-xl bg-accent text-accent-foreground flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[22px]">
+                              {t.icon}
+                            </span>
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-xs font-semibold">
+                            {t.memberCount} Anggota
                           </span>
                         </div>
-                        <span className="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-xs font-semibold">
-                          {t.memberCount} Anggota
-                        </span>
+
+                        <h3 className="font-headline-sm text-base font-semibold text-on-surface">
+                          {t.name}
+                        </h3>
+                        <p className="font-body-sm text-xs text-muted-foreground leading-relaxed">
+                          {t.description}
+                        </p>
                       </div>
 
-                      <h3 className="font-headline-sm text-base font-semibold text-on-surface">
-                        {t.name}
-                      </h3>
-                      <p className="font-body-sm text-xs text-muted-foreground leading-relaxed">
-                        {t.description}
-                      </p>
-                    </div>
+                      <div className="pt-3 border-t border-border/50 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-muted-foreground block text-[11px]">
+                            Koordinator
+                          </span>
+                          <span className="font-semibold text-on-surface">
+                            {t.coordinatorName}
+                          </span>
+                        </div>
 
-                    <div className="pt-3 border-t border-border/50 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-muted-foreground block text-[11px]">
-                          Koordinator
-                        </span>
-                        <span className="font-semibold text-on-surface">
-                          {t.coordinatorName}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRoleFilter("all");
+                            setSearchQuery(t.name.split(" ")[1] || "");
+                            setActiveTab("anggota");
+                          }}
+                          className="h-8 px-3 rounded-lg bg-surface-container text-primary font-medium hover:bg-accent transition-colors flex items-center gap-1"
+                        >
+                          <span>Personil</span>
+                          <span className="material-symbols-outlined text-[15px]">
+                            chevron_right
+                          </span>
+                        </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRoleFilter("all");
-                          setSearchQuery(t.name.split(" ")[1] || "");
-                          setActiveTab("anggota");
-                        }}
-                        className="h-8 px-3 rounded-lg bg-surface-container text-primary font-medium hover:bg-accent transition-colors flex items-center gap-1"
-                      >
-                        <span>Personil</span>
-                        <span className="material-symbols-outlined text-[15px]">
-                          chevron_right
-                        </span>
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  )))}
               </div>
             </div>
           )}

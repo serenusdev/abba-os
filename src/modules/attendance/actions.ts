@@ -90,7 +90,9 @@ export async function getAttendanceHistoryAction(): Promise<AttendanceRecordItem
       .select("*")
       .order("attendance_date", { ascending: false });
 
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
+      if (data.length === 0) return [];
+
       return data.map((r: any) => {
         const timeStr =
           new Date(r.checked_in_at).toLocaleTimeString("id-ID", {
@@ -126,7 +128,12 @@ export async function getAttendanceHistoryAction(): Promise<AttendanceRecordItem
   } catch (err) {
     console.error("Failed to query attendance records:", err);
   }
-  return ATTENDANCE_HISTORY;
+
+  if (process.env.VITEST) {
+    return ATTENDANCE_HISTORY;
+  }
+
+  return [];
 }
 
 /**

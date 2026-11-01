@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   WEEK_ATTENDANCE_STRIP,
-  ATTENDANCE_HISTORY,
   ATTENDANCE_MONTHLY_STATS,
 } from "@/modules/attendance/data";
 import {
@@ -21,11 +20,11 @@ export default function KehadiranPage() {
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [checkedInTime, setCheckedInTime] = React.useState("07:48:15 WIB");
   const [checkedInStatus, setCheckedInStatus] = React.useState("Tepat Waktu");
-  const [historyItems, setHistoryItems] = React.useState<AttendanceRecordItem[]>(ATTENDANCE_HISTORY);
+  const [historyItems, setHistoryItems] = React.useState<AttendanceRecordItem[]>([]);
 
   React.useEffect(() => {
     getAttendanceHistoryAction().then((data) => {
-      if (data && data.length > 0) setHistoryItems(data);
+      setHistoryItems(data || []);
     });
   }, []);
 
@@ -451,7 +450,14 @@ export default function KehadiranPage() {
 
             {/* History Records List */}
             <div className="space-y-2.5">
-              {historyItems.map((item) => (
+              {historyItems.length === 0 ? (
+                <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1">
+                  <span className="material-symbols-outlined text-[32px] text-muted-foreground">event_busy</span>
+                  <p className="font-label-md text-on-surface text-[13px]">Belum ada riwayat presensi tercatat</p>
+                  <p className="text-[11px] text-muted-foreground">Lakukan check-in presensi di atas untuk mulai mencatat riwayat.</p>
+                </div>
+              ) : (
+                historyItems.map((item) => (
                 <div
                   key={item.id}
                   className="bg-surface-container-low rounded-xl p-3.5 space-y-2 border border-border/40 transition-all hover:border-primary/30"
@@ -507,7 +513,7 @@ export default function KehadiranPage() {
                     )}
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
 
             {/* Secondary Exception / Leave Application Button */}

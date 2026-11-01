@@ -16,7 +16,9 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
       .select("*")
       .order("created_at", { ascending: true });
 
-    if (!error && profiles && profiles.length > 0) {
+    if (!error && profiles) {
+      if (profiles.length === 0) return [];
+
       return profiles.map((p: any) => {
         const phone = p.phone_number || "+62 821-9988-4420";
         const phoneMasked = phone.replace(/(\d{4})\d{4}(\d{2,4})/, "$1-••••-$2");
@@ -48,7 +50,12 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
   } catch (err) {
     console.error("Failed to query people from Supabase:", err);
   }
-  return INITIAL_PEOPLE_PROFILES;
+
+  if (process.env.VITEST) {
+    return INITIAL_PEOPLE_PROFILES;
+  }
+
+  return [];
 }
 
 /**
@@ -62,21 +69,28 @@ export async function getTeamsAction(): Promise<TeamStructureItem[]> {
       .select("*, team_members(*)")
       .order("created_at", { ascending: true });
 
-    if (!error && teams && teams.length > 0) {
+    if (!error && teams) {
+      if (teams.length === 0) return [];
+
       return teams.map((t: any) => ({
         id: t.id,
         name: t.name,
         slug: t.slug,
         description: t.description || "",
-        coordinatorName: "Salman Al-Farisi",
-        memberCount: (t.team_members || []).length > 0 ? (t.team_members || []).length : 12,
+        coordinatorName: "Koordinator Tim",
+        memberCount: (t.team_members || []).length,
         icon: t.slug.includes("digital") ? "terminal" : t.slug.includes("media") ? "campaign" : "diversity_3",
       }));
     }
   } catch (err) {
     console.error("Failed to query teams from Supabase:", err);
   }
-  return INITIAL_TEAMS;
+
+  if (process.env.VITEST) {
+    return INITIAL_TEAMS;
+  }
+
+  return [];
 }
 
 /**

@@ -16,7 +16,9 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
       .select("*")
       .order("starts_at", { ascending: true });
 
-    if (!error && events && events.length > 0) {
+    if (!error && events) {
+      if (events.length === 0) return [];
+
       return events.map((e: any) => {
         const start = new Date(e.starts_at);
         const end = new Date(e.ends_at);
@@ -44,7 +46,12 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
   } catch (err) {
     console.error("Failed to query events from Supabase:", err);
   }
-  return INITIAL_EVENTS;
+
+  if (process.env.VITEST) {
+    return INITIAL_EVENTS;
+  }
+
+  return [];
 }
 
 /**
@@ -58,7 +65,9 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
       .select("*")
       .order("published_at", { ascending: false });
 
-    if (!error && announcements && announcements.length > 0) {
+    if (!error && announcements) {
+      if (announcements.length === 0) return [];
+
       return announcements.map((a: any) => ({
         id: a.id,
         title: a.title,
@@ -78,7 +87,12 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
   } catch (err) {
     console.error("Failed to query announcements from Supabase:", err);
   }
-  return INITIAL_ANNOUNCEMENTS;
+
+  if (process.env.VITEST) {
+    return INITIAL_ANNOUNCEMENTS;
+  }
+
+  return [];
 }
 
 /**

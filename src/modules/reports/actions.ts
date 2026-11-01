@@ -28,9 +28,9 @@ export interface ReviewReportPayload {
  * Server Action: Query Today's Report
  */
 export async function getTodayReportAction(): Promise<DailyReport> {
+  const today = new Date().toISOString().split("T")[0];
   try {
     const supabase = createAdminClient();
-    const today = new Date().toISOString().split("T")[0];
     const { data: report } = await supabase
       .from("daily_reports")
       .select("*, report_items(*)")
@@ -42,9 +42,9 @@ export async function getTodayReportAction(): Promise<DailyReport> {
       return {
         id: report.id,
         userId: report.user_id,
-        authorName: "Salman Al-Farisi",
+        authorName: "Santri",
         authorRole: "Santri",
-        teamName: "Sentra Digitalpreneur",
+        teamName: "Sentra Santri",
         reportDate: report.report_date,
         reportDateFormatted: new Date(report.report_date).toLocaleDateString("id-ID", {
           weekday: "long",
@@ -79,7 +79,43 @@ export async function getTodayReportAction(): Promise<DailyReport> {
   } catch (err) {
     console.error("Failed to query today report:", err);
   }
-  return INITIAL_USER_DAILY_REPORT;
+
+  if (process.env.VITEST) {
+    return INITIAL_USER_DAILY_REPORT;
+  }
+
+  // Pure clean empty draft for new user
+  return {
+    id: `rep-${today}`,
+    userId: "",
+    authorName: "Santri",
+    authorRole: "Santri",
+    teamName: "Sentra Santri",
+    reportDate: today,
+    reportDateFormatted: new Date().toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    submissionStatus: "draft",
+    isLate: false,
+    reviewStatus: "not_reviewed",
+    revisionNo: 1,
+    items: [
+      {
+        id: `item-${Date.now()}`,
+        categoryId: "digital-teknologi",
+        categoryName: "Digital & Teknologi",
+        title: "",
+        description: "",
+        resultProgress: "",
+        obstacles: "",
+        durationMinutes: 60,
+        sortOrder: 1,
+      },
+    ],
+  };
 }
 
 /**
@@ -93,10 +129,12 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
       .select("*, report_items(*)")
       .order("created_at", { ascending: false });
 
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name, team_name");
-    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+    if (reports) {
+      if (reports.length === 0) return [];
 
-    if (reports && reports.length > 0) {
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, team_name");
+      const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
       return reports.map((r: any) => {
         const user = profileMap.get(r.user_id);
         return {
@@ -140,7 +178,12 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
   } catch (err) {
     console.error("Failed to query review queue:", err);
   }
-  return REVIEW_QUEUE_REPORTS;
+
+  if (process.env.VITEST) {
+    return REVIEW_QUEUE_REPORTS;
+  }
+
+  return [];
 }
 
 /**

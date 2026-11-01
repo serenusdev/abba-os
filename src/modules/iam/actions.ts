@@ -20,6 +20,21 @@ export interface AccountRequestItem {
   notes: string;
   status: string;
   createdAt: string;
+  initials: string;
+}
+
+export interface ActiveUserItem {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  teamName: string;
+  status: string;
+  initials: string;
+  devicesCount: number;
+  deviceInfo: string;
+  mfaEnabled: boolean;
+  isVerified?: boolean;
 }
 
 /**
@@ -34,20 +49,77 @@ export async function getAccountRequestsAction(): Promise<AccountRequestItem[]> 
       .order("created_at", { ascending: false });
 
     if (!error && data && data.length > 0) {
-      return data.map((d: any) => ({
-        id: d.id,
-        fullName: d.full_name,
-        email: d.email,
-        phoneNumber: d.phone_number || "-",
-        roleRequested: d.role_requested || "santri",
-        teamRequested: d.team_requested || "Sentra Santri",
-        notes: d.notes || "-",
-        status: d.status,
-        createdAt: new Date(d.created_at).toLocaleDateString("id-ID"),
-      }));
+      return data.map((d: any) => {
+        const initials = d.full_name
+          ? d.full_name
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .substring(0, 2)
+              .toUpperCase()
+          : "P";
+        return {
+          id: d.id,
+          fullName: d.full_name,
+          email: d.email,
+          phoneNumber: d.phone_number || "-",
+          roleRequested: d.role_requested || "santri",
+          teamRequested: d.team_requested || "Sentra Santri",
+          notes: d.notes || "-",
+          status: d.status,
+          createdAt: new Date(d.created_at).toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          }),
+          initials,
+        };
+      });
     }
   } catch (err) {
     console.error("Failed to query account requests:", err);
+  }
+  return [];
+}
+
+/**
+ * Server Action: Query active user profiles
+ */
+export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      return data.map((d: any) => {
+        const initials = d.full_name
+          ? d.full_name
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .substring(0, 2)
+              .toUpperCase()
+          : "U";
+        return {
+          id: d.id,
+          fullName: d.full_name,
+          email: d.email,
+          role: d.member_type || "Santri",
+          teamName: d.team_name || "Sentra Santri",
+          status: d.status || "active",
+          initials,
+          devicesCount: 1,
+          deviceInfo: "1 Perangkat Aktif",
+          mfaEnabled: false,
+          isVerified: d.status === "active",
+        };
+      });
+    }
+  } catch (err) {
+    console.error("Failed to query active users:", err);
   }
   return [];
 }

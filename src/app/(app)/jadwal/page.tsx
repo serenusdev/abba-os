@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import {
-  INITIAL_ANNOUNCEMENTS,
-  INITIAL_EVENTS,
   WEEK_DAYS_AGENDA,
 } from "@/modules/schedules/data";
 import {
@@ -25,15 +23,13 @@ export default function JadwalPage() {
   const [activeTab, setActiveTab] = React.useState<ScheduleTab>("agenda");
   const [weekDays, setWeekDays] = React.useState<WeekDayPickerItem[]>(WEEK_DAYS_AGENDA);
   const [selectedDate, setSelectedDate] = React.useState("2026-11-18");
-  const [events, setEvents] = React.useState<ScheduleEventItem[]>(INITIAL_EVENTS);
-  const [announcements, setAnnouncements] = React.useState<AnnouncementItem[]>(
-    INITIAL_ANNOUNCEMENTS
-  );
+  const [events, setEvents] = React.useState<ScheduleEventItem[]>([]);
+  const [announcements, setAnnouncements] = React.useState<AnnouncementItem[]>([]);
 
   React.useEffect(() => {
     Promise.all([getEventsAction(), getAnnouncementsAction()]).then(([evData, anData]) => {
-      if (evData && evData.length > 0) setEvents(evData);
-      if (anData && anData.length > 0) setAnnouncements(anData);
+      setEvents(evData || []);
+      setAnnouncements(anData || []);
     });
   }, []);
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
@@ -387,11 +383,24 @@ export default function JadwalPage() {
 
               {/* Agenda Items Timeline List (SCH-002) */}
               <div className="space-y-3">
-                {filteredEvents.map((evt) => (
-                  <div
-                    key={evt.id}
-                    className="rounded-xl bg-card p-4 sm:p-5 shadow-xs border border-border flex flex-col gap-3 transition-all hover:border-primary/40"
-                  >
+                {filteredEvents.length === 0 ? (
+                  <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2">
+                    <span className="material-symbols-outlined text-[40px] text-muted-foreground">
+                      calendar_month
+                    </span>
+                    <p className="font-label-md text-on-surface text-[15px]">
+                      Belum ada agenda jadwal
+                    </p>
+                    <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                      Jadwal kajian, kelas teknologi, dan kegiatan santri akan ditampilkan di sini.
+                    </p>
+                  </div>
+                ) : (
+                  filteredEvents.map((evt) => (
+                    <div
+                      key={evt.id}
+                      className="rounded-xl bg-card p-4 sm:p-5 shadow-xs border border-border flex flex-col gap-3 transition-all hover:border-primary/40"
+                    >
                     {/* Time & Status Badge */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
@@ -486,7 +495,7 @@ export default function JadwalPage() {
                       </button>
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
             </div>
           )}
@@ -510,63 +519,76 @@ export default function JadwalPage() {
               </div>
 
               <div className="space-y-3">
-                {announcements.map((ann) => (
-                  <div
-                    key={ann.id}
-                    className={`p-4 sm:p-5 rounded-xl bg-card border shadow-xs space-y-3 transition-all ${
-                      !ann.isRead
-                        ? "border-primary ring-1 ring-primary/20"
-                        : "border-border"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        {ann.priority === "important" && (
-                          <span className="px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[11px] font-semibold flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[12px]">
-                              priority_high
+                {announcements.length === 0 ? (
+                  <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2">
+                    <span className="material-symbols-outlined text-[40px] text-muted-foreground">
+                      campaign
+                    </span>
+                    <p className="font-label-md text-on-surface text-[15px]">
+                      Belum ada pengumuman
+                    </p>
+                    <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                      Pengumuman penting atau informasi pondok akan ditampilkan di sini.
+                    </p>
+                  </div>
+                ) : (
+                  announcements.map((ann) => (
+                    <div
+                      key={ann.id}
+                      className={`p-4 sm:p-5 rounded-xl bg-card border shadow-xs space-y-3 transition-all ${
+                        !ann.isRead
+                          ? "border-primary ring-1 ring-primary/20"
+                          : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {ann.priority === "important" && (
+                            <span className="px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[11px] font-semibold flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">
+                                priority_high
+                              </span>
+                              Penting
                             </span>
-                            Penting
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {ann.publishedAtStr}
+                          </span>
+                        </div>
+
+                        {!ann.isRead ? (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkRead(ann.id)}
+                            className="text-xs text-primary hover:underline font-medium"
+                          >
+                            Tandai Sudah Dibaca
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px] text-success">
+                              done_all
+                            </span>
+                            Sudah Dibaca
                           </span>
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          {ann.publishedAtStr}
-                        </span>
                       </div>
 
-                      {!ann.isRead ? (
-                        <button
-                          type="button"
-                          onClick={() => handleMarkRead(ann.id)}
-                          className="text-xs text-primary hover:underline font-medium"
-                        >
-                          Tandai Sudah Dibaca
-                        </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px] text-success">
-                            done_all
-                          </span>
-                          Sudah Dibaca
-                        </span>
-                      )}
-                    </div>
+                      <div>
+                        <h3 className="font-headline-sm text-sm sm:text-base font-semibold text-on-surface">
+                          {ann.title}
+                        </h3>
+                        <p className="font-body-sm text-xs sm:text-sm text-muted-foreground leading-relaxed mt-1">
+                          {ann.bodyMarkdown}
+                        </p>
+                      </div>
 
-                    <div>
-                      <h3 className="font-headline-sm text-sm sm:text-base font-semibold text-on-surface">
-                        {ann.title}
-                      </h3>
-                      <p className="font-body-sm text-xs sm:text-sm text-muted-foreground leading-relaxed mt-1">
-                        {ann.bodyMarkdown}
-                      </p>
+                      <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs text-muted-foreground">
+                        <span>Target: {ann.targetAudienceLabel}</span>
+                        {ann.expiresAtStr && <span>Berlaku {ann.expiresAtStr}</span>}
+                      </div>
                     </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs text-muted-foreground">
-                      <span>Target: {ann.targetAudienceLabel}</span>
-                      {ann.expiresAtStr && <span>Berlaku {ann.expiresAtStr}</span>}
-                    </div>
-                  </div>
-                ))}
+                  )))}
               </div>
             </div>
           )}

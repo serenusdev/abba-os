@@ -3,10 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import {
+  getAccountRequestsAction,
+  getActiveUsersAction,
   approveAccountApplicationAction,
   rejectAccountApplicationAction,
   createManualAccountAction,
   resetUserSessionAction,
+  type AccountRequestItem,
+  type ActiveUserItem,
 } from "@/modules/iam/actions";
 
 export default function AdminUsersPage() {
@@ -17,6 +21,11 @@ export default function AdminUsersPage() {
   const [isRejectModalOpen, setIsRejectModalOpen] = React.useState(false);
   const [rejectionTargetId, setRejectionTargetId] = React.useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = React.useState("");
+
+  // Dynamic Data
+  const [accountRequests, setAccountRequests] = React.useState<AccountRequestItem[]>([]);
+  const [activeUsers, setActiveUsers] = React.useState<ActiveUserItem[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   // Approval state tracker for interactive tactile feedback
   const [approvedCards, setApprovedCards] = React.useState<Record<string, string>>({});
@@ -35,16 +44,34 @@ export default function AdminUsersPage() {
   const [manualSuccessMsg, setManualSuccessMsg] = React.useState("");
 
   // Role select per applicant
-  const [applicantRoles, setApplicantRoles] = React.useState<Record<string, string>>({
-    "applicant-card-1": "Santri • Sentra Digitalpreneur",
-    "applicant-card-2": "Pengurus • Ustadz Pembina",
-  });
+  const [applicantRoles, setApplicantRoles] = React.useState<Record<string, string>>({});
+
+  const loadData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [requests, users] = await Promise.all([
+        getAccountRequestsAction(),
+        getActiveUsersAction(),
+      ]);
+      setAccountRequests(requests);
+      setActiveUsers(users);
+    } catch (err) {
+      console.error("Failed to load IAM data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleApprove = async (cardId: string) => {
-    const role = applicantRoles[cardId] || "Santri";
+    const role = applicantRoles[cardId] || "Santri • Sentra Digitalpreneur";
     const res = await approveAccountApplicationAction(cardId, role);
     if (res.success) {
       setApprovedCards((prev) => ({ ...prev, [cardId]: role }));
+      await loadData();
     }
   };
 
@@ -56,9 +83,13 @@ export default function AdminUsersPage() {
 
   const handleConfirmReject = async () => {
     if (!rejectionTargetId) return;
-    const res = await rejectAccountApplicationAction(rejectionTargetId, rejectionReason || "Persyaratan belum terpenuhi.");
+    const res = await rejectAccountApplicationAction(
+      rejectionTargetId,
+      rejectionReason || "Persyaratan belum terpenuhi."
+    );
     if (res.success) {
       setRejectedCards((prev) => ({ ...prev, [rejectionTargetId]: rejectionReason || "Ditolak" }));
+      await loadData();
     }
     setIsRejectModalOpen(false);
   };
@@ -75,6 +106,7 @@ export default function AdminUsersPage() {
     const res = await createManualAccountAction(manualForm);
     if (res.success) {
       setManualSuccessMsg(res.message);
+      await loadData();
       setTimeout(() => {
         setManualSuccessMsg("");
         setIsManualModalOpen(false);
@@ -90,6 +122,26 @@ export default function AdminUsersPage() {
     }
   };
 
+  const pendingRequests = accountRequests.filter((r) => r.status === "pending" || !r.status);
+  const activeUsersList = activeUsers.filter((u) => u.status === "active");
+  const suspendedUsersList = activeUsers.filter(
+    (u) => u.status === "suspended" || u.status === "deactivated"
+  );
+
+  const filteredActiveUsers = activeUsersList.filter((u) => {
+    const matchesSearch =
+      !searchQuery ||
+      u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.role.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesRole =
+      selectedRoleFilter === "Semua" ||
+      u.role.toLowerCase().includes(selectedRoleFilter.toLowerCase());
+
+    return matchesSearch && matchesRole;
+  });
+
   return (
     <div className="flex flex-col w-full pb-8 max-w-4xl mx-auto">
       {/* 1. Content Context Header */}
@@ -98,24 +150,21 @@ export default function AdminUsersPage() {
           <span className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-mono text-[12px] tracking-tight font-semibold">
             PRD-01 • IAM &amp; ACCESS
           </span>
-          <span className="flex items-center gap-1 text-on-surface-variant font-mono text-[12px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-success" />
-            v2.0 Enforced
-          </span>
+          <span className="font-mono text-[12px] text-muted-foreground">IAM-001</span>
         </div>
-        <h1 className="font-headline-lg-mobile text-[26px] md:text-[32px] font-bold text-on-surface tracking-tight mt-1">
-          Kelola Pengguna &amp; Akun
-        </h1>
-        <p className="font-body-sm text-body-sm text-muted-foreground">
-          Verifikasi permohonan santri baru, alokasi peran RBAC, dan audit akses operasional.
+        <h2 className="font-headline-lg text-headline-lg text-on-surface">
+          Kelola Akses &amp; Akun
+        </h2>
+        <p className="font-body-md text-body-md text-muted-foreground">
+          Persetujuan pendaftaran santri, manajemen sesi aktif, dan kontrol peran berbasis RBAC.
         </p>
       </div>
 
-      {/* 2. Security Protocol Guard Infobox */}
-      <div className="rounded-xl bg-surface-container-low p-3.5 mb-5 shadow-sm border border-border/40">
+      {/* 2. Security Notice Banner */}
+      <div className="rounded-xl bg-card p-3.5 mb-5 shadow-sm border border-border">
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary mt-0.5">
-            <span className="material-symbols-outlined text-[19px]">verified_user</span>
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+            <span className="material-symbols-outlined text-[20px]">shield</span>
           </div>
           <div className="flex flex-col min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
@@ -143,9 +192,11 @@ export default function AdminUsersPage() {
           type="button"
         >
           <span>Antrean</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-error text-white font-mono text-[11px] leading-tight font-bold">
-            2
-          </span>
+          {pendingRequests.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-error text-white font-mono text-[11px] leading-tight font-bold">
+              {pendingRequests.length}
+            </span>
+          )}
         </button>
         <button
           className={`flex-1 py-2 px-2.5 rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1.5 transition-all ${
@@ -157,7 +208,9 @@ export default function AdminUsersPage() {
           type="button"
         >
           <span>Aktif</span>
-          <span className="text-muted-foreground font-mono text-[11px]">38</span>
+          <span className="text-muted-foreground font-mono text-[11px]">
+            {activeUsersList.length}
+          </span>
         </button>
         <button
           className={`flex-1 py-2 px-2.5 rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1.5 transition-all ${
@@ -169,7 +222,9 @@ export default function AdminUsersPage() {
           type="button"
         >
           <span>Ditangguhkan</span>
-          <span className="text-muted-foreground font-mono text-[11px]">2</span>
+          <span className="text-muted-foreground font-mono text-[11px]">
+            {suspendedUsersList.length}
+          </span>
         </button>
       </div>
 
@@ -181,225 +236,179 @@ export default function AdminUsersPage() {
               <span className="font-headline-sm text-headline-sm text-on-surface">
                 Antrean Registrasi Mandiri
               </span>
-              <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
+              {pendingRequests.length > 0 && (
+                <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
+              )}
             </div>
             <span className="font-mono text-[12px] text-muted-foreground">
-              {Object.keys(approvedCards).length + Object.keys(rejectedCards).length === 2
-                ? "Selesai ditinjau"
-                : "2 Menunggu"}
+              {pendingRequests.length === 0
+                ? "Tidak ada antrean"
+                : `${pendingRequests.length} Menunggu`}
             </span>
           </div>
 
-          {/* Applicant Card 1 (Muhammad Ridwan Pratama) */}
-          <div
-            className={`rounded-xl bg-card p-4 shadow-sm flex flex-col gap-3.5 transition-all border border-border ${
-              approvedCards["applicant-card-1"] ? "bg-accent/30 border-success/30" : ""
-            } ${rejectedCards["applicant-card-1"] ? "bg-error-container/20 border-error/30" : ""}`}
-            id="applicant-card-1"
-          >
-            {approvedCards["applicant-card-1"] ? (
-              <div className="py-3 px-2 flex items-center justify-center gap-2 text-success font-label-md text-label-md">
-                <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                <span>Akun Berhasil Disetujui ({approvedCards["applicant-card-1"]})</span>
-              </div>
-            ) : rejectedCards["applicant-card-1"] ? (
-              <div className="py-3 px-2 flex items-center justify-center gap-2 text-destructive font-label-md text-label-md">
-                <span className="material-symbols-outlined text-[20px]">cancel</span>
-                <span>Permohonan Ditolak: {rejectedCards["applicant-card-1"]}</span>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-start justify-between gap-2.5">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-headline-sm text-headline-sm flex-shrink-0 font-bold">
-                      RP
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
-                          Muhammad Ridwan Pratama
-                        </span>
+          {isLoading ? (
+            <div className="p-8 text-center bg-card rounded-xl border border-border text-muted-foreground">
+              <span className="material-symbols-outlined text-[32px] animate-spin text-primary">
+                progress_activity
+              </span>
+              <p className="font-body-sm text-[13px] mt-2">Memuat antrean registrasi...</p>
+            </div>
+          ) : pendingRequests.length === 0 ? (
+            <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1.5">
+              <span className="material-symbols-outlined text-[36px] text-muted-foreground">
+                how_to_reg
+              </span>
+              <p className="font-label-md text-on-surface text-[14px]">
+                Tidak ada permohonan pendaftaran yang menunggu
+              </p>
+              <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                Calon santri atau pengurus yang mendaftar secara mandiri akan muncul di sini untuk verifikasi dan persetujuan hak akses RBAC.
+              </p>
+            </div>
+          ) : (
+            pendingRequests.map((applicant) => (
+              <div
+                key={applicant.id}
+                className={`rounded-xl bg-card p-4 shadow-sm flex flex-col gap-3.5 transition-all border border-border ${
+                  approvedCards[applicant.id] ? "bg-accent/30 border-success/30" : ""
+                } ${rejectedCards[applicant.id] ? "bg-error-container/20 border-error/30" : ""}`}
+                id={applicant.id}
+              >
+                {approvedCards[applicant.id] ? (
+                  <div className="py-3 px-2 flex items-center justify-center gap-2 text-success font-label-md text-label-md">
+                    <span className="material-symbols-outlined text-[20px]">check_circle</span>
+                    <span>Akun Berhasil Disetujui ({approvedCards[applicant.id]})</span>
+                  </div>
+                ) : rejectedCards[applicant.id] ? (
+                  <div className="py-3 px-2 flex items-center justify-center gap-2 text-destructive font-label-md text-label-md">
+                    <span className="material-symbols-outlined text-[20px]">cancel</span>
+                    <span>Permohonan Ditolak: {rejectedCards[applicant.id]}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-headline-sm text-headline-sm flex-shrink-0 font-bold">
+                          {applicant.initials}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
+                              {applicant.fullName}
+                            </span>
+                          </div>
+                          <span className="font-body-sm text-body-sm text-muted-foreground truncate">
+                            {applicant.email}
+                          </span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-mono text-[12px] text-muted-foreground">
+                              {applicant.phoneNumber}
+                            </span>
+                            <span className="text-muted-foreground font-mono text-[12px]">•</span>
+                            <span className="inline-flex items-center gap-0.5 font-mono text-[12px] text-success">
+                              <span className="material-symbols-outlined text-[14px]">security</span>
+                              Turnstile Valid
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <span className="font-body-sm text-body-sm text-muted-foreground truncate">
-                        m.ridwan@pondok.id
+                      <span className="px-2 py-0.5 rounded-full bg-warning/15 text-tertiary font-label-sm text-label-sm flex-shrink-0 font-semibold">
+                        Baru
                       </span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="font-mono text-[12px] text-muted-foreground">
-                          +62 813-****-4421
+                    </div>
+
+                    {/* Detail Box Metadata */}
+                    <div className="rounded-lg bg-surface-container-low p-2.5 flex flex-col gap-1.5 border border-border/40">
+                      <div className="flex items-center justify-between font-label-sm text-label-sm">
+                        <span className="text-muted-foreground">Klaim Peran Awal:</span>
+                        <span className="text-on-surface font-semibold capitalize">
+                          {applicant.roleRequested} ({applicant.teamRequested})
                         </span>
-                        <span className="text-muted-foreground font-mono text-[12px]">•</span>
-                        <span className="inline-flex items-center gap-0.5 font-mono text-[12px] text-success">
-                          <span className="material-symbols-outlined text-[14px]">security</span>
-                          Turnstile Valid
+                      </div>
+                      <div className="flex items-center justify-between font-mono text-[12px]">
+                        <span className="text-muted-foreground">Waktu Pengajuan:</span>
+                        <span className="text-on-surface-variant">{applicant.createdAt}</span>
+                      </div>
+                      {applicant.notes && applicant.notes !== "-" && (
+                        <div className="pt-1 mt-0.5">
+                          <p className="font-body-sm text-[13px] text-on-surface-variant italic bg-card/60 p-2 rounded">
+                            &quot;{applicant.notes}&quot;
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Role Assignment Configuration (RBAC Quick Pick) */}
+                    <div className="flex flex-col gap-1.5">
+                      <label
+                        className="font-label-sm text-label-sm text-muted-foreground flex items-center gap-1 font-semibold"
+                        htmlFor={`role-select-${applicant.id}`}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">badge</span>
+                        Alokasi Peran RBAC &amp; Penugasan Sentra:
+                      </label>
+                      <div className="relative">
+                        <select
+                          className="w-full h-11 px-3 pr-8 rounded-lg bg-surface-container font-label-md text-label-md text-on-surface appearance-none focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-border"
+                          id={`role-select-${applicant.id}`}
+                          value={
+                            applicantRoles[applicant.id] ||
+                            `${applicant.roleRequested} • ${applicant.teamRequested}`
+                          }
+                          onChange={(e) =>
+                            setApplicantRoles({
+                              ...applicantRoles,
+                              [applicant.id]: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="Santri • Sentra Digitalpreneur">
+                            Santri • Sentra Digitalpreneur
+                          </option>
+                          <option value="Santri • Sentra Dakwah Media">
+                            Santri • Sentra Dakwah Media
+                          </option>
+                          <option value="Santri • Sentra Agropreneur">
+                            Santri • Sentra Agropreneur
+                          </option>
+                          <option value="Pengurus • Ustadz Pembina">
+                            Pengurus • Ustadz Pembina
+                          </option>
+                          <option value="Koordinator Divisi (Santri Senior)">
+                            Koordinator Divisi (Santri Senior)
+                          </option>
+                        </select>
+                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-[20px]">
+                          arrow_drop_down
                         </span>
                       </div>
                     </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-warning/15 text-tertiary font-label-sm text-label-sm flex-shrink-0 font-semibold">
-                    Baru
-                  </span>
-                </div>
 
-                {/* Detail Box Metadata */}
-                <div className="rounded-lg bg-surface-container-low p-2.5 flex flex-col gap-1.5 border border-border/40">
-                  <div className="flex items-center justify-between font-label-sm text-label-sm">
-                    <span className="text-muted-foreground">Klaim Peran Awal:</span>
-                    <span className="text-on-surface font-semibold">
-                      Santri (Sentra Digitalpreneur)
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between font-mono text-[12px]">
-                    <span className="text-muted-foreground">Waktu Pengajuan:</span>
-                    <span className="text-on-surface-variant">18 Nov 2026, 06:30 WIB</span>
-                  </div>
-                  <div className="pt-1 mt-0.5">
-                    <p className="font-body-sm text-[13px] text-on-surface-variant italic bg-card/60 p-2 rounded">
-                      &quot;Santri baru angkatan 3 peminatan Fullstack Dev, telah lulus placement test kurikulum.&quot;
-                    </p>
-                  </div>
-                </div>
-
-                {/* Role Assignment Configuration (RBAC Quick Pick) */}
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    className="font-label-sm text-label-sm text-muted-foreground flex items-center gap-1 font-semibold"
-                    htmlFor="role-select-1"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">badge</span>
-                    Alokasi Peran RBAC &amp; Penugasan Sentra:
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full h-11 px-3 pr-8 rounded-lg bg-surface-container font-label-md text-label-md text-on-surface appearance-none focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-border"
-                      id="role-select-1"
-                      value={applicantRoles["applicant-card-1"]}
-                      onChange={(e) =>
-                        setApplicantRoles({
-                          ...applicantRoles,
-                          "applicant-card-1": e.target.value,
-                        })
-                      }
-                    >
-                      <option value="Santri • Sentra Digitalpreneur">
-                        Santri • Sentra Digitalpreneur
-                      </option>
-                      <option value="Santri • Sentra Dakwah Media">
-                        Santri • Sentra Dakwah Media
-                      </option>
-                      <option value="Santri • Sentra Agropreneur">
-                        Santri • Sentra Agropreneur
-                      </option>
-                      <option value="Koordinator Divisi (Santri Senior)">
-                        Koordinator Divisi (Santri Senior)
-                      </option>
-                    </select>
-                    <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-[20px]">
-                      arrow_drop_down
-                    </span>
-                  </div>
-                </div>
-
-                {/* Decision Action Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    className="h-11 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-                    onClick={() => openRejectDialog("applicant-card-1")}
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">close</span>
-                    Tolak
-                  </button>
-                  <button
-                    className="h-11 rounded-lg bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                    onClick={() => handleApprove("applicant-card-1")}
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                    Setujui Akun
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Applicant Card 2 (Nurul Hidayat, S.Kom.) */}
-          <div
-            className={`rounded-xl bg-card p-4 shadow-sm flex flex-col gap-3 transition-all border border-border ${
-              approvedCards["applicant-card-2"] ? "bg-accent/30 border-success/30" : ""
-            } ${rejectedCards["applicant-card-2"] ? "bg-error-container/20 border-error/30" : ""}`}
-            id="applicant-card-2"
-          >
-            {approvedCards["applicant-card-2"] ? (
-              <div className="py-3 px-2 flex items-center justify-center gap-2 text-success font-label-md text-label-md">
-                <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                <span>Akun Berhasil Disetujui ({approvedCards["applicant-card-2"]})</span>
+                    {/* Decision Action Buttons */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        className="h-11 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                        onClick={() => openRejectDialog(applicant.id)}
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                        Tolak
+                      </button>
+                      <button
+                        className="h-11 rounded-lg bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                        onClick={() => handleApprove(applicant.id)}
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                        Setujui Akun
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-            ) : rejectedCards["applicant-card-2"] ? (
-              <div className="py-3 px-2 flex items-center justify-center gap-2 text-destructive font-label-md text-label-md">
-                <span className="material-symbols-outlined text-[20px]">cancel</span>
-                <span>Permohonan Ditolak: {rejectedCards["applicant-card-2"]}</span>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-start justify-between gap-2.5">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-headline-sm text-headline-sm flex-shrink-0 font-bold">
-                      NH
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
-                          Nurul Hidayat, S.Kom.
-                        </span>
-                      </div>
-                      <span className="font-body-sm text-body-sm text-muted-foreground truncate">
-                        nurul.hidayat@instansi.org
-                      </span>
-                      <div className="flex items-center gap-1.5 mt-0.5 font-mono text-[12px] text-muted-foreground">
-                        <span>Kemarin, 21:15 WIB</span>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-label-sm text-label-sm flex-shrink-0 font-semibold">
-                    Ustadz / Pembina
-                  </span>
-                </div>
-
-                <div className="rounded-lg bg-surface-container-low p-2.5 flex items-center justify-between border border-border/40">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-warning text-[20px]">
-                      pending_actions
-                    </span>
-                    <span className="font-body-sm text-[13px] text-on-surface-variant">
-                      Menunggu Verifikasi Berkas SK Yayasan
-                    </span>
-                  </div>
-                  <span className="font-mono text-[12px] text-muted-foreground font-medium">
-                    2 Dokumen
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    className="h-11 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-                    onClick={() => openRejectDialog("applicant-card-2")}
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">close</span>
-                    Tolak
-                  </button>
-                  <button
-                    className="h-11 rounded-lg bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                    onClick={() => handleApprove("applicant-card-2")}
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                    Setujui Akun
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+            ))
+          )}
         </div>
       )}
 
@@ -415,13 +424,6 @@ export default function AdminUsersPage() {
                 Audit hak akses, perangkat aktif, dan status MFA
               </span>
             </div>
-            <button
-              className="p-2 rounded-lg bg-surface-container text-primary active:scale-95 transition-all"
-              type="button"
-              title="Filter Lanjutan"
-            >
-              <span className="material-symbols-outlined text-[20px]">tune</span>
-            </button>
           </div>
 
           {/* Search and Quick Role Chips */}
@@ -432,14 +434,19 @@ export default function AdminUsersPage() {
               </span>
               <input
                 className="w-full h-11 pl-10 pr-4 rounded-xl bg-card font-body-sm text-body-sm text-on-surface placeholder:text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-border"
-                placeholder="Cari nama, email, atau ID Santri..."
+                placeholder="Cari nama, email, atau peran..."
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <div className="flex items-center gap-1.5 overflow-x-auto py-1">
-              {["Semua (38)", "Santri (28)", "Ustadz (6)", "Koordinator (4)"].map((chip) => {
+              {[
+                `Semua (${activeUsersList.length})`,
+                `Santri (${activeUsersList.filter((u) => u.role.toLowerCase().includes("santri")).length})`,
+                `Ustadz (${activeUsersList.filter((u) => u.role.toLowerCase().includes("ustadz") || u.role.toLowerCase().includes("pengurus")).length})`,
+                `Koordinator (${activeUsersList.filter((u) => u.role.toLowerCase().includes("koordinator")).length})`,
+              ].map((chip) => {
                 const label = chip.split(" ")[0];
                 const active = selectedRoleFilter === label;
                 return (
@@ -462,120 +469,83 @@ export default function AdminUsersPage() {
 
           {/* Active User List */}
           <div className="flex flex-col gap-2.5">
-            {/* Active User Item 1: Salman Al-Farisi */}
-            <div className="rounded-xl bg-card p-3.5 shadow-sm flex flex-col gap-2.5 border border-border">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-headline-sm text-headline-sm flex-shrink-0 font-bold">
-                    SA
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
-                        Salman Al-Farisi
-                      </span>
-                      <span className="w-2 h-2 rounded-full bg-success" />
-                    </div>
-                    <span className="font-body-sm text-body-sm text-muted-foreground truncate">
-                      salman.af@pondok.id
-                    </span>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="px-2 py-0.2 rounded-md bg-accent text-accent-foreground font-mono text-[11px] font-semibold">
-                        Santri
-                      </span>
-                      <span className="px-2 py-0.2 rounded-md bg-surface-container text-on-surface-variant font-mono text-[11px]">
-                        Koordinator Media
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  aria-label="Kelola Sesi Salman"
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-on-surface active:bg-muted transition-all"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[20px]">more_vert</span>
-                </button>
-              </div>
-              <div className="pt-2 flex items-center justify-between bg-surface-container-low px-3 py-2 rounded-lg border border-border/40">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[17px] text-primary">
-                    smartphone
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="font-mono text-[12px] text-on-surface leading-tight font-medium">
-                      {resetSessions["usr-salman"] ? "0 Sesi (Telah Direset)" : "1 Perangkat Aktif"}
-                    </span>
-                    <span className="font-mono text-[11px] text-muted-foreground leading-tight">
-                      Android 14 • Chrome Mobile
-                    </span>
-                  </div>
-                </div>
-                {resetSessions["usr-salman"] ? (
-                  <span className="text-[11px] font-mono text-success">Sesi Dicabut</span>
-                ) : (
-                  <button
-                    className="px-2.5 py-1 rounded-md bg-card text-destructive font-label-sm text-label-sm active:scale-95 shadow-xs transition-all border border-border hover:bg-destructive/10"
-                    onClick={() => handleResetSession("usr-salman")}
-                    type="button"
-                  >
-                    Reset Sesi
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Active User Item 2: Ustadz Ahmad Fauzi */}
-            <div className="rounded-xl bg-card p-3.5 shadow-sm flex flex-col gap-2.5 border border-border">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed font-headline-sm text-headline-sm flex-shrink-0 font-bold">
-                    AF
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
-                        Ustadz Ahmad Fauzi
-                      </span>
-                      <span className="material-symbols-outlined text-primary text-[17px]">
-                        verified
-                      </span>
-                    </div>
-                    <span className="font-body-sm text-body-sm text-muted-foreground truncate">
-                      ahmad.fauzi@pondok.id
-                    </span>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="px-2 py-0.2 rounded-md bg-secondary-container text-on-secondary-container font-mono text-[11px] font-semibold">
-                        Pengurus / Pereview
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  aria-label="Kelola Sesi Ahmad"
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-on-surface active:bg-muted transition-all"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[20px]">more_vert</span>
-                </button>
-              </div>
-              <div className="flex items-center justify-between bg-surface-container-low px-3 py-2 rounded-lg border border-border/40">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[17px] text-success">lock</span>
-                  <div className="flex flex-col">
-                    <span className="font-mono text-[12px] text-on-surface leading-tight font-medium">
-                      MFA TOTP Aktif
-                    </span>
-                    <span className="font-mono text-[11px] text-muted-foreground leading-tight">
-                      Audit Keamanan: Bersih
-                    </span>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-success/15 text-success font-label-sm text-label-sm font-semibold">
-                  Terverifikasi
+            {isLoading ? (
+              <div className="p-8 text-center bg-card rounded-xl border border-border text-muted-foreground">
+                <span className="material-symbols-outlined text-[32px] animate-spin text-primary">
+                  progress_activity
                 </span>
+                <p className="font-body-sm text-[13px] mt-2">Memuat daftar pengguna aktif...</p>
               </div>
-            </div>
+            ) : filteredActiveUsers.length === 0 ? (
+              <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1.5">
+                <span className="material-symbols-outlined text-[36px] text-muted-foreground">
+                  group_off
+                </span>
+                <p className="font-label-md text-on-surface text-[14px]">
+                  Belum ada pengguna aktif terdaftar
+                </p>
+                <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                  Gunakan tombol &quot;Buat Akun Manual (Jalur B Admin)&quot; di bawah untuk menambahkan pengguna baru secara langsung.
+                </p>
+              </div>
+            ) : (
+              filteredActiveUsers.map((user) => (
+                <div
+                  key={user.id}
+                  className="rounded-xl bg-card p-3.5 shadow-sm flex flex-col gap-2.5 border border-border"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-headline-sm text-headline-sm flex-shrink-0 font-bold">
+                        {user.initials}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
+                            {user.fullName}
+                          </span>
+                          <span className="w-2 h-2 rounded-full bg-success" />
+                        </div>
+                        <span className="font-body-sm text-body-sm text-muted-foreground truncate">
+                          {user.email}
+                        </span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="px-2 py-0.2 rounded-md bg-accent text-accent-foreground font-mono text-[11px] font-semibold">
+                            {user.role}
+                          </span>
+                          <span className="px-2 py-0.2 rounded-md bg-surface-container text-on-surface-variant font-mono text-[11px]">
+                            {user.teamName}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2 flex items-center justify-between bg-surface-container-low px-3 py-2 rounded-lg border border-border/40">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[17px] text-primary">
+                        smartphone
+                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-mono text-[12px] text-on-surface leading-tight font-medium">
+                          {resetSessions[user.id] ? "0 Sesi (Telah Direset)" : user.deviceInfo}
+                        </span>
+                      </div>
+                    </div>
+                    {resetSessions[user.id] ? (
+                      <span className="text-[11px] font-mono text-success">Sesi Dicabut</span>
+                    ) : (
+                      <button
+                        className="px-2.5 py-1 rounded-md bg-card text-destructive font-label-sm text-label-sm active:scale-95 shadow-xs transition-all border border-border hover:bg-destructive/10"
+                        onClick={() => handleResetSession(user.id)}
+                        type="button"
+                      >
+                        Reset Sesi
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -583,33 +553,38 @@ export default function AdminUsersPage() {
       {/* TAB 3: ARCHIVED / SUSPENDED */}
       {activeTab === "archived" && (
         <div className="flex flex-col gap-3 mb-6">
-          <div className="rounded-xl bg-card p-4 shadow-sm border border-border flex items-center justify-between">
-            <div>
-              <h4 className="font-headline-sm text-[16px] text-on-surface font-semibold">
-                Zaidan Arsyad (Ex-Santri Angkatan 1)
-              </h4>
-              <p className="font-body-sm text-[12px] text-muted-foreground">
-                zaidan@alumni.pondok.id • Dinonaktifkan: 01 Okt 2026
+          {suspendedUsersList.length === 0 ? (
+            <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1.5">
+              <span className="material-symbols-outlined text-[36px] text-muted-foreground">
+                shield_person
+              </span>
+              <p className="font-label-md text-on-surface text-[14px]">
+                Tidak ada akun yang ditangguhkan
+              </p>
+              <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                Akun yang dinonaktifkan atau disuspend oleh kebijakan IAM akan tercatat di sini.
               </p>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-surface-container-high text-tertiary font-label-sm text-[11px] font-semibold">
-              Nonaktif Permanen
-            </span>
-          </div>
-
-          <div className="rounded-xl bg-card p-4 shadow-sm border border-border flex items-center justify-between">
-            <div>
-              <h4 className="font-headline-sm text-[16px] text-on-surface font-semibold">
-                Akun Uji Coba Tamu
-              </h4>
-              <p className="font-body-sm text-[12px] text-muted-foreground">
-                guest@pondok.id • Dibekukan oleh Super Admin (Audit #884)
-              </p>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label-sm text-[11px] font-semibold">
-              Ditangguhkan (Suspended)
-            </span>
-          </div>
+          ) : (
+            suspendedUsersList.map((user) => (
+              <div
+                key={user.id}
+                className="rounded-xl bg-card p-4 shadow-sm border border-border flex items-center justify-between"
+              >
+                <div>
+                  <h4 className="font-headline-sm text-[16px] text-on-surface font-semibold">
+                    {user.fullName}
+                  </h4>
+                  <p className="font-body-sm text-[12px] text-muted-foreground">
+                    {user.email} • {user.teamName}
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label-sm text-[11px] font-semibold">
+                  {user.status === "suspended" ? "Ditangguhkan (Suspended)" : "Nonaktif Permanen"}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       )}
 

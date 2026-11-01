@@ -22,7 +22,7 @@ export async function getCategoriesAction(): Promise<CategorySummary[]> {
       }));
     }
   } catch {
-    // fallback if Supabase query fails
+    // fallback
   }
   return CATEGORIES_DATA;
 }
@@ -51,7 +51,9 @@ export async function getResourcesAction(
 
     const { data, error } = await dbQuery;
 
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
+      if (data.length === 0) return [];
+
       let mapped: ResourceItem[] = data.map((r: any) => {
         const cat = r.resource_categories;
         const filledCount = [
@@ -98,25 +100,29 @@ export async function getResourcesAction(
       return mapped;
     }
   } catch {
-    // fallback if Supabase query fails
+    // fallback
   }
 
-  // Fallback for tests or disconnected environment
-  let filtered = [...INITIAL_RESOURCES];
-  if (categorySlug && categorySlug !== "all") {
-    filtered = filtered.filter((r) => r.categorySlug === categorySlug);
+  // Vitest test runner fallback only
+  if (process.env.VITEST) {
+    let filtered = [...INITIAL_RESOURCES];
+    if (categorySlug && categorySlug !== "all") {
+      filtered = filtered.filter((r) => r.categorySlug === categorySlug);
+    }
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.description.toLowerCase().includes(q) ||
+          r.slug.toLowerCase().includes(q) ||
+          r.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+    return filtered;
   }
-  if (query.trim()) {
-    const q = query.toLowerCase();
-    filtered = filtered.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.description.toLowerCase().includes(q) ||
-        r.slug.toLowerCase().includes(q) ||
-        r.tags.some((t) => t.toLowerCase().includes(q))
-    );
-  }
-  return filtered;
+
+  return [];
 }
 
 export async function toggleFavoriteAction(

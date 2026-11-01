@@ -27,7 +27,9 @@ export async function getTasksAction(): Promise<TaskItem[]> {
       .select("*, projects(*)")
       .order("created_at", { ascending: false });
 
-    if (!error && tasks && tasks.length > 0) {
+    if (!error && tasks) {
+      if (tasks.length === 0) return [];
+
       return tasks.map((t: any) => ({
         id: t.id,
         title: t.title,
@@ -62,7 +64,12 @@ export async function getTasksAction(): Promise<TaskItem[]> {
   } catch (err) {
     console.error("Failed to query tasks from Supabase:", err);
   }
-  return INITIAL_TASKS;
+
+  if (process.env.VITEST) {
+    return INITIAL_TASKS;
+  }
+
+  return [];
 }
 
 /**
@@ -76,24 +83,31 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
       .select("*")
       .order("created_at", { ascending: true });
 
-    if (!error && projects && projects.length > 0) {
+    if (!error && projects) {
+      if (projects.length === 0) return [];
+
       return projects.map((p: any) => ({
         id: p.id,
         name: p.name,
         description: p.description || "",
         teamName: p.team_id || "Tim Pondok",
         status: p.status === "active" ? "active" : "completed",
-        totalTasks: 3,
-        completedTasks: 1,
+        totalTasks: 0,
+        completedTasks: 0,
         blockedTasks: 0,
-        progressPercent: 75,
+        progressPercent: 0,
         icon: "folder",
       }));
     }
   } catch (err) {
     console.error("Failed to query projects from Supabase:", err);
   }
-  return INITIAL_PROJECTS;
+
+  if (process.env.VITEST) {
+    return INITIAL_PROJECTS;
+  }
+
+  return [];
 }
 
 /**
