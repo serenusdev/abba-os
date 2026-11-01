@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { formatOperationalDateTime } from "@/lib/utils";
+import { checkInAttendanceAction } from "@/modules/attendance/actions";
 
 export default function BerandaPage() {
   const [checkedIn, setCheckedIn] = React.useState(false);
@@ -18,12 +19,13 @@ export default function BerandaPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleCheckin = () => {
+  const handleCheckin = async () => {
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
+    const res = await checkInAttendanceAction();
+    setIsProcessing(false);
+    if (res.success) {
       setCheckedIn(true);
-    }, 1100);
+    }
   };
 
   return (

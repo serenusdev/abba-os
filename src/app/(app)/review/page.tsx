@@ -6,7 +6,7 @@ import {
   QUEUE_FILTER_COUNTS,
 } from "@/modules/reports/data";
 import { DailyReport, ReviewStatus } from "@/modules/reports/types";
-import { reviewReportAction } from "@/modules/reports/actions";
+import { reviewReportAction, getReviewQueueAction } from "@/modules/reports/actions";
 
 type QueueTab = "pending" | "revision" | "resubmitted" | "approved" | "unassigned";
 
@@ -17,6 +17,15 @@ export default function ReviewPage() {
   const [selectedReportId, setSelectedReportId] = React.useState<string>(
     REVIEW_QUEUE_REPORTS[0]?.id || ""
   );
+
+  React.useEffect(() => {
+    getReviewQueueAction().then((data) => {
+      if (data && data.length > 0) {
+        setReports(data);
+        setSelectedReportId(data[0].id);
+      }
+    });
+  }, []);
   const [feedbackNotes, setFeedbackNotes] = React.useState("");
   const [isSubmittingReview, setIsSubmittingReview] = React.useState(false);
   const [alertNotice, setAlertNotice] = React.useState<{

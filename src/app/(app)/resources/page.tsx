@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { CATEGORIES_DATA, INITIAL_RESOURCES } from "@/modules/library/data";
-import { ResourceItem } from "@/modules/library/types";
+import { CATEGORIES_DATA } from "@/modules/library/data";
+import { CategorySummary, ResourceItem } from "@/modules/library/types";
+import { getResourcesAction, getCategoriesAction } from "@/modules/library/actions";
 
 export default function ResourceLibraryPage() {
   const [selectedCategory, setSelectedCategory] = React.useState("all");
@@ -11,7 +12,30 @@ export default function ResourceLibraryPage() {
   const [onlyComplete, setOnlyComplete] = React.useState(false);
   const [selectedTag, setSelectedTag] = React.useState<string | null>(null);
 
-  const [resources] = React.useState<ResourceItem[]>(INITIAL_RESOURCES);
+  const [resources, setResources] = React.useState<ResourceItem[]>([]);
+  const [categories, setCategories] = React.useState<CategorySummary[]>(CATEGORIES_DATA);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [resData, catData] = await Promise.all([
+          getResourcesAction(searchQuery, selectedCategory),
+          getCategoriesAction(),
+        ]);
+        if (isMounted) {
+          setResources(resData);
+          setCategories(catData);
+        }
+      } catch (err) {
+        console.error("Failed to load resources:", err);
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, [searchQuery, selectedCategory]);
   const [expandedFields, setExpandedFields] = React.useState<Record<string, boolean>>({
     "res-001": true, // Default open on top resource
   });
@@ -81,7 +105,7 @@ export default function ResourceLibraryPage() {
     }, 2000);
   };
 
-  const allTags = Array.from(new Set(INITIAL_RESOURCES.flatMap((r) => r.tags)));
+  const allTags: string[] = Array.from(new Set(resources.flatMap((r) => r.tags)));
 
   return (
     <div className="flex flex-col w-full pb-8 max-w-7xl mx-auto space-y-4">
@@ -174,7 +198,7 @@ export default function ResourceLibraryPage() {
 
       {/* 4. Mobile Category Pills (Horizontal Scroll) */}
       <div className="lg:hidden flex items-center gap-2 overflow-x-auto py-1 -mx-4 px-4 no-scrollbar">
-        {CATEGORIES_DATA.map((cat) => {
+        {categories.map((cat) => {
           const active = selectedCategory === cat.slug;
           return (
             <button
@@ -213,7 +237,7 @@ export default function ResourceLibraryPage() {
             </h3>
 
             <div className="space-y-1">
-              {CATEGORIES_DATA.map((cat) => {
+              {categories.map((cat) => {
                 const active = selectedCategory === cat.slug;
                 return (
                   <button

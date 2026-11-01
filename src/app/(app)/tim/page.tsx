@@ -7,7 +7,11 @@ import {
   PEOPLE_STATS,
 } from "@/modules/people/data";
 import { PersonProfile, TeamStructureItem } from "@/modules/people/types";
-import { revealContactNumberAction } from "@/modules/people/actions";
+import {
+  revealContactNumberAction,
+  getPeopleAction,
+  getTeamsAction,
+} from "@/modules/people/actions";
 
 type ViewTab = "anggota" | "tim";
 
@@ -15,8 +19,15 @@ export default function TimPage() {
   const [activeTab, setActiveTab] = React.useState<ViewTab>("anggota");
   const [roleFilter, setRoleFilter] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [profiles] = React.useState<PersonProfile[]>(INITIAL_PEOPLE_PROFILES);
-  const [teams] = React.useState<TeamStructureItem[]>(INITIAL_TEAMS);
+  const [profiles, setProfiles] = React.useState<PersonProfile[]>(INITIAL_PEOPLE_PROFILES);
+  const [teams, setTeams] = React.useState<TeamStructureItem[]>(INITIAL_TEAMS);
+
+  React.useEffect(() => {
+    Promise.all([getPeopleAction(), getTeamsAction()]).then(([pData, tData]) => {
+      if (pData && pData.length > 0) setProfiles(pData);
+      if (tData && tData.length > 0) setTeams(tData);
+    });
+  }, []);
   const [selectedPerson, setSelectedPerson] = React.useState<PersonProfile | null>(null);
   const [unmaskedPhones, setUnmaskedPhones] = React.useState<Record<string, string>>({});
   const [toastNotice, setToastNotice] = React.useState<string | null>(null);

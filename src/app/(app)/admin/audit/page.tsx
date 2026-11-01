@@ -21,6 +21,14 @@ export default function AdminAuditPage() {
   const [period, setPeriod] = React.useState<AnalyticsPeriodOption>("this_week");
   const [scope, setScope] = React.useState("Semua Tim (Organisasi)");
   const [auditLogs, setAuditLogs] = React.useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
+
+  React.useEffect(() => {
+    queryAuditLogsAction("").then((res) => {
+      if (res.success && res.logs && res.logs.length > 0) {
+        setAuditLogs(res.logs);
+      }
+    });
+  }, []);
   const [searchLogQuery, setSearchLogQuery] = React.useState("");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 

@@ -9,6 +9,7 @@ import { DailyReport, ReportItem } from "@/modules/reports/types";
 import {
   saveReportDraftAction,
   submitReportAction,
+  getTodayReportAction,
 } from "@/modules/reports/actions";
 
 export default function LaporanPage() {
@@ -19,6 +20,12 @@ export default function LaporanPage() {
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isDrafting, setIsDrafting] = React.useState(false);
+
+  React.useEffect(() => {
+    getTodayReportAction().then((data) => {
+      if (data) setReport(data);
+    });
+  }, []);
 
   // Add new activity item
   const handleAddItem = () => {

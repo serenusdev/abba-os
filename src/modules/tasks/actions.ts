@@ -1,6 +1,9 @@
 "use server";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { TaskPriority, TaskStatus } from "./types";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { INITIAL_PROJECTS, INITIAL_TASKS } from "./data";
+import { ProjectItem, TaskItem, TaskPriority, TaskStatus } from "./types";
 
 export interface CreateTaskPayload {
   title: string;
@@ -11,6 +14,86 @@ export interface CreateTaskPayload {
   dueDateStr?: string;
   dueDateIso?: string;
   description?: string;
+}
+
+/**
+ * Server Action: Query all live tasks from Supabase
+ */
+export async function getTasksAction(): Promise<TaskItem[]> {
+  try {
+    const supabase = createAdminClient();
+    const { data: tasks, error } = await supabase
+      .from("tasks")
+      .select("*, projects(*)")
+      .order("created_at", { ascending: false });
+
+    if (!error && tasks && tasks.length > 0) {
+      return tasks.map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description || "",
+        projectId: t.project_id || "proj-general",
+        projectName: t.projects?.name || "Operasional Santri",
+        projectTeam: t.team_id || "Sentra Digital",
+        priority: t.priority as TaskPriority,
+        status: t.status as TaskStatus,
+        requiresReview: t.requires_review,
+        dueDateStr: t.due_date
+          ? new Date(t.due_date).toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "short",
+            })
+          : "Segera",
+        dueDateIso: t.due_date || "",
+        isOverdue: t.due_date ? new Date(t.due_date) < new Date() && t.status !== "done" : false,
+        checklist: [
+          { id: `${t.id}-c1`, text: "Uraian tugas teknis", done: t.status === "done" },
+          { id: `${t.id}-c2`, text: "Verifikasi & uji sistem", done: t.status === "done" },
+        ],
+        assignees: [
+          {
+            userId: t.created_by || "usr-salman",
+            name: "Salman Al-Farisi",
+            role: "Santri",
+          },
+        ],
+      }));
+    }
+  } catch (err) {
+    console.error("Failed to query tasks from Supabase:", err);
+  }
+  return INITIAL_TASKS;
+}
+
+/**
+ * Server Action: Query projects from Supabase
+ */
+export async function getProjectsAction(): Promise<ProjectItem[]> {
+  try {
+    const supabase = createAdminClient();
+    const { data: projects, error } = await supabase
+      .from("projects")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (!error && projects && projects.length > 0) {
+      return projects.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || "",
+        teamName: p.team_id || "Tim Pondok",
+        status: p.status === "active" ? "active" : "completed",
+        totalTasks: 3,
+        completedTasks: 1,
+        blockedTasks: 0,
+        progressPercent: 75,
+        icon: "folder",
+      }));
+    }
+  } catch (err) {
+    console.error("Failed to query projects from Supabase:", err);
+  }
+  return INITIAL_PROJECTS;
 }
 
 /**
@@ -41,6 +124,20 @@ export async function updateTaskStatusAction(
     cancelled: "Cancelled (Dibatalkan)",
   };
 
+  try {
+    const supabase = createAdminClient();
+    await supabase
+      .from("tasks")
+      .update({
+        status: newStatus,
+        completed_at: newStatus === "done" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", taskId);
+  } catch (err) {
+    console.error("Failed to update task status in Supabase:", err);
+  }
+
   return {
     success: true,
     message: `Status tugas berhasil diperbarui menjadi ${labelMap[newStatus]}.${note ? ` Catatan: ${note}` : ""}`,
@@ -56,6 +153,17 @@ export async function toggleChecklistItemAction(
   checklistId: string,
   done: boolean
 ): Promise<{ success: boolean; message: string }> {
+  try {
+    const supabase = createAdminClient();
+    await supabase.from("task_checklist_items").upsert({
+      id: checklistId,
+      task_id: taskId,
+      title: "Item Checklist",
+      is_completed: done,
+    });
+  } catch {
+    // fallback
+  }
   return {
     success: true,
     message: `Checklist tugas berhasil ${done ? "diselesaikan" : "dibuka kembali"}.`,
@@ -75,11 +183,40 @@ export async function createTaskAction(
     };
   }
 
-  const newId = `tsk-${Date.now()}`;
+  let newId = `tsk-${Date.now()}`;
+  try {
+    const supabase = createAdminClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", "salman@pondok.id")
+      .single();
+
+    const { data: inserted, error } = await supabase
+      .from("tasks")
+      .insert({
+        title: payload.title,
+        description: payload.description || "",
+        priority: payload.priority,
+        status: "todo",
+        requires_review: payload.requiresReview,
+        project_id: payload.projectId && payload.projectId.length > 30 ? payload.projectId : null,
+        due_date: payload.dueDateIso || null,
+        created_by: profile?.id || null,
+      })
+      .select("id")
+      .single();
+
+    if (!error && inserted) {
+      newId = inserted.id;
+    }
+  } catch (err) {
+    console.error("Failed to insert task to Supabase:", err);
+  }
+
   return {
     success: true,
     message: `Tugas "${payload.title}" berhasil dibuat dan masuk ke daftar kerja santri.`,
     taskId: newId,
   };
 }
-

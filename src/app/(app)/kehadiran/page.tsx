@@ -8,6 +8,7 @@ import {
 } from "@/modules/attendance/data";
 import {
   checkInAttendanceAction,
+  getAttendanceHistoryAction,
   submitCorrectionAction,
   submitExceptionAction,
 } from "@/modules/attendance/actions";
@@ -20,6 +21,13 @@ export default function KehadiranPage() {
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [checkedInTime, setCheckedInTime] = React.useState("07:48:15 WIB");
   const [checkedInStatus, setCheckedInStatus] = React.useState("Tepat Waktu");
+  const [historyItems, setHistoryItems] = React.useState<AttendanceRecordItem[]>(ATTENDANCE_HISTORY);
+
+  React.useEffect(() => {
+    getAttendanceHistoryAction().then((data) => {
+      if (data && data.length > 0) setHistoryItems(data);
+    });
+  }, []);
 
   // Correction Modal State
   const [isCorrectionOpen, setIsCorrectionOpen] = React.useState(false);
@@ -72,6 +80,9 @@ export default function KehadiranPage() {
           ? "Masa Toleransi"
           : "Terlambat"
       );
+      getAttendanceHistoryAction().then((data) => {
+        if (data && data.length > 0) setHistoryItems(data);
+      });
     }
   };
 
@@ -440,7 +451,7 @@ export default function KehadiranPage() {
 
             {/* History Records List */}
             <div className="space-y-2.5">
-              {ATTENDANCE_HISTORY.map((item) => (
+              {historyItems.map((item) => (
                 <div
                   key={item.id}
                   className="bg-surface-container-low rounded-xl p-3.5 space-y-2 border border-border/40 transition-all hover:border-primary/30"

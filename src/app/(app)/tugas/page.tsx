@@ -16,6 +16,8 @@ import {
   createTaskAction,
   toggleChecklistItemAction,
   updateTaskStatusAction,
+  getTasksAction,
+  getProjectsAction,
 } from "@/modules/tasks/actions";
 
 type ViewTab = "my_tasks" | "kanban" | "projects";
@@ -24,7 +26,14 @@ export default function TugasPage() {
   const [activeTab, setActiveTab] = React.useState<ViewTab>("my_tasks");
   const [timeFilter, setTimeFilter] = React.useState<TaskTimeFilter>("all");
   const [tasks, setTasks] = React.useState<TaskItem[]>(INITIAL_TASKS);
-  const [projects] = React.useState<ProjectItem[]>(INITIAL_PROJECTS);
+  const [projects, setProjects] = React.useState<ProjectItem[]>(INITIAL_PROJECTS);
+
+  React.useEffect(() => {
+    Promise.all([getTasksAction(), getProjectsAction()]).then(([tData, pData]) => {
+      if (tData && tData.length > 0) setTasks(tData);
+      if (pData && pData.length > 0) setProjects(pData);
+    });
+  }, []);
   const [toastMessage, setToastMessage] = React.useState<{
     type: "success" | "error" | "info";
     text: string;

@@ -15,6 +15,8 @@ import {
   generateICalSubscriptionAction,
   markAnnouncementReadAction,
   publishAnnouncementAction,
+  getEventsAction,
+  getAnnouncementsAction,
 } from "@/modules/schedules/actions";
 
 type ScheduleTab = "agenda" | "announcements";
@@ -23,10 +25,17 @@ export default function JadwalPage() {
   const [activeTab, setActiveTab] = React.useState<ScheduleTab>("agenda");
   const [weekDays, setWeekDays] = React.useState<WeekDayPickerItem[]>(WEEK_DAYS_AGENDA);
   const [selectedDate, setSelectedDate] = React.useState("2026-11-18");
-  const [events] = React.useState<ScheduleEventItem[]>(INITIAL_EVENTS);
+  const [events, setEvents] = React.useState<ScheduleEventItem[]>(INITIAL_EVENTS);
   const [announcements, setAnnouncements] = React.useState<AnnouncementItem[]>(
     INITIAL_ANNOUNCEMENTS
   );
+
+  React.useEffect(() => {
+    Promise.all([getEventsAction(), getAnnouncementsAction()]).then(([evData, anData]) => {
+      if (evData && evData.length > 0) setEvents(evData);
+      if (anData && anData.length > 0) setAnnouncements(anData);
+    });
+  }, []);
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
   const [isPinnedDismissed, setIsPinnedDismissed] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<ScheduleEventItem | null>(null);
