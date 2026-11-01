@@ -24,3 +24,9 @@ yarn-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# firebase
+google-services.json
+
+# kiro agent artifacts
+.agents/
