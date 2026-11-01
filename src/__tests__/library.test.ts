@@ -38,3 +38,4 @@ describe("Stage 3 — Resource Library (PRD-02)", () => {
     expect(nextjsBlueprint?.filledFieldsCount).toBe(5);
   });
 });
+

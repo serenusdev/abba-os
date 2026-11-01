@@ -117,3 +117,4 @@ export const INITIAL_RESOURCES: ResourceItem[] = [
     documentationStatus: "Terkonfirmasi & Berlaku",
   },
 ];
+

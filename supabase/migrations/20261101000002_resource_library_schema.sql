@@ -132,3 +132,4 @@ INSERT INTO public.tags (name, slug) VALUES
   ('ClinicPearl', 'clinic-pearl'),
   ('SOP', 'sop')
 ON CONFLICT (slug) DO NOTHING;
+

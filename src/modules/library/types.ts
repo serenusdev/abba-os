@@ -31,3 +31,4 @@ export interface CategorySummary {
   count: number;
   icon?: string;
 }
+
