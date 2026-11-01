@@ -54,6 +54,7 @@ export interface DailyReport {
   reviewStatus: ReviewStatus;
   reviewerName?: string;
   reviewerRole?: string;
+  reviewedAt?: string; // ISO timestamp when the report was reviewed/approved
   revisionNo: number;
   items: ReportItem[];
   reviews?: ReportReviewRecord[];

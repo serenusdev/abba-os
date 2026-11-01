@@ -8,24 +8,70 @@ import { CategorySummary, ResourceItem } from "./types";
 export async function getCategoriesAction(): Promise<CategorySummary[]> {
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("resource_categories")
-      .select("name, slug, icon")
-      .order("sort_order", { ascending: true });
+    const [categoriesResult, resourcesResult] = await Promise.all([
+      supabase.from("resource_categories").select("id, name, slug, icon").order("sort_order", { ascending: true }),
+      supabase.from("resources").select("category_id"),
+    ]);
 
-    if (!error && data && data.length > 0) {
-      const typedData = data as Array<{ name: string; slug: string; icon?: string | null }>;
-      return typedData.map((c) => ({
+    if (!categoriesResult.error && categoriesResult.data && categoriesResult.data.length > 0) {
+      const typedData = categoriesResult.data as Array<{ id: string; name: string; slug: string; icon?: string | null }>;
+
+      // Build count map per category_id
+      const countMap = new Map<string, number>();
+      let totalCount = 0;
+      if (!resourcesResult.error && resourcesResult.data) {
+        for (const r of resourcesResult.data as Array<{ category_id: string | null }>) {
+          if (r.category_id) {
+            countMap.set(r.category_id, (countMap.get(r.category_id) || 0) + 1);
+          }
+          totalCount++;
+        }
+      }
+
+      const mapped: CategorySummary[] = typedData.map((c) => ({
         name: c.name,
         slug: c.slug,
-        count: 0,
+        count: countMap.get(c.id) || 0,
         icon: c.icon || "folder",
       }));
+
+      // Prepend an "all" entry with total count
+      return [{ name: "Semua", slug: "all", count: totalCount, icon: "apps" }, ...mapped];
     }
   } catch {
     // fallback
   }
   return CATEGORIES_DATA;
+}
+
+export async function getResourceStatsAction(): Promise<{
+  totalCount: number;
+  validCount: number;
+  validPercent: number;
+}> {
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("resources")
+      .select("access_setup, how_to_use, workflow_examples, limitations_cautions, official_sources, documentation_status");
+
+    if (!error && data) {
+      const totalCount = data.length;
+      const validCount = (data as any[]).filter((r: any) =>
+        r.access_setup &&
+        r.how_to_use &&
+        r.workflow_examples &&
+        r.limitations_cautions &&
+        r.official_sources &&
+        r.documentation_status
+      ).length;
+      const validPercent = totalCount > 0 ? Math.round((validCount / totalCount) * 100) : 0;
+      return { totalCount, validCount, validPercent };
+    }
+  } catch {
+    // fallback
+  }
+  return { totalCount: 0, validCount: 0, validPercent: 0 };
 }
 
 export async function getResourcesAction(

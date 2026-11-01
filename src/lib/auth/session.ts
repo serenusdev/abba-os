@@ -47,18 +47,10 @@ export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null>
 
     // Query real profile from database using admin client to ensure full role resolution
     const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    // Query roles assigned in user_roles table
-    const { data: userRoles } = await admin
-      .from('user_roles')
-      .select('role_id, roles(key)')
-      .eq('user_id', user.id)
-      .is('revoked_at', null);
+    const [{ data: profile }, { data: userRoles }] = await Promise.all([
+      admin.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+      admin.from('user_roles').select('role_id, roles(key)').eq('user_id', user.id).is('revoked_at', null),
+    ]);
 
     const rolesList: UserRole[] = [];
     if (userRoles && userRoles.length > 0) {

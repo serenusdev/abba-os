@@ -4,7 +4,7 @@ import * as React from "react";
 import { Illustration } from "@/components/ui/illustration";
 import { CATEGORIES_DATA } from "@/modules/library/data";
 import { CategorySummary, ResourceItem } from "@/modules/library/types";
-import { getResourcesAction, getCategoriesAction } from "@/modules/library/actions";
+import { getResourcesAction, getCategoriesAction, getResourceStatsAction } from "@/modules/library/actions";
 
 export default function ResourceLibraryPage() {
   const [selectedCategory, setSelectedCategory] = React.useState("all");
@@ -15,21 +15,26 @@ export default function ResourceLibraryPage() {
 
   const [resources, setResources] = React.useState<ResourceItem[]>([]);
   const [categories, setCategories] = React.useState<CategorySummary[]>(CATEGORIES_DATA);
+  const [stats, setStats] = React.useState<{ totalCount: number; validCount: number; validPercent: number } | null>(null);
+  const [statsError, setStatsError] = React.useState(false);
 
   React.useEffect(() => {
     let isMounted = true;
     async function loadData() {
       try {
-        const [resData, catData] = await Promise.all([
+        const [resData, catData, statsData] = await Promise.all([
           getResourcesAction(searchQuery, selectedCategory),
           getCategoriesAction(),
+          getResourceStatsAction(),
         ]);
         if (isMounted) {
           setResources(resData);
           setCategories(catData);
+          setStats(statsData);
         }
       } catch (err) {
         console.error("Failed to load resources:", err);
+        if (isMounted) setStatsError(true);
       }
     }
     loadData();
@@ -129,9 +134,17 @@ export default function ResourceLibraryPage() {
           </div>
           {/* Quick Stats Pill (Desktop & Mobile) */}
           <div className="flex items-center gap-2 self-start md:self-auto">
-            <span className="px-3 py-1 rounded-lg bg-surface-container-high text-primary font-mono text-[12px] font-medium border border-primary/20">
-              142 Item Termigrasi • 100% Valid
-            </span>
+            {stats === null && !statsError ? (
+              <span className="px-3 py-1 rounded-lg bg-surface-container-high font-mono text-[12px] border border-primary/20 animate-pulse w-48 h-7" />
+            ) : statsError ? (
+              <span className="px-3 py-1 rounded-lg bg-surface-container-high text-muted-foreground font-mono text-[12px] font-medium border border-border/40">
+                Stats tidak tersedia
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-lg bg-surface-container-high text-primary font-mono text-[12px] font-medium border border-primary/20">
+                {stats!.totalCount} Item Termigrasi • {stats!.validPercent}% Valid
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -152,7 +165,7 @@ export default function ResourceLibraryPage() {
           </div>
         </div>
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-surface-container-highest text-primary font-mono text-[12px] font-bold flex-shrink-0">
-          142 Record ID
+          {stats?.totalCount ?? "..."} Record ID
         </span>
       </div>
 

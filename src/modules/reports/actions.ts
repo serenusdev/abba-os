@@ -70,6 +70,7 @@ export async function getTodayReportAction(): Promise<DailyReport> {
           : undefined,
         reviewStatus: report.review_status,
         reviewerName: report.reviewer_id ? "Ustadz Pembina" : undefined,
+        reviewedAt: report.reviewed_at || undefined,
         revisionNo: report.revision_no || 1,
         items: (report.report_items || []).map((it: any) => ({
           id: it.id,
@@ -177,6 +178,7 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
             : undefined,
           reviewStatus: r.review_status,
           reviewerName: r.reviewer_id ? "Ustadz Pembina" : undefined,
+          reviewedAt: r.reviewed_at || undefined,
           revisionNo: r.revision_no || 1,
           items: (r.report_items || []).map((it: any) => ({
             id: it.id,
@@ -452,6 +454,7 @@ export async function reviewReportAction(
       .update({
         review_status: payload.decision,
         reviewer_id: reviewer.id,
+        reviewed_at: new Date().toISOString(),
       })
       .eq("id", payload.reportId);
 

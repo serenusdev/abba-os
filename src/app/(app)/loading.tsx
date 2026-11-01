@@ -1,28 +1,32 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Illustration } from "@/components/ui/illustration";
 
-export default function Loading() {
+/**
+ * Next.js App Router automatic Suspense fallback for the (app) route group.
+ * Shown while server components in this group are resolving.
+ */
+export default function AppLoading() {
   return (
-    <div className="space-y-4 max-w-4xl mx-auto py-2 animate-in fade-in duration-200">
-      {/* Header skeleton */}
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-48 rounded-full" />
-        <Skeleton className="h-6 w-28 rounded-full" />
+    <div className="min-h-screen flex flex-col items-center justify-center gap-5 bg-background px-4">
+      <Illustration
+        src="/illustrations/undraw_in-progress_2mox.svg"
+        alt="Menyiapkan data sistem"
+        width={180}
+        height={125}
+        priority
+      />
+      <div className="flex flex-col items-center gap-2 text-center">
+        <p className="font-headline-sm text-[16px] font-semibold text-on-surface">
+          Menyiapkan data sistem...
+        </p>
+        <p className="font-body-sm text-[13px] text-muted-foreground max-w-xs">
+          Mohon tunggu sebentar sementara kami memuat informasi Anda.
+        </p>
       </div>
-
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-64 rounded-lg" />
-        <Skeleton className="h-4 w-40 rounded-md" />
-      </div>
-
-      {/* Main card skeleton */}
-      <Skeleton className="h-44 w-full rounded-xl" />
-
-      {/* Secondary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Skeleton className="h-36 w-full rounded-xl" />
-        <Skeleton className="h-36 w-full rounded-xl" />
+      <div className="flex items-center gap-1.5" aria-label="Memuat">
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
       </div>
     </div>
   );
 }
-

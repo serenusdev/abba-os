@@ -122,6 +122,7 @@ export default function ReviewPage() {
               return {
                 ...r,
                 reviewStatus: updatedStatus,
+                reviewedAt: new Date().toISOString(),
                 reviews: [
                   ...(r.reviews || []),
                   {
@@ -510,6 +511,23 @@ export default function ReviewPage() {
                       ? "Perlu Revisi"
                       : "Menunggu Review"}
                   </span>
+                  {/* Show reviewed_at timestamp when available */}
+                  {selectedReport.reviewedAt && (
+                    selectedReport.reviewStatus === "approved" ||
+                    selectedReport.reviewStatus === "revision_required"
+                  ) && (
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {selectedReport.reviewStatus === "approved" ? "Disetujui: " : "Perlu Revisi: "}
+                      {new Date(selectedReport.reviewedAt).toLocaleString("id-ID", {
+                        timeZone: "Asia/Jakarta",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })} WIB
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -599,62 +617,71 @@ export default function ReviewPage() {
 
               {/* Action Review Form */}
               <div className="pt-3 border-t border-border space-y-3">
-                <label className="font-label-md text-label-md text-on-surface block text-xs">
-                  Catatan Evaluasi / Rekomendasi Asatidz
-                </label>
-                <textarea
-                  value={feedbackNotes}
-                  onChange={(e) => setFeedbackNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Tuliskan masukan santun, apresiasi capaian, atau poin revisi yang diperlukan..."
-                  className="w-full p-3 rounded-xl bg-surface-container-low text-on-surface text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary border border-border focus:bg-card transition-all"
-                />
+                {selectedReport.reviewStatus === "approved" ? (
+                  <div className="flex items-center gap-2 p-3.5 rounded-xl bg-success/10 border border-success/30 text-success text-sm font-medium">
+                    <span className="material-symbols-outlined text-[20px]">verified</span>
+                    <span>Laporan ini telah disetujui dan tidak dapat diubah kembali.</span>
+                  </div>
+                ) : (
+                  <>
+                    <label className="font-label-md text-label-md text-on-surface block text-xs">
+                      Catatan Evaluasi / Rekomendasi Asatidz
+                    </label>
+                    <textarea
+                      value={feedbackNotes}
+                      onChange={(e) => setFeedbackNotes(e.target.value)}
+                      rows={2}
+                      placeholder="Tuliskan masukan santun, apresiasi capaian, atau poin revisi yang diperlukan..."
+                      className="w-full p-3 rounded-xl bg-surface-container-low text-on-surface text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary border border-border focus:bg-card transition-all"
+                    />
 
-                {/* Quick Feedback Chips */}
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    "Mumtaz! Dokumentasi sangat rapi.",
-                    "Mohon detailkan output konkrit.",
-                    "Perjelas kendala teknis yang dihadapi.",
-                    "Barakallahu fiik, lanjutkan target pekanan.",
-                  ].map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => setFeedbackNotes(chip)}
-                      className="px-2.5 py-1 rounded-full bg-surface-container hover:bg-accent text-[11px] text-on-surface transition-colors"
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
+                    {/* Quick Feedback Chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        "Mumtaz! Dokumentasi sangat rapi.",
+                        "Mohon detailkan output konkrit.",
+                        "Perjelas kendala teknis yang dihadapi.",
+                        "Barakallahu fiik, lanjutkan target pekanan.",
+                      ].map((chip) => (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => setFeedbackNotes(chip)}
+                          className="px-2.5 py-1 rounded-full bg-surface-container hover:bg-accent text-[11px] text-on-surface transition-colors"
+                        >
+                          {chip}
+                        </button>
+                      ))}
+                    </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    disabled={isSubmittingReview}
-                    onClick={() => handleReviewDecision("revision_required")}
-                    className="h-10 px-4 rounded-xl bg-card border border-error/40 text-error hover:bg-error/10 font-label-md text-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">
-                      edit_document
-                    </span>
-                    <span>Minta Revisi</span>
-                  </button>
+                    {/* Action Buttons — only rendered when report is not yet approved */}
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        disabled={isSubmittingReview}
+                        onClick={() => handleReviewDecision("revision_required")}
+                        className="h-10 px-4 rounded-xl bg-card border border-error/40 text-error hover:bg-error/10 font-label-md text-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">
+                          edit_document
+                        </span>
+                        <span>Minta Revisi</span>
+                      </button>
 
-                  <button
-                    type="button"
-                    disabled={isSubmittingReview}
-                    onClick={() => handleReviewDecision("approved")}
-                    className="h-10 px-5 rounded-xl bg-primary text-on-primary hover:bg-primary-container font-label-md text-xs flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">
-                      verified
-                    </span>
-                    <span>Setujui Laporan</span>
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        disabled={isSubmittingReview}
+                        onClick={() => handleReviewDecision("approved")}
+                        className="h-10 px-5 rounded-xl bg-primary text-on-primary hover:bg-primary-container font-label-md text-xs flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">
+                          verified
+                        </span>
+                        <span>Setujui Laporan</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ) : (

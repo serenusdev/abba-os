@@ -14,6 +14,7 @@ import {
   createManualAccountAction,
   resetUserSessionAction,
   getCurrentUserAction,
+  adminUpdateUserAction,
   type AccountRequestItem,
   type ActiveUserItem,
 } from "@/modules/iam/actions";
@@ -29,6 +30,18 @@ export default function AdminUsersPage() {
   const [rejectionTargetId, setRejectionTargetId] = React.useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = React.useState("");
 
+  // Admin edit user modal state
+  const [editUserTarget, setEditUserTarget] = React.useState<ActiveUserItem | null>(null);
+  const [editUserForm, setEditUserForm] = React.useState({
+    fullName: "",
+    phoneNumber: "",
+    status: "active",
+    teamName: "",
+    memberType: "",
+  });
+  const [editUserMsg, setEditUserMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isEditingUser, setIsEditingUser] = React.useState(false);
+
   // Dynamic Data
   const [accountRequests, setAccountRequests] = React.useState<AccountRequestItem[]>([]);
   const [activeUsers, setActiveUsers] = React.useState<ActiveUserItem[]>([]);
@@ -38,6 +51,7 @@ export default function AdminUsersPage() {
   const [approvedCards, setApprovedCards] = React.useState<Record<string, string>>({});
   const [rejectedCards, setRejectedCards] = React.useState<Record<string, string>>({});
   const [resetSessions, setResetSessions] = React.useState<Record<string, boolean>>({});
+  const [processingCards, setProcessingCards] = React.useState<Record<string, boolean>>({});
 
   // Manual Account Creation Form State
   const [manualForm, setManualForm] = React.useState({
@@ -96,12 +110,15 @@ export default function AdminUsersPage() {
   }
 
   const handleApprove = async (cardId: string) => {
+    if (processingCards[cardId]) return; // guard double-click
+    setProcessingCards((prev) => ({ ...prev, [cardId]: true }));
     const role = applicantRoles[cardId] || "Santri • Sentra Digitalpreneur";
     const res = await approveAccountApplicationAction(cardId, role);
     if (res.success) {
       setApprovedCards((prev) => ({ ...prev, [cardId]: role }));
       await loadData();
     }
+    setProcessingCards((prev) => ({ ...prev, [cardId]: false }));
   };
 
   const openRejectDialog = (cardId: string) => {
@@ -128,6 +145,38 @@ export default function AdminUsersPage() {
     if (res.success) {
       setResetSessions((prev) => ({ ...prev, [userId]: true }));
     }
+  };
+
+  const openEditUser = (user: ActiveUserItem) => {
+    setEditUserTarget(user);
+    setEditUserForm({
+      fullName: user.fullName,
+      phoneNumber: "",
+      status: user.status,
+      teamName: user.teamName,
+      memberType: user.role,
+    });
+    setEditUserMsg(null);
+  };
+
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUserTarget) return;
+    setIsEditingUser(true);
+    setEditUserMsg(null);
+    const res = await adminUpdateUserAction(editUserTarget.id, {
+      fullName: editUserForm.fullName,
+      phoneNumber: editUserForm.phoneNumber,
+      status: editUserForm.status,
+      teamName: editUserForm.teamName,
+      memberType: editUserForm.memberType,
+    });
+    setEditUserMsg({ type: res.success ? "success" : "error", text: res.message });
+    if (res.success) {
+      await loadData();
+      setTimeout(() => setEditUserTarget(null), 1200);
+    }
+    setIsEditingUser(false);
   };
 
   const handleCreateManual = async (e: React.FormEvent) => {
@@ -425,17 +474,28 @@ export default function AdminUsersPage() {
                         className="h-11 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
                         onClick={() => openRejectDialog(applicant.id)}
                         type="button"
+                        disabled={!!processingCards[applicant.id]}
                       >
                         <span className="material-symbols-outlined text-[18px]">close</span>
                         Tolak
                       </button>
                       <button
-                        className="h-11 rounded-lg bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                        className="h-11 rounded-lg bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all disabled:opacity-60"
                         onClick={() => handleApprove(applicant.id)}
                         type="button"
+                        disabled={!!processingCards[applicant.id]}
                       >
-                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                        Setujui Akun
+                        {processingCards[applicant.id] ? (
+                          <>
+                            <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                            Memproses...
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                            Setujui Akun
+                          </>
+                        )}
                       </button>
                     </div>
                   </>
@@ -558,6 +618,14 @@ export default function AdminUsersPage() {
                         </div>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => openEditUser(user)}
+                      className="h-8 px-2.5 rounded-lg bg-surface-container border border-border text-on-surface-variant font-label-sm text-[12px] flex items-center gap-1 hover:bg-muted transition-colors shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">edit</span>
+                      Edit
+                    </button>
                   </div>
                   <div className="pt-2 flex items-center justify-between bg-surface-container-low px-3 py-2 rounded-lg border border-border/40">
                     <div className="flex items-center gap-2">
@@ -813,6 +881,111 @@ export default function AdminUsersPage() {
                 Konfirmasi Tolak
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL 3: Admin Edit User */}
+      {editUserTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">manage_accounts</span>
+                <h3 className="font-headline-sm text-[17px] text-on-surface font-semibold">
+                  Edit Profil Pengguna
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditUserTarget(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser} className="space-y-3.5">
+              <div>
+                <label className="font-label-sm text-label-sm text-on-surface font-semibold block mb-1">Nama Lengkap</label>
+                <input
+                  type="text"
+                  required
+                  value={editUserForm.fullName}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, fullName: e.target.value })}
+                  className="w-full h-11 px-3 rounded-xl bg-surface-container border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="font-label-sm text-label-sm text-on-surface font-semibold block mb-1">Nomor Telepon</label>
+                <input
+                  type="tel"
+                  value={editUserForm.phoneNumber}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, phoneNumber: e.target.value })}
+                  placeholder="08xxxxxxxxxx"
+                  className="w-full h-11 px-3 rounded-xl bg-surface-container border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="font-label-sm text-label-sm text-on-surface font-semibold block mb-1">Status Akun</label>
+                <select
+                  value={editUserForm.status}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, status: e.target.value })}
+                  className="w-full h-11 px-3 rounded-xl bg-surface-container border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="active">Aktif</option>
+                  <option value="suspended">Ditangguhkan</option>
+                  <option value="deactivated">Nonaktif Permanen</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-label-sm text-label-sm text-on-surface font-semibold block mb-1">Tim / Sentra</label>
+                <input
+                  type="text"
+                  value={editUserForm.teamName}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, teamName: e.target.value })}
+                  className="w-full h-11 px-3 rounded-xl bg-surface-container border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="font-label-sm text-label-sm text-on-surface font-semibold block mb-1">Tipe Anggota</label>
+                <input
+                  type="text"
+                  value={editUserForm.memberType}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, memberType: e.target.value })}
+                  className="w-full h-11 px-3 rounded-xl bg-surface-container border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              {editUserMsg && (
+                <div className={`p-3 rounded-xl text-[13px] flex items-center gap-2 ${
+                  editUserMsg.type === "success"
+                    ? "bg-success/15 text-success border border-success/30"
+                    : "bg-error/15 text-error border border-error/30"
+                }`}>
+                  <span className="material-symbols-outlined text-[16px]">
+                    {editUserMsg.type === "success" ? "check_circle" : "error"}
+                  </span>
+                  {editUserMsg.text}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditUserTarget(null)}
+                  className="flex-1 h-11 rounded-xl bg-card border border-border text-on-surface-variant font-label-md"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditingUser}
+                  className="flex-1 h-11 rounded-xl bg-primary text-white font-label-md shadow-sm disabled:opacity-60"
+                >
+                  {isEditingUser ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

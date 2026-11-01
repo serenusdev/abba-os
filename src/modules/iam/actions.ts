@@ -3,6 +3,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserProfile } from "@/lib/auth/session";
+import { requireRole } from "@/lib/auth/guards";
 import { UserProfile } from "@/lib/auth/types";
 import { ManualAccountPayload } from "./types";
 
@@ -49,11 +50,19 @@ export async function submitAccountApplicationAction(payload: {
   roleRequested: string;
   teamRequested: string;
   notes?: string;
+  password: string;
 }): Promise<{ success: boolean; message: string }> {
   if (!payload.fullName.trim() || !payload.email.trim() || !payload.phoneNumber.trim()) {
     return {
       success: false,
       message: "Nama lengkap, email, dan nomor telepon wajib diisi.",
+    };
+  }
+
+  if (!payload.password || payload.password.length < 8) {
+    return {
+      success: false,
+      message: "Kata sandi minimal 8 karakter.",
     };
   }
 
@@ -74,7 +83,25 @@ export async function submitAccountApplicationAction(payload: {
       };
     }
 
+    // Create Auth user first (unconfirmed — cannot log in until approved)
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: payload.email.trim().toLowerCase(),
+      password: payload.password,
+      email_confirm: false,
+      user_metadata: { full_name: payload.fullName.trim() },
+    });
+
+    if (authError) {
+      return {
+        success: false,
+        message: authError.message || "Gagal membuat akun. Email mungkin sudah terdaftar.",
+      };
+    }
+
+    const authUserId = authData.user?.id;
+
     const { error } = await supabase.from("account_requests").insert({
+      id: authUserId ?? undefined,
       full_name: payload.fullName.trim(),
       email: payload.email.trim().toLowerCase(),
       phone_number: payload.phoneNumber.trim(),
@@ -82,6 +109,7 @@ export async function submitAccountApplicationAction(payload: {
       team_requested: payload.teamRequested || "Sentra Santri",
       notes: payload.notes?.trim() || "",
       status: "pending",
+      auth_user_id: authUserId,
     });
 
     if (error) throw error;
@@ -199,22 +227,64 @@ export async function approveAccountApplicationAction(
   }
 
   try {
+    const approver = await requireRole(["super_admin", "yayasan", "pengurus"]);
     const supabase = createAdminClient();
-    if (applicantId.length > 30) {
-      await supabase
-        .from("account_requests")
-        .update({ status: "approved" })
-        .eq("id", applicantId);
+
+    // Fetch the account request to get auth_user_id and user info
+    const { data: request, error: fetchError } = await supabase
+      .from("account_requests")
+      .select("*")
+      .eq("id", applicantId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
+    const { error } = await supabase
+      .from("account_requests")
+      .update({
+        status: "approved",
+        approved_at: new Date().toISOString(),
+        approved_by: approver.id,
+      })
+      .eq("id", applicantId);
+
+    if (error) throw error;
+
+    // Activate Auth user if auth_user_id is stored
+    const authUserId = request?.auth_user_id;
+    if (authUserId) {
+      await supabase.auth.admin.updateUserById(authUserId, {
+        email_confirm: true,
+      });
+
+      // Upsert profile row so user can access the app
+      await supabase.from("profiles").upsert(
+        {
+          id: authUserId,
+          email: request.email,
+          full_name: request.full_name,
+          phone_number: request.phone_number || null,
+          status: "active",
+          member_type: request.role_requested || "santri",
+          team_name: request.team_requested || "Sentra Santri",
+        },
+        { onConflict: "id" }
+      );
     }
+
     await supabase.from("audit_logs").insert({
       event_name: "iam.account_approved",
-      actor_name: "Super Admin",
+      actor_name: approver.full_name,
       target_id: applicantId,
       target_label: `Permohonan ${applicantId}`,
       action_detail: `Persetujuan akun dengan peran '${assignedRole}'.`,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Failed to approve account in Supabase:", err);
+    return {
+      success: false,
+      message: err.message || "Gagal menyetujui akun. Silakan coba kembali.",
+    };
   }
 
   return {
@@ -235,22 +305,29 @@ export async function rejectAccountApplicationAction(
   }
 
   try {
+    const approver = await requireRole(["super_admin", "yayasan", "pengurus"]);
     const supabase = createAdminClient();
-    if (applicantId.length > 30) {
-      await supabase
-        .from("account_requests")
-        .update({ status: "rejected", notes: reason })
-        .eq("id", applicantId);
-    }
+
+    const { error } = await supabase
+      .from("account_requests")
+      .update({ status: "rejected", notes: reason })
+      .eq("id", applicantId);
+
+    if (error) throw error;
+
     await supabase.from("audit_logs").insert({
       event_name: "iam.account_rejected",
-      actor_name: "Super Admin",
+      actor_name: approver.full_name,
       target_id: applicantId,
       target_label: `Permohonan ${applicantId}`,
       action_detail: `Penolakan akun. Alasan: ${reason}`,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Failed to reject account in Supabase:", err);
+    return {
+      success: false,
+      message: err.message || "Gagal menolak akun. Silakan coba kembali.",
+    };
   }
 
   return {
@@ -426,5 +503,166 @@ export async function ensureSuperAdminAccountAction(): Promise<ActionResult> {
       success: false,
       message: msg,
     };
+  }
+}
+
+/**
+ * Server Action: Update current user's own profile (Issue 4 — self-service).
+ * Users can only update their own profile. Role/status changes are blocked.
+ */
+export async function updateProfileAction(payload: {
+  fullName: string;
+  phoneNumber: string;
+  avatarUrl?: string;
+}): Promise<ActionResult> {
+  if (!payload.fullName.trim()) {
+    return { success: false, message: "Nama lengkap wajib diisi." };
+  }
+
+  try {
+    const { requireAuthUser } = await import("@/lib/auth/guards");
+    const user = await requireAuthUser();
+    const supabase = createAdminClient();
+
+    const updatePayload: Record<string, string> = {
+      full_name: payload.fullName.trim(),
+      phone_number: payload.phoneNumber.trim(),
+      updated_at: new Date().toISOString(),
+    };
+    if (payload.avatarUrl) {
+      updatePayload.avatar_url = payload.avatarUrl;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updatePayload)
+      .eq("id", user.id);
+
+    if (error) throw error;
+
+    return { success: true, message: "Profil berhasil diperbarui." };
+  } catch (err: any) {
+    console.error("updateProfileAction error:", err);
+    return { success: false, message: err.message || "Gagal memperbarui profil." };
+  }
+}
+
+/**
+ * Server Action: Upload avatar to Supabase Storage (Issue 4).
+ * Validates file type and size before uploading.
+ */
+export async function uploadAvatarAction(
+  formData: FormData
+): Promise<ActionResult<{ avatarUrl: string }>> {
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
+
+  try {
+    const { requireAuthUser } = await import("@/lib/auth/guards");
+    const user = await requireAuthUser();
+
+    const file = formData.get("avatar") as File | null;
+    if (!file) {
+      return { success: false, message: "File tidak ditemukan." };
+    }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return { success: false, message: "Format file tidak didukung. Gunakan JPEG, PNG, atau WebP." };
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      return { success: false, message: "Ukuran file melebihi batas 2MB." };
+    }
+
+    const ext = file.type.split("/")[1];
+    const path = `${user.id}/${Date.now()}.${ext}`;
+    const supabase = createAdminClient();
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { contentType: file.type, upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+
+    return {
+      success: true,
+      message: "Foto profil berhasil diunggah.",
+      data: { avatarUrl: urlData.publicUrl },
+    };
+  } catch (err: any) {
+    console.error("uploadAvatarAction error:", err);
+    return { success: false, message: err.message || "Gagal mengunggah foto profil." };
+  }
+}
+
+/**
+ * Server Action: Change current user's password via Supabase Auth admin (Issue 4).
+ * Password is never logged or stored in plaintext.
+ */
+export async function changePasswordAction(newPassword: string): Promise<ActionResult> {
+  if (!newPassword || newPassword.length < 8) {
+    return { success: false, message: "Kata sandi minimal 8 karakter." };
+  }
+
+  try {
+    const { requireAuthUser } = await import("@/lib/auth/guards");
+    const user = await requireAuthUser();
+    const supabase = createAdminClient();
+
+    const { error } = await supabase.auth.admin.updateUserById(user.id, {
+      password: newPassword,
+    });
+
+    if (error) throw error;
+
+    return { success: true, message: "Kata sandi berhasil diperbarui." };
+  } catch (err: any) {
+    console.error("changePasswordAction error:", err);
+    return { success: false, message: err.message || "Gagal memperbarui kata sandi." };
+  }
+}
+
+/**
+ * Server Action: Admin updates another user's profile (Issue 4B).
+ * Requires super_admin, yayasan, or pengurus role.
+ */
+export async function adminUpdateUserAction(
+  userId: string,
+  payload: {
+    fullName?: string;
+    phoneNumber?: string;
+    status?: string;
+    teamName?: string;
+    memberType?: string;
+  }
+): Promise<ActionResult> {
+  if (!userId) {
+    return { success: false, message: "User ID tidak valid." };
+  }
+
+  try {
+    await requireRole(["super_admin", "yayasan", "pengurus"]);
+    const supabase = createAdminClient();
+
+    const updatePayload: Record<string, string> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (payload.fullName !== undefined) updatePayload.full_name = payload.fullName.trim();
+    if (payload.phoneNumber !== undefined) updatePayload.phone_number = payload.phoneNumber.trim();
+    if (payload.status !== undefined) updatePayload.status = payload.status;
+    if (payload.teamName !== undefined) updatePayload.team_name = payload.teamName.trim();
+    if (payload.memberType !== undefined) updatePayload.member_type = payload.memberType;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updatePayload)
+      .eq("id", userId);
+
+    if (error) throw error;
+
+    return { success: true, message: "Profil pengguna berhasil diperbarui." };
+  } catch (err: any) {
+    console.error("adminUpdateUserAction error:", err);
+    return { success: false, message: err.message || "Gagal memperbarui profil pengguna." };
   }
 }
