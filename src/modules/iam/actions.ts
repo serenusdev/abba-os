@@ -66,6 +66,9 @@ export async function submitAccountApplicationAction(payload: {
     };
   }
 
+  // Hoisted so the catch block can roll back an orphaned auth user if the DB insert fails
+  let authUserId: string | undefined;
+
   try {
     const supabase = createAdminClient();
 
@@ -98,7 +101,7 @@ export async function submitAccountApplicationAction(payload: {
       };
     }
 
-    const authUserId = authData.user?.id;
+    authUserId = authData.user?.id;
 
     const { error } = await supabase.from("account_requests").insert({
       id: authUserId ?? undefined,
@@ -120,6 +123,11 @@ export async function submitAccountApplicationAction(payload: {
     };
   } catch (err: any) {
     console.error("Gagal menyimpan permohonan akun:", err);
+    // Roll back the orphaned auth user so the email is not permanently blocked
+    if (authUserId) {
+      const supabase = createAdminClient();
+      await supabase.auth.admin.deleteUser(authUserId).catch(() => {});
+    }
     return {
       success: false,
       message: err.message || "Gagal mengirimkan pengajuan akun. Silakan coba kembali.",
