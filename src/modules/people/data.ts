@@ -142,3 +142,4 @@ export const INITIAL_TEAMS: TeamStructureItem[] = [
     badgeLabel: "6 Orang",
   },
 ];
+

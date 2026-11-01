@@ -49,3 +49,4 @@ export interface PeopleStatsSummary {
   pengurusCount: number;
   yayasanCount: number;
 }
+

@@ -101,3 +101,4 @@ CREATE POLICY "Reviewer assignments are readable by authenticated users"
   ON public.reviewer_assignments FOR SELECT
   TO authenticated
   USING (true);
+

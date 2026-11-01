@@ -77,3 +77,4 @@ describe("Stage 8 — People & Teams (PRD-07)", () => {
     expect(digitalTeam?.memberCount).toBe(12);
   });
 });
+
