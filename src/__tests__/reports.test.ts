@@ -100,3 +100,4 @@ describe("Stage 5 — Daily Activity Reports & Review Queue (PRD-04)", () => {
     expect(salmanReport?.submissionStatus).toBe("submitted");
   });
 });
+

@@ -179,3 +179,4 @@ CREATE POLICY "Users can insert own exceptions"
 CREATE POLICY "Users can view own exceptions"
   ON public.attendance_exceptions FOR SELECT
   USING (auth.uid() = user_id OR app.has_permission('attendance.exception.decide'));
+

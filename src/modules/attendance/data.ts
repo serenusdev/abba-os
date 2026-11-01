@@ -101,3 +101,4 @@ export const ATTENDANCE_MONTHLY_STATS: AttendanceStatsSummary = {
   unrecordedCount: 0,
   attendanceRate: 94.2,
 };
+

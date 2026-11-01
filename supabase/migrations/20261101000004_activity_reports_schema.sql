@@ -236,3 +236,4 @@ CREATE POLICY "Users and reviewers can view reviews"
       AND daily_reports.user_id = auth.uid()
     )
   );
+

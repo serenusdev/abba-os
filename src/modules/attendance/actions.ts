@@ -88,3 +88,4 @@ export async function submitExceptionAction(
     message: `Permohonan ${type === "sick" ? "Sakit" : "Izin"} untuk tanggal ${dateFrom} s.d. ${dateTo} telah diajukan ke Dewan Pengurus.`,
   };
 }
+

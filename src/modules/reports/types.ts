@@ -67,3 +67,4 @@ export interface ReportQueueFilterCounts {
   approved: number;
   unassigned: number;
 }
+
