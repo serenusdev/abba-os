@@ -33,9 +33,9 @@ export function EmptyState({
         <Illustration
           src={illustration}
           alt={title}
-          width={180}
-          height={130}
-          className="mb-4 max-h-[140px]"
+          width={130}
+          height={90}
+          className="mb-3"
         />
       ) : (
         <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-primary mb-3">

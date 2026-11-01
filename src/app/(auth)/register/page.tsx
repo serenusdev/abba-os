@@ -69,9 +69,8 @@ export default function RegisterPage() {
             <Illustration
               src="/illustrations/undraw_mail-sent_dagx.svg"
               alt="Pengajuan Berhasil Dikirim"
-              width={180}
-              height={130}
-              className="max-h-[140px]"
+              width={130}
+              height={90}
             />
             <div>
               <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">

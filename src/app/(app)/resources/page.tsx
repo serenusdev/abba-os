@@ -378,20 +378,21 @@ export default function ResourceLibraryPage() {
 
           {/* Empty State */}
           {filteredResources.length === 0 ? (
-            <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+            <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
               <Illustration
                 src="/illustrations/undraw_road-to-knowledge_ufma.svg"
                 alt="Tidak Ada Resource yang Cocok"
-                width={200}
-                height={140}
-                className="mb-4 max-h-[150px]"
+                width={140}
+                height={95}
               />
-              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                Tidak Ada Resource yang Cocok
-              </h3>
-              <p className="font-body-sm text-[13px] text-muted-foreground max-w-sm mx-auto">
-                Coba sesuaikan kata kunci pencarian atau ubah filter kategori pustaka.
-              </p>
+              <div>
+                <h3 className="font-headline-sm text-base font-semibold text-on-surface">
+                  Tidak Ada Resource yang Cocok
+                </h3>
+                <p className="font-body-sm text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+                  Coba sesuaikan kata kunci pencarian atau ubah filter kategori pustaka.
+                </p>
+              </div>
             </div>
           ) : (
             filteredResources.map((item) => {

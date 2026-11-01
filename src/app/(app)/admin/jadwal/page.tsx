@@ -289,20 +289,21 @@ export default function AdminJadwalPage() {
         /* Agenda Table / Cards */
         <div className="space-y-3">
           {events.length === 0 ? (
-            <div className="bg-card rounded-2xl p-8 sm:p-12 text-center border border-dashed border-border flex flex-col items-center justify-center">
+            <div className="bg-card rounded-2xl p-8 sm:p-10 text-center border border-dashed border-border flex flex-col items-center justify-center space-y-3">
               <Illustration
                 src="/illustrations/undraw_done_erdp.svg"
                 alt="Belum ada agenda kegiatan"
-                width={180}
-                height={130}
-                className="mb-4 max-h-[140px]"
+                width={130}
+                height={90}
               />
-              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                Belum ada agenda kegiatan
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto mb-4">
-                Belum ada jadwal yang dimasukkan ke dalam database. Tambahkan agenda baru untuk santri dan pengurus.
-              </p>
+              <div>
+                <h3 className="font-headline-sm text-base font-semibold text-on-surface">
+                  Belum Ada Agenda Kegiatan
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto mt-1 mb-4">
+                  Belum ada jadwal yang dimasukkan ke dalam database. Tambahkan agenda baru untuk santri dan pengurus.
+                </p>
+              </div>
               <button
                 onClick={() => setIsEventModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-md text-xs shadow-xs"
@@ -366,20 +367,21 @@ export default function AdminJadwalPage() {
         /* Announcements Table / Cards */
         <div className="space-y-3">
           {announcements.length === 0 ? (
-            <div className="bg-card rounded-2xl p-8 sm:p-12 text-center border border-dashed border-border flex flex-col items-center justify-center">
+            <div className="bg-card rounded-2xl p-8 sm:p-10 text-center border border-dashed border-border flex flex-col items-center justify-center space-y-3">
               <Illustration
                 src="/illustrations/undraw_mail-sent_dagx.svg"
                 alt="Belum ada siaran pengumuman"
-                width={180}
-                height={130}
-                className="mb-4 max-h-[140px]"
+                width={120}
+                height={85}
               />
-              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                Belum ada siaran pengumuman
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto mb-4">
-                Kirim pengumuman penting untuk santri dan tim pondok. Pengumuman penting akan disematkan di beranda.
-              </p>
+              <div>
+                <h3 className="font-headline-sm text-base font-semibold text-on-surface">
+                  Belum Ada Siaran Pengumuman
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto mt-1 mb-4">
+                  Kirim pengumuman penting untuk santri dan tim pondok. Pengumuman penting akan disematkan di beranda.
+                </p>
+              </div>
               <button
                 onClick={() => setIsAnnouncementModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-md text-xs shadow-xs"

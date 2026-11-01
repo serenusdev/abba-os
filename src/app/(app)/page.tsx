@@ -17,7 +17,6 @@ import { UserProfile } from "@/lib/auth/types";
 import type { ScheduleEventItem, AnnouncementItem } from "@/modules/schedules/types";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { LiveClock } from "@/components/ui/live-clock";
-import { Illustration } from "@/components/ui/illustration";
 
 export default function BerandaPage() {
   const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
@@ -155,34 +154,25 @@ export default function BerandaPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 self-start md:self-auto">
-                {/* Preview Toggle Button */}
-                <button
-                  onClick={() => setPreviewAsMember(true)}
-                  className="px-3 py-1.5 rounded-xl bg-card border border-border text-xs font-label-md text-on-surface hover:bg-accent/40 transition-colors flex items-center gap-1.5 shadow-2xs"
-                  title="Beralih ke tampilan pandangan santri biasa"
-                >
-                  <span className="material-symbols-outlined text-[16px]">visibility</span>
-                  <span>Lihat Mode Santri</span>
-                </button>
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              {/* Preview Toggle Button */}
+              <button
+                onClick={() => setPreviewAsMember(true)}
+                className="px-3 py-1.5 rounded-xl bg-card border border-border text-xs font-label-md text-on-surface hover:bg-accent/40 transition-colors flex items-center gap-1.5 shadow-2xs"
+                title="Beralih ke tampilan pandangan santri biasa"
+              >
+                <span className="material-symbols-outlined text-[16px]">visibility</span>
+                <span>Lihat Mode Santri</span>
+              </button>
 
-                {/* Quick Hours Config Button */}
-                <button
-                  onClick={() => setIsPolicyModalOpen(true)}
-                  className="px-3.5 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-label-md hover:bg-primary-container transition-all flex items-center gap-1.5 shadow-xs"
-                >
-                  <span className="material-symbols-outlined text-[16px]">schedule</span>
-                  <span>Atur Jam</span>
-                </button>
-              </div>
-              <Illustration
-                src="/illustrations/undraw_status-page_46km.svg"
-                alt="Pusat Kendali"
-                width={100}
-                height={70}
-                className="hidden lg:block shrink-0 max-h-[65px]"
-              />
+              {/* Quick Hours Config Button */}
+              <button
+                onClick={() => setIsPolicyModalOpen(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-label-md hover:bg-primary-container transition-all flex items-center gap-1.5 shadow-xs"
+              >
+                <span className="material-symbols-outlined text-[16px]">schedule</span>
+                <span>Atur Jam</span>
+              </button>
             </div>
           </div>
 
@@ -677,39 +667,30 @@ export default function BerandaPage() {
       )}
 
       {/* Greeting & Server Sync Bar */}
-      <section className="bg-card rounded-2xl p-4 sm:p-5 border border-border shadow-xs flex items-center justify-between gap-4">
-        <div className="flex flex-col space-y-1.5 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/60 text-accent-foreground w-fit">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="font-label-sm text-label-sm">
-                {policy ? policy.name : "Operasional Pesantren"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-container-low text-success">
-              <span className="material-symbols-outlined text-[14px]">cloud_done</span>
-              <span className="font-label-sm text-[11px] leading-tight">Server Sinkron</span>
-            </div>
+      <section className="bg-card rounded-2xl p-4 sm:p-5 border border-border shadow-xs flex flex-col space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/60 text-accent-foreground w-fit">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="font-label-sm text-label-sm">
+              {policy ? policy.name : "Operasional Pesantren"}
+            </span>
           </div>
-          <div>
-            <h2 className="font-headline-sm text-lg sm:text-xl font-bold text-on-surface tracking-tight">
-              Assalamu&apos;alaikum Warahmatullahi Wabarakatuh
-            </h2>
-            <div className="flex items-center gap-1.5 text-muted-foreground mt-0.5">
-              <span className="material-symbols-outlined text-[16px]">schedule</span>
-              <p className="font-body-sm text-xs sm:text-sm" id="live-server-clock">
-                {currentDateTime}
-              </p>
-            </div>
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-container-low text-success">
+            <span className="material-symbols-outlined text-[14px]">cloud_done</span>
+            <span className="font-label-sm text-[11px] leading-tight">Server Sinkron</span>
           </div>
         </div>
-        <Illustration
-          src="/illustrations/undraw_road-to-knowledge_ufma.svg"
-          alt="Santri Digitalpreneur"
-          width={120}
-          height={85}
-          className="hidden sm:block shrink-0 max-h-[80px]"
-        />
+        <div>
+          <h2 className="font-headline-sm text-lg sm:text-xl font-bold text-on-surface tracking-tight">
+            Assalamu&apos;alaikum Warahmatullahi Wabarakatuh
+          </h2>
+          <div className="flex items-center gap-1.5 text-muted-foreground mt-0.5">
+            <span className="material-symbols-outlined text-[16px]">schedule</span>
+            <p className="font-body-sm text-xs sm:text-sm" id="live-server-clock">
+              {currentDateTime}
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* Pinned Announcement Banner */}

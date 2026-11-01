@@ -471,20 +471,21 @@ export default function TugasPage() {
               {/* Task Groups Section (TSK-009) */}
               <div className="space-y-4">
                 {filteredTasks.length === 0 ? (
-                  <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                  <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                     <Illustration
-                      src="/illustrations/undraw_organizing-work_gmo9.svg"
+                      src="/illustrations/undraw_done_erdp.svg"
                       alt="Belum ada tugas"
-                      width={200}
-                      height={140}
-                      className="mb-4 max-h-[150px]"
+                      width={140}
+                      height={95}
                     />
-                    <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                      Belum ada tugas tercatat
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-                      Tekan tombol &quot;+ Tambah Tugas Baru&quot; untuk membuat tugas baru bagi Anda atau tim sentra.
-                    </p>
+                    <div>
+                      <p className="font-headline-sm text-base font-semibold text-on-surface">
+                        Belum Ada Tugas Tercatat
+                      </p>
+                      <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mt-1">
+                        Amanah tugas santri atau divisi akan tampil di sini. Tekan tombol &quot;+ Tambah Tugas Baru&quot; untuk memulai.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -673,20 +674,21 @@ export default function TugasPage() {
           {activeTab === "projects" && (
             <div className="space-y-3">
               {projects.length === 0 ? (
-                <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                   <Illustration
                     src="/illustrations/undraw_in-progress_2mox.svg"
                     alt="Belum ada proyek"
-                    width={200}
-                    height={140}
-                    className="mb-4 max-h-[150px]"
+                    width={140}
+                    height={95}
                   />
-                  <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                    Belum ada proyek dibuat
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-                    Daftar proyek dan inisiatif santri akan tampil di sini setelah ditambahkan oleh pembina atau koordinator.
-                  </p>
+                  <div>
+                    <p className="font-headline-sm text-base font-semibold text-on-surface">
+                      Belum Ada Proyek Dibuat
+                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mt-1">
+                      Inisiatif dan proyek santri akan tampil di sini setelah ditambahkan oleh pembina atau koordinator.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 projects.map((proj) => (

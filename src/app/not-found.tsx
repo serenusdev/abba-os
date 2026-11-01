@@ -8,9 +8,9 @@ export default function NotFound() {
       <Illustration
         src="/illustrations/undraw_bug-detected_71if.svg"
         alt="Halaman Tidak Ditemukan"
-        width={260}
-        height={190}
-        className="mb-6 max-h-[200px]"
+        width={160}
+        height={115}
+        className="mb-4"
       />
       <h2 className="font-headline-md text-headline-md font-semibold text-on-surface mb-2">
         Halaman Tidak Ditemukan

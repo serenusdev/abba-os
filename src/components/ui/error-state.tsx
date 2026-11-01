@@ -29,9 +29,9 @@ export function ErrorState({
         <Illustration
           src={illustration}
           alt={title}
-          width={180}
-          height={130}
-          className="mb-4 max-h-[140px]"
+          width={130}
+          height={90}
+          className="mb-3"
         />
       ) : (
         <div className="w-12 h-12 rounded-2xl bg-error-container text-on-error-container flex items-center justify-center mb-3">

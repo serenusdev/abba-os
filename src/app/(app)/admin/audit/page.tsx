@@ -153,31 +153,22 @@ export default function AdminAuditPage() {
       )}
 
       {/* Sub-header & Meta Section */}
-      <div className="flex items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-        <div className="flex flex-col gap-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-code-md text-xs text-primary font-medium tracking-wider uppercase px-2.5 py-0.5 bg-accent rounded-lg">
-              PRD-08 • ANALYTICS &amp; ADMIN
-            </span>
-            <span className="inline-flex items-center gap-1.5 font-label-sm text-xs text-success bg-surface-container-low px-2.5 py-0.5 rounded-full font-medium">
-              <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-              Audit Hash Valid
-            </span>
-          </div>
-          <h1 className="font-headline-sm text-xl sm:text-2xl text-on-surface font-bold tracking-tight">
-            Pusat Kontrol Kebijakan &amp; Audit Trail
-          </h1>
-          <p className="font-body-sm text-xs sm:text-sm text-muted-foreground">
-            Kelola kebijakan jam operasional, pantau ringkasan kepatuhan organisasi, dan periksa jejak audit append-only.
-          </p>
+      <div className="flex flex-col gap-1 pt-1">
+        <div className="flex items-center justify-between">
+          <span className="font-code-md text-xs text-primary font-medium tracking-wider uppercase px-2.5 py-0.5 bg-accent rounded-lg">
+            PRD-08 • ANALYTICS &amp; ADMIN
+          </span>
+          <span className="inline-flex items-center gap-1.5 font-label-sm text-xs text-success bg-surface-container-low px-2.5 py-0.5 rounded-full font-medium">
+            <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+            Audit Hash Valid
+          </span>
         </div>
-        <Illustration
-          src="/illustrations/undraw_status-page_46km.svg"
-          alt="Pusat Kontrol Kebijakan & Audit Trail"
-          width={130}
-          height={90}
-          className="hidden md:block shrink-0 max-h-[85px]"
-        />
+        <h1 className="font-headline-sm text-xl sm:text-2xl text-on-surface font-bold tracking-tight">
+          Pusat Kontrol Kebijakan &amp; Audit Trail
+        </h1>
+        <p className="font-body-sm text-xs sm:text-sm text-muted-foreground">
+          Kelola kebijakan jam operasional, pantau ringkasan kepatuhan organisasi, dan periksa jejak audit append-only.
+        </p>
       </div>
 
       {/* Scope Selector Bar */}
@@ -473,20 +464,21 @@ export default function AdminAuditPage() {
             {/* Entry Timeline */}
             <div className="flex flex-col space-y-3 pt-1">
               {auditLogs.length === 0 ? (
-                <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                   <Illustration
                     src="/illustrations/undraw_status-page_46km.svg"
                     alt="Belum ada jejak audit"
-                    width={160}
-                    height={110}
-                    className="mb-4 max-h-[120px]"
+                    width={130}
+                    height={90}
                   />
-                  <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                    Belum ada jejak audit tercatat
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                    Setiap aksi administratif, perubahan jam kebijakan, dan persetujuan akun akan tercatat di sini secara otomatis.
-                  </p>
+                  <div>
+                    <p className="font-headline-sm text-base font-semibold text-on-surface">
+                      Belum Ada Jejak Audit Tercatat
+                    </p>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+                      Setiap aksi administratif, perubahan jam kebijakan, dan persetujuan akun akan tercatat di sini secara otomatis.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 auditLogs.map((log) => (

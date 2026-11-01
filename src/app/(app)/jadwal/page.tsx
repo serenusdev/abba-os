@@ -385,20 +385,21 @@ export default function JadwalPage() {
               {/* Agenda Items Timeline List (SCH-002) */}
               <div className="space-y-3">
                 {filteredEvents.length === 0 ? (
-                  <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                  <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                     <Illustration
                       src="/illustrations/undraw_done_erdp.svg"
                       alt="Belum ada agenda"
-                      width={180}
-                      height={130}
-                      className="mb-4 max-h-[140px]"
+                      width={130}
+                      height={90}
                     />
-                    <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                      Belum ada agenda jadwal
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-                      Jadwal kajian, kelas teknologi, dan kegiatan santri akan ditampilkan di sini.
-                    </p>
+                    <div>
+                      <p className="font-headline-sm text-base font-semibold text-on-surface">
+                        Belum Ada Agenda Jadwal
+                      </p>
+                      <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mt-1">
+                        Jadwal kajian, kelas teknologi, dan kegiatan santri akan ditampilkan di sini.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   filteredEvents.map((evt) => (
@@ -525,20 +526,21 @@ export default function JadwalPage() {
 
               <div className="space-y-3">
                 {announcements.length === 0 ? (
-                  <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                  <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                     <Illustration
                       src="/illustrations/undraw_mail-sent_dagx.svg"
                       alt="Belum ada pengumuman"
-                      width={180}
-                      height={130}
-                      className="mb-4 max-h-[140px]"
+                      width={120}
+                      height={85}
                     />
-                    <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                      Belum ada pengumuman
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-                      Pengumuman penting atau informasi pondok akan ditampilkan di sini.
-                    </p>
+                    <div>
+                      <p className="font-headline-sm text-base font-semibold text-on-surface">
+                        Belum Ada Pengumuman
+                      </p>
+                      <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mt-1">
+                        Pengumuman penting atau informasi pondok akan ditampilkan di sini.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   announcements.map((ann) => (

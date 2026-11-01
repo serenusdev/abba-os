@@ -27,9 +27,9 @@ export function UnauthorizedState({
       <Illustration
         src="/illustrations/undraw_action-required_pplo.svg"
         alt="Akses Dibatasi"
-        width={220}
-        height={160}
-        className="mb-5 max-h-[160px]"
+        width={150}
+        height={105}
+        className="mb-4"
       />
       <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-2">
         {title}

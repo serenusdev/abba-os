@@ -14,22 +14,37 @@ export function Illustration({
   src,
   alt,
   className,
-  width = 240,
-  height = 180,
+  width = 160,
+  height = 110,
   priority = false,
 }: IllustrationProps) {
   return (
-    <div className={cn("relative flex items-center justify-center", className)}>
+    <div
+      className={cn(
+        "relative flex items-center justify-center shrink-0 mx-auto select-none pointer-events-none",
+        className
+      )}
+      style={{
+        width: width,
+        height: height,
+        maxWidth: "100%",
+      }}
+    >
       <Image
         src={src}
         alt={alt}
         width={width}
         height={height}
-        className="w-auto h-auto max-w-full max-h-full object-contain select-none pointer-events-none"
+        style={{
+          width: "auto",
+          height: "100%",
+          maxHeight: `${height}px`,
+          maxWidth: `${width}px`,
+          objectFit: "contain",
+        }}
         priority={priority}
         unoptimized
       />
     </div>
   );
 }
-

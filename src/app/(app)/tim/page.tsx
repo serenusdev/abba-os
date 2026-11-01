@@ -312,20 +312,21 @@ export default function TimPage() {
               {/* Members List */}
               <div className="space-y-3.5">
                 {filteredProfiles.length === 0 ? (
-                  <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                  <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                     <Illustration
                       src="/illustrations/undraw_profile_9xdn.svg"
                       alt="Belum ada personil"
-                      width={180}
-                      height={130}
-                      className="mb-4 max-h-[140px]"
+                      width={130}
+                      height={90}
                     />
-                    <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                      Belum ada personil terdaftar
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-                      Daftar santri, pengurus, dan staf pondok akan tampil di sini setelah akun aktif dibuat.
-                    </p>
+                    <div>
+                      <p className="font-headline-sm text-base font-semibold text-on-surface">
+                        Belum Ada Personil Terdaftar
+                      </p>
+                      <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mt-1">
+                        Daftar santri, pengurus, dan staf pondok akan tampil di sini setelah akun aktif terdaftar.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   filteredProfiles.map((person) => {
@@ -512,20 +513,21 @@ export default function TimPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {teams.length === 0 ? (
-                  <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center col-span-full">
+                  <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3 col-span-full">
                     <Illustration
                       src="/illustrations/undraw_connect-the-dots_4p4i.svg"
                       alt="Belum ada struktur tim"
-                      width={180}
-                      height={130}
-                      className="mb-4 max-h-[140px]"
+                      width={130}
+                      height={90}
                     />
-                    <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
-                      Belum ada struktur tim
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-                      Sentra dan divisi kerja pondok akan ditampilkan di sini.
-                    </p>
+                    <div>
+                      <p className="font-headline-sm text-base font-semibold text-on-surface">
+                        Belum Ada Struktur Tim
+                      </p>
+                      <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mt-1">
+                        Sentra dan divisi kerja pondok akan ditampilkan di sini.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   teams.map((t) => (
