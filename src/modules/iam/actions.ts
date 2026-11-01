@@ -40,6 +40,66 @@ export interface ActiveUserItem {
 }
 
 /**
+ * Server Action: Submit Public Account Registration Request (Pathway A)
+ */
+export async function submitAccountApplicationAction(payload: {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  roleRequested: string;
+  teamRequested: string;
+  notes?: string;
+}): Promise<{ success: boolean; message: string }> {
+  if (!payload.fullName.trim() || !payload.email.trim() || !payload.phoneNumber.trim()) {
+    return {
+      success: false,
+      message: "Nama lengkap, email, dan nomor telepon wajib diisi.",
+    };
+  }
+
+  try {
+    const supabase = createAdminClient();
+
+    // Check if email already requested or exists
+    const { data: existingReq } = await supabase
+      .from("account_requests")
+      .select("id, status")
+      .eq("email", payload.email.trim().toLowerCase())
+      .maybeSingle();
+
+    if (existingReq) {
+      return {
+        success: false,
+        message: `Permohonan akun untuk email "${payload.email}" sudah pernah diajukan sebelumnya (Status: ${existingReq.status}). Silakan hubungi Admin.`,
+      };
+    }
+
+    const { error } = await supabase.from("account_requests").insert({
+      full_name: payload.fullName.trim(),
+      email: payload.email.trim().toLowerCase(),
+      phone_number: payload.phoneNumber.trim(),
+      role_requested: payload.roleRequested || "santri",
+      team_requested: payload.teamRequested || "Sentra Santri",
+      notes: payload.notes?.trim() || "",
+      status: "pending",
+    });
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      message: "Pengajuan akun berhasil dikirim! Menunggu peninjauan dan persetujuan Super Admin.",
+    };
+  } catch (err: any) {
+    console.error("Gagal menyimpan permohonan akun:", err);
+    return {
+      success: false,
+      message: err.message || "Gagal mengirimkan pengajuan akun. Silakan coba kembali.",
+    };
+  }
+}
+
+/**
  * Server Action: Query pending account registration requests
  */
 export async function getAccountRequestsAction(): Promise<AccountRequestItem[]> {
@@ -280,6 +340,6 @@ export async function resetUserSessionAction(
 /**
  * Server Action: Get Current User Profile for Client Components
  */
-export async function getCurrentUserAction(): Promise<UserProfile> {
+export async function getCurrentUserAction(): Promise<UserProfile | null> {
   return await getCurrentUserProfile();
 }

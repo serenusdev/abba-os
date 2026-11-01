@@ -43,7 +43,7 @@ export function MobileHeader({ user, title }: MobileHeaderProps) {
       : "Santri";
 
   return (
-    <header className="md:hidden fixed top-0 inset-x-0 z-50 bg-card/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe border-b border-border">
+    <header className="md:hidden fixed top-0 inset-x-0 z-50 bg-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe border-b border-border">
       <div className="h-16 px-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold flex-shrink-0 text-sm shadow-sm">

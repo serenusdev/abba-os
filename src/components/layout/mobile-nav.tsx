@@ -88,7 +88,7 @@ export function MobileNav({ user }: MobileNavProps) {
     <>
       <nav
         aria-label="Navigasi Utama Mobile"
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 pb-safe bg-card/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)] border-t border-border"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 pb-safe bg-card shadow-[0_-2px_12px_rgba(0,0,0,0.05)] border-t border-border"
       >
         <div className="flex items-center justify-around h-16 px-1 max-w-lg mx-auto">
           {navItems.map((item) => {

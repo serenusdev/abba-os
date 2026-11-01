@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = React.useState("salman.alfarisi@pondok.id");
-  const [password, setPassword] = React.useState("••••••••");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
 
@@ -18,11 +19,37 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorMessage("");
 
-    // Simulate login delay
-    setTimeout(() => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        if (
+          error.message.includes("Invalid login credentials") ||
+          error.message.includes("invalid_grant")
+        ) {
+          setErrorMessage("Email atau password yang Anda masukkan salah.");
+        } else if (error.message.includes("Email not confirmed")) {
+          setErrorMessage("Email Anda belum dikonfirmasi. Silakan periksa inbox email Anda.");
+        } else {
+          setErrorMessage(error.message);
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        router.push("/");
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat masuk ke sistem.";
+      setErrorMessage(msg);
       setIsLoading(false);
-      router.push("/");
-    }, 600);
+    }
   };
 
   return (
@@ -42,7 +69,7 @@ export default function LoginPage() {
         </div>
 
         {errorMessage && (
-          <div className="mb-4 p-3 rounded-xl bg-error-container text-on-error-container text-[13px] flex items-center gap-2">
+          <div className="mb-4 p-3 rounded-xl bg-error/15 border border-error/30 text-error text-[13px] flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px]">error</span>
             <span>{errorMessage}</span>
           </div>
@@ -52,49 +79,49 @@ export default function LoginPage() {
           <Input
             label="Alamat Email"
             type="email"
-            placeholder="nama@pondok.id"
+            placeholder="nama@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="email"
           />
 
-          <Input
-            label="Kata Sandi"
-            type="password"
-            placeholder="Masukkan kata sandi"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <div className="space-y-1.5">
+            <Input
+              label="Kata Sandi"
+              type="password"
+              placeholder="Masukkan kata sandi"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
 
           <Button
             type="submit"
             variant="primary"
             size="lg"
             className="w-full mt-2"
-            isLoading={isLoading}
+            disabled={isLoading}
           >
-            Masuk ke Sistem
+            {isLoading ? "Memproses Autentikasi..." : "Masuk ke Sistem"}
           </Button>
         </form>
 
-        <div className="mt-6 pt-5 border-t border-border flex flex-col items-center gap-3">
-          <p className="font-body-sm text-[13px] text-muted-foreground text-center">
-            Belum memiliki akses?{" "}
+        {/* Pathway to registration */}
+        <div className="mt-6 pt-6 border-t border-border text-center">
+          <p className="font-body-sm text-[13px] text-muted-foreground">
+            Belum memiliki akun santri atau pengurus?{" "}
             <Link
               href="/register"
-              className="text-primary font-label-md hover:underline"
+              className="text-primary font-semibold hover:underline"
             >
               Ajukan Akun Baru
             </Link>
           </p>
-
-          <span className="text-[11px] font-mono text-muted-foreground">
-            Yayasan Pondok Quran Abdurrahman bin Auf • WIB
-          </span>
         </div>
       </div>
     </div>
   );
 }
-

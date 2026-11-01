@@ -337,6 +337,7 @@ export default function TimPage() {
                         {/* Avatar & Online status */}
                         <div className="relative shrink-0">
                           {person.avatar ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               src={person.avatar}
                               alt={person.name}
@@ -595,6 +596,7 @@ export default function TimPage() {
 
             <div className="flex items-center gap-3.5">
               {selectedPerson.avatar ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={selectedPerson.avatar}
                   alt={selectedPerson.name}

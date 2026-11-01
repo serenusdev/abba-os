@@ -59,11 +59,13 @@ export async function queryAuditLogsAction(
     let dbQuery = supabase
       .from("audit_logs")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
-    if (query.trim()) {
+    const sanitizedQuery = query.replace(/[,()]/g, "").trim();
+    if (sanitizedQuery) {
       dbQuery = dbQuery.or(
-        `event_name.ilike.%${query.trim()}%,actor_name.ilike.%${query.trim()}%,target_label.ilike.%${query.trim()}%,action_detail.ilike.%${query.trim()}%`
+        `event_name.ilike.%${sanitizedQuery}%,actor_name.ilike.%${sanitizedQuery}%,target_label.ilike.%${sanitizedQuery}%,action_detail.ilike.%${sanitizedQuery}%`
       );
     }
 
@@ -248,7 +250,9 @@ export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetr
       .eq("attendance_date", today);
     if (attendances) {
       result.todayCheckedIn = attendances.length;
-      result.todayLate = attendances.filter((a) => a.classification === "late").length;
+      result.todayLate = (attendances as Array<{ classification: string }>).filter(
+        (a) => a.classification === "late"
+      ).length;
     }
 
     // 3. Reports
@@ -256,10 +260,11 @@ export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetr
       .from("daily_reports")
       .select("review_status");
     if (reports) {
-      result.pendingReports = reports.filter(
+      const typedReports = reports as Array<{ review_status?: string | null }>;
+      result.pendingReports = typedReports.filter(
         (r) => r.review_status === "not_reviewed" || !r.review_status
       ).length;
-      result.approvedReports = reports.filter((r) => r.review_status === "approved").length;
+      result.approvedReports = typedReports.filter((r) => r.review_status === "approved").length;
     }
 
     // 4. Pending account requests

@@ -14,7 +14,8 @@ export async function getCategoriesAction(): Promise<CategorySummary[]> {
       .order("sort_order", { ascending: true });
 
     if (!error && data && data.length > 0) {
-      return data.map((c) => ({
+      const typedData = data as Array<{ name: string; slug: string; icon?: string | null }>;
+      return typedData.map((c) => ({
         name: c.name,
         slug: c.slug,
         count: 0,
@@ -41,11 +42,13 @@ export async function getResourcesAction(
           id, name, slug
         )
       `)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
-    if (query.trim()) {
+    const sanitizedQuery = query.replace(/[,()]/g, "").trim();
+    if (sanitizedQuery) {
       dbQuery = dbQuery.or(
-        `name.ilike.%${query.trim()}%,description.ilike.%${query.trim()}%,slug.ilike.%${query.trim()}%`
+        `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%,slug.ilike.%${sanitizedQuery}%`
       );
     }
 

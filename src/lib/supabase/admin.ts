@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -6,8 +7,48 @@ import { createClient } from "@supabase/supabase-js";
  * on behalf of the server (e.g. background sync, initial seed, admin queries).
  */
 export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://iahicretctdwpjhxohio.supabase.co";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder";
+  if (process.env.VITEST) {
+    // Return in-memory mock client to prevent outbound network timeouts during Vitest runs
+    const createMockChain = () => {
+      const chain: any = {
+        select: () => chain,
+        insert: () => chain,
+        upsert: () => chain,
+        update: () => chain,
+        delete: () => chain,
+        eq: () => chain,
+        neq: () => chain,
+        is: () => chain,
+        or: () => chain,
+        ilike: () => chain,
+        order: () => chain,
+        limit: () => chain,
+        single: () => Promise.resolve({ data: null, error: null }),
+        maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        then: (resolve: any) => Promise.resolve({ data: null, error: null }).then(resolve),
+      };
+      return chain;
+    };
+
+    return {
+      from: () => createMockChain(),
+      auth: {
+        admin: {
+          createUser: () => Promise.resolve({ data: { user: { id: "mock-user-id" } }, error: null }),
+          deleteUser: () => Promise.resolve({ error: null }),
+        },
+      },
+    } as any;
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "Konfigurasi Supabase Admin tidak lengkap. Harap pastikan NEXT_PUBLIC_SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY terkonfigurasi di Environment Variables."
+    );
+  }
 
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {

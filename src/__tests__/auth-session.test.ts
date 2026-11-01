@@ -12,8 +12,9 @@ describe("Auth Session & Roles", () => {
 
   it("returns default mock user when Supabase is in fallback/mock mode", async () => {
     const profile = await getCurrentUserProfile();
-    expect(profile.id).toBe(DEFAULT_MOCK_USER.id);
-    expect(profile.email).toBe(DEFAULT_MOCK_USER.email);
+    expect(profile).toBeDefined();
+    expect(profile?.id).toBe(DEFAULT_MOCK_USER.id);
+    expect(profile?.email).toBe(DEFAULT_MOCK_USER.email);
   });
 });
 

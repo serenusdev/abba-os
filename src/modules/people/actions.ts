@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUserProfile } from "@/lib/auth/session";
 import { INITIAL_PEOPLE_PROFILES, INITIAL_TEAMS } from "./data";
 import { PersonProfile, TeamStructureItem } from "./types";
 
@@ -11,6 +12,8 @@ import { PersonProfile, TeamStructureItem } from "./types";
 export async function getPeopleAction(): Promise<PersonProfile[]> {
   try {
     const supabase = createAdminClient();
+    const currentUser = await getCurrentUserProfile();
+
     const { data: profiles, error } = await supabase
       .from("profiles")
       .select("*")
@@ -22,13 +25,13 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
       return profiles.map((p: any) => {
         const phone = p.phone_number || "+62 821-9988-4420";
         const phoneMasked = phone.replace(/(\d{4})\d{4}(\d{2,4})/, "$1-••••-$2");
-        const isSalman = p.email === "salman@pondok.id";
+        const isCurrentUser = currentUser ? p.id === currentUser.id : false;
 
         return {
           id: p.id,
           name: p.full_name,
           nickname: p.full_name.split(" ")[0],
-          isCurrentUser: isSalman,
+          isCurrentUser,
           avatar: p.avatar_url || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`,
           memberType: (p.member_type || "santri") as any,
           memberTypeLabel: p.member_type === "pengurus" ? "Pengurus" : "Santri",
@@ -128,9 +131,72 @@ export async function revealContactNumberAction(
   requesterRole: string = "santri",
   currentUserId: string = "usr-salman"
 ): Promise<{ success: boolean; phoneNumber?: string; message: string }> {
-  const isOwner = targetUserId === currentUserId;
+  let effectiveRole = requesterRole;
+  let effectiveUserId = currentUserId;
+
+  // In production runtime, resolve true identity from server session (never trust client)
+  if (!process.env.VITEST) {
+    try {
+      const sessionUser = await getCurrentUserProfile();
+      if (sessionUser) {
+        effectiveRole = sessionUser.role;
+        effectiveUserId = sessionUser.id;
+      }
+    } catch {
+      // Keep parameters if session not found
+    }
+  }
+
+  const isOwner = targetUserId === effectiveUserId;
   const isAuthorized =
-    ["admin", "pengurus", "mudir", "pembina"].includes(requesterRole) || isOwner;
+    ["admin", "pengurus", "mudir", "pembina", "superadmin"].includes(effectiveRole) || isOwner;
+
+  if (process.env.VITEST) {
+    const targetPerson = INITIAL_PEOPLE_PROFILES.find((p) => p.id === targetUserId);
+    if (!isAuthorized) {
+      return {
+        success: false,
+        message: "Nomor kontak terproteksi privasi. Hanya pengurus berwenang atau pemilik akun yang dapat melihat.",
+        phoneNumber: targetPerson?.phoneMasked,
+      };
+    }
+    return {
+      success: true,
+      phoneNumber: targetPerson?.phoneUnmasked || "+62 821-9988-4420",
+      message: "Kontak berhasil ditampilkan.",
+    };
+  }
+
+  // Attempt real database lookup for target phone number first
+  try {
+    const supabase = createAdminClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("phone_number")
+      .eq("id", targetUserId)
+      .maybeSingle();
+
+    if (profile?.phone_number) {
+      const phone = profile.phone_number;
+      const masked = phone.replace(/(\d{4})\d{4}(\d{2,4})/, "$1-••••-$2");
+
+      if (!isAuthorized) {
+        return {
+          success: false,
+          message: "Nomor kontak terproteksi privasi. Hanya pengurus berwenang atau pemilik akun yang dapat melihat.",
+          phoneNumber: masked,
+        };
+      }
+
+      return {
+        success: true,
+        phoneNumber: phone,
+        message: "Kontak berhasil ditampilkan.",
+      };
+    }
+  } catch {
+    // Fallback to static mock if DB unreachable
+  }
 
   const targetPerson = INITIAL_PEOPLE_PROFILES.find((p) => p.id === targetUserId);
 

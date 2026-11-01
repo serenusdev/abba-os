@@ -9,7 +9,6 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If Supabase is not yet configured with real credentials, let requests proceed in mock/preview mode
   if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
     return supabaseResponse;
   }
@@ -35,7 +34,29 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+  const isPublicRoute =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/api/calendar/feed');
+
+  // If unauthenticated and accessing protected app route
+  if (!user && !isPublicRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  // If already authenticated and accessing login or register
+  if (user && (pathname === '/login' || pathname === '/register')) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    return NextResponse.redirect(url);
+  }
 
   return supabaseResponse;
 }

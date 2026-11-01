@@ -16,6 +16,7 @@ import { getCurrentUserAction } from "@/modules/iam/actions";
 import { UserProfile } from "@/lib/auth/types";
 import type { ScheduleEventItem, AnnouncementItem } from "@/modules/schedules/types";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { LiveClock } from "@/components/ui/live-clock";
 
 export default function BerandaPage() {
   const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
@@ -31,7 +32,6 @@ export default function BerandaPage() {
 
   // Time clocks
   const [currentDateTime, setCurrentDateTime] = React.useState(formatOperationalDateTime());
-  const [currentTimeOnly, setCurrentTimeOnly] = React.useState("07:00");
 
   // Admin Quick Policy Modal
   const [isPolicyModalOpen, setIsPolicyModalOpen] = React.useState(false);
@@ -79,22 +79,7 @@ export default function BerandaPage() {
 
   React.useEffect(() => {
     loadData();
-
-    const updateClock = () => {
-      setCurrentDateTime(formatOperationalDateTime());
-      const now = new Date();
-      setCurrentTimeOnly(
-        now.toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Asia/Jakarta",
-        })
-      );
-    };
-
-    updateClock();
-    const timer = setInterval(updateClock, 1000);
-    return () => clearInterval(timer);
+    setCurrentDateTime(formatOperationalDateTime());
   }, [loadData]);
 
   const handleCheckin = async () => {
@@ -763,7 +748,7 @@ export default function BerandaPage() {
           {checkedIn ? (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-low text-success font-label-sm text-label-sm border border-success/30">
               <span className="material-symbols-outlined text-[14px]">check_circle</span>
-              Tercatat ({currentTimeOnly} WIB)
+              Tercatat (<LiveClock suffix="WIB" />)
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-tertiary font-label-sm text-label-sm">
@@ -796,7 +781,7 @@ export default function BerandaPage() {
         {checkedIn ? (
           <div className="w-full h-[52px] bg-success text-white font-label-md text-body-md rounded-xl flex items-center justify-center gap-2.5 shadow-sm">
             <span className="material-symbols-outlined text-[24px]">check_circle</span>
-            <span>Berhasil Presensi Hari Ini ({currentTimeOnly} WIB)</span>
+            <span>Berhasil Presensi Hari Ini (<LiveClock suffix="WIB" />)</span>
           </div>
         ) : (
           <button
@@ -816,7 +801,7 @@ export default function BerandaPage() {
             ) : (
               <>
                 <span className="material-symbols-outlined text-[24px]">touch_app</span>
-                <span>Check-in Sekarang ({currentTimeOnly} WIB)</span>
+                <span>Check-in Sekarang (<LiveClock suffix="WIB" />)</span>
               </>
             )}
           </button>

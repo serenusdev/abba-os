@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuthUser } from "@/lib/auth/guards";
 import { INITIAL_PROJECTS, INITIAL_TASKS } from "./data";
 import { ProjectItem, TaskItem, TaskPriority, TaskStatus } from "./types";
 
@@ -197,14 +198,10 @@ export async function createTaskAction(
     };
   }
 
+  const user = await requireAuthUser();
   let newId = `tsk-${Date.now()}`;
   try {
     const supabase = createAdminClient();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", "salman@pondok.id")
-      .single();
 
     const { data: inserted, error } = await supabase
       .from("tasks")
@@ -216,7 +213,7 @@ export async function createTaskAction(
         requires_review: payload.requiresReview,
         project_id: payload.projectId && payload.projectId.length > 30 ? payload.projectId : null,
         due_date: payload.dueDateIso || null,
-        created_by: profile?.id || null,
+        created_by: user.id,
       })
       .select("id")
       .single();

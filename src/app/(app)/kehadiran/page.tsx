@@ -9,10 +9,10 @@ import {
 } from "@/modules/attendance/actions";
 import { AttendanceRecordItem } from "@/modules/attendance/types";
 import { getActivePolicyAction, type PolicySettingItem } from "@/modules/analytics/actions";
+import { LiveClock } from "@/components/ui/live-clock";
 
 export default function KehadiranPage() {
   // Live server clock
-  const [clockTime, setClockTime] = React.useState("--:--:--");
   const [currentDateFormatted, setCurrentDateFormatted] = React.useState("");
   const [checkedIn, setCheckedIn] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -29,30 +29,16 @@ export default function KehadiranPage() {
       setPolicy(p);
     });
 
-    const updateClock = () => {
-      const now = new Date();
-      setClockTime(
-        now.toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          timeZone: "Asia/Jakarta",
-        })
-      );
-      setCurrentDateFormatted(
-        now.toLocaleDateString("id-ID", {
-          weekday: "long",
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-          timeZone: "Asia/Jakarta",
-        })
-      );
-    };
-
-    updateClock();
-    const timer = setInterval(updateClock, 1000);
-    return () => clearInterval(timer);
+    const now = new Date();
+    setCurrentDateFormatted(
+      now.toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "Asia/Jakarta",
+      })
+    );
   }, []);
 
   // Correction Modal State
@@ -161,7 +147,7 @@ export default function KehadiranPage() {
               Waktu Resmi Operasional
             </p>
             <p className="font-mono text-[30px] md:text-[34px] font-bold tracking-tight text-primary leading-none mt-1">
-              {clockTime}{" "}
+              <LiveClock format="time-seconds" />{" "}
               <span className="font-body-sm text-body-sm font-normal text-muted-foreground">
                 WIB
               </span>

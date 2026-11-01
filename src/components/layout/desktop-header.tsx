@@ -39,7 +39,7 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
   };
 
   return (
-    <header className="hidden md:flex h-16 fixed top-0 right-0 left-64 bg-card/85 backdrop-blur-md border-b border-border z-30 px-6 items-center justify-between">
+    <header className="hidden md:flex h-16 fixed top-0 right-0 left-64 bg-card border-b border-border z-30 px-6 items-center justify-between">
       {/* Page Title & Context */}
       <div>
         <h1 className="font-headline-sm text-headline-sm text-on-surface">
