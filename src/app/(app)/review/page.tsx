@@ -3,6 +3,7 @@
 import * as React from "react";
 import { UnauthorizedState } from "@/components/ui/unauthorized-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Illustration } from "@/components/ui/illustration";
 import { getCurrentUserAction } from "@/modules/iam/actions";
 import { UserProfile } from "@/lib/auth/types";
 import { DailyReport, ReviewStatus } from "@/modules/reports/types";
@@ -178,20 +179,29 @@ export default function ReviewPage() {
         </div>
 
         {/* Operational Philosophy Banner (BR-REP-06) */}
-        <div className="bg-surface-container-low p-3.5 sm:p-4 rounded-xl flex items-start gap-3 shadow-xs border border-border/40">
-          <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center shrink-0 text-primary mt-0.5">
-            <span className="material-symbols-outlined text-[20px]">spa</span>
+        <div className="bg-surface-container-low p-3.5 sm:p-4 rounded-xl flex items-center justify-between gap-4 shadow-xs border border-border/40 overflow-hidden">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center shrink-0 text-primary mt-0.5">
+              <span className="material-symbols-outlined text-[20px]">spa</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-label-sm text-label-sm text-on-surface font-semibold">
+                Tarbiyah Nyaman &amp; Bermakna
+              </p>
+              <p className="font-body-sm text-body-sm text-muted-foreground leading-relaxed mt-0.5 text-xs sm:text-sm">
+                Review santun mengikuti kesiapan asatidz—tidak dipaksakan deadline
+                buru-buru (BR-REP-06). Berikan masukan yang membangun untuk progres
+                santri. Barakallahu fiikum.
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-label-sm text-label-sm text-on-surface font-semibold">
-              Tarbiyah Nyaman &amp; Bermakna
-            </p>
-            <p className="font-body-sm text-body-sm text-muted-foreground leading-relaxed mt-0.5 text-xs sm:text-sm">
-              Review santun mengikuti kesiapan asatidz—tidak dipaksakan deadline
-              buru-buru (BR-REP-06). Berikan masukan yang membangun untuk progres
-              santri. Barakallahu fiikum.
-            </p>
-          </div>
+          <Illustration
+            src="/illustrations/undraw_reviews_bmgj.svg"
+            alt="Review Laporan"
+            width={120}
+            height={80}
+            className="hidden md:block shrink-0 max-h-[75px]"
+          />
         </div>
       </section>
 
@@ -337,12 +347,18 @@ export default function ReviewPage() {
           </div>
 
           {filteredReports.length === 0 ? (
-            <div className="bg-card rounded-xl p-8 text-center border border-border shadow-xs space-y-2">
-              <span className="material-symbols-outlined text-[36px] text-muted-foreground">
-                inbox
-              </span>
-              <p className="font-label-md text-on-surface">Tidak ada antrean laporan</p>
-              <p className="text-xs text-muted-foreground">
+            <div className="bg-card rounded-2xl p-8 text-center border border-border shadow-xs flex flex-col items-center justify-center">
+              <Illustration
+                src="/illustrations/undraw_document-review_lfir.svg"
+                alt="Tidak ada antrean laporan"
+                width={180}
+                height={130}
+                className="mb-4 max-h-[140px]"
+              />
+              <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
+                Tidak ada antrean laporan
+              </p>
+              <p className="text-xs text-muted-foreground max-w-xs">
                 Semua laporan pada tab ini telah ditinjau atau tidak cocok dengan pencarian.
               </p>
             </div>

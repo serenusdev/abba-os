@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Illustration } from "@/components/ui/illustration";
 import { submitAccountApplicationAction } from "@/modules/iam/actions";
 
 export default function RegisterPage() {
@@ -64,12 +65,16 @@ export default function RegisterPage() {
         )}
 
         {submitted ? (
-          <div className="flex flex-col items-center text-center py-6 space-y-4">
-            <div className="w-14 h-14 rounded-full bg-success/15 text-success flex items-center justify-center border border-success/30">
-              <span className="material-symbols-outlined text-[32px]">check_circle</span>
-            </div>
+          <div className="flex flex-col items-center text-center py-4 space-y-4">
+            <Illustration
+              src="/illustrations/undraw_mail-sent_dagx.svg"
+              alt="Pengajuan Berhasil Dikirim"
+              width={180}
+              height={130}
+              className="max-h-[140px]"
+            />
             <div>
-              <h3 className="font-headline-sm text-headline-sm text-on-surface">
+              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
                 Pengajuan Berhasil Dikirim
               </h3>
               <p className="font-body-sm text-body-sm text-muted-foreground mt-1 max-w-sm mx-auto">

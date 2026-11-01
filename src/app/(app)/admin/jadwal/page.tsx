@@ -6,6 +6,7 @@ import { getCurrentUserAction } from "@/modules/iam/actions";
 import { UserProfile } from "@/lib/auth/types";
 import { UnauthorizedState } from "@/components/ui/unauthorized-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Illustration } from "@/components/ui/illustration";
 import {
   getEventsAction,
   getAnnouncementsAction,
@@ -288,17 +289,23 @@ export default function AdminJadwalPage() {
         /* Agenda Table / Cards */
         <div className="space-y-3">
           {events.length === 0 ? (
-            <div className="bg-card rounded-2xl p-12 text-center border border-dashed border-border space-y-3">
-              <span className="material-symbols-outlined text-[48px] text-muted-foreground">
-                calendar_today
-              </span>
-              <h3 className="font-headline-sm text-on-surface">Belum ada agenda kegiatan</h3>
-              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            <div className="bg-card rounded-2xl p-8 sm:p-12 text-center border border-dashed border-border flex flex-col items-center justify-center">
+              <Illustration
+                src="/illustrations/undraw_done_erdp.svg"
+                alt="Belum ada agenda kegiatan"
+                width={180}
+                height={130}
+                className="mb-4 max-h-[140px]"
+              />
+              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
+                Belum ada agenda kegiatan
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto mb-4">
                 Belum ada jadwal yang dimasukkan ke dalam database. Tambahkan agenda baru untuk santri dan pengurus.
               </p>
               <button
                 onClick={() => setIsEventModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-xs shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-md text-xs shadow-xs"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
                 <span>Buat Agenda Sekarang</span>
@@ -359,17 +366,23 @@ export default function AdminJadwalPage() {
         /* Announcements Table / Cards */
         <div className="space-y-3">
           {announcements.length === 0 ? (
-            <div className="bg-card rounded-2xl p-12 text-center border border-dashed border-border space-y-3">
-              <span className="material-symbols-outlined text-[48px] text-muted-foreground">
-                announcement
-              </span>
-              <h3 className="font-headline-sm text-on-surface">Belum ada siaran pengumuman</h3>
-              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            <div className="bg-card rounded-2xl p-8 sm:p-12 text-center border border-dashed border-border flex flex-col items-center justify-center">
+              <Illustration
+                src="/illustrations/undraw_mail-sent_dagx.svg"
+                alt="Belum ada siaran pengumuman"
+                width={180}
+                height={130}
+                className="mb-4 max-h-[140px]"
+              />
+              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
+                Belum ada siaran pengumuman
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto mb-4">
                 Kirim pengumuman penting untuk santri dan tim pondok. Pengumuman penting akan disematkan di beranda.
               </p>
               <button
                 onClick={() => setIsAnnouncementModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-sm text-xs shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary font-label-md text-xs shadow-xs"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
                 <span>Buat Pengumuman Sekarang</span>

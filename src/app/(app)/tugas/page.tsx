@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Illustration } from "@/components/ui/illustration";
 import {
   ProjectItem,
   TaskItem,
@@ -470,14 +471,18 @@ export default function TugasPage() {
               {/* Task Groups Section (TSK-009) */}
               <div className="space-y-4">
                 {filteredTasks.length === 0 ? (
-                  <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2">
-                    <span className="material-symbols-outlined text-[40px] text-muted-foreground">
-                      assignment_turned_in
-                    </span>
-                    <p className="font-label-md text-on-surface text-[15px]">
+                  <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                    <Illustration
+                      src="/illustrations/undraw_organizing-work_gmo9.svg"
+                      alt="Belum ada tugas"
+                      width={200}
+                      height={140}
+                      className="mb-4 max-h-[150px]"
+                    />
+                    <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
                       Belum ada tugas tercatat
                     </p>
-                    <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
                       Tekan tombol &quot;+ Tambah Tugas Baru&quot; untuk membuat tugas baru bagi Anda atau tim sentra.
                     </p>
                   </div>
@@ -668,14 +673,18 @@ export default function TugasPage() {
           {activeTab === "projects" && (
             <div className="space-y-3">
               {projects.length === 0 ? (
-                <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2">
-                  <span className="material-symbols-outlined text-[40px] text-muted-foreground">
-                    folder_off
-                  </span>
-                  <p className="font-label-md text-on-surface text-[15px]">
+                <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                  <Illustration
+                    src="/illustrations/undraw_in-progress_2mox.svg"
+                    alt="Belum ada proyek"
+                    width={200}
+                    height={140}
+                    className="mb-4 max-h-[150px]"
+                  />
+                  <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
                     Belum ada proyek dibuat
                   </p>
-                  <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                  <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
                     Daftar proyek dan inisiatif santri akan tampil di sini setelah ditambahkan oleh pembina atau koordinator.
                   </p>
                 </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Illustration } from "@/components/ui/illustration";
 import { PersonProfile, TeamStructureItem } from "@/modules/people/types";
 import {
   revealContactNumberAction,
@@ -311,14 +312,18 @@ export default function TimPage() {
               {/* Members List */}
               <div className="space-y-3.5">
                 {filteredProfiles.length === 0 ? (
-                  <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2">
-                    <span className="material-symbols-outlined text-[40px] text-muted-foreground">
-                      person_off
-                    </span>
-                    <p className="font-label-md text-on-surface text-[15px]">
+                  <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                    <Illustration
+                      src="/illustrations/undraw_profile_9xdn.svg"
+                      alt="Belum ada personil"
+                      width={180}
+                      height={130}
+                      className="mb-4 max-h-[140px]"
+                    />
+                    <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
                       Belum ada personil terdaftar
                     </p>
-                    <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
                       Daftar santri, pengurus, dan staf pondok akan tampil di sini setelah akun aktif dibuat.
                     </p>
                   </div>
@@ -507,14 +512,18 @@ export default function TimPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {teams.length === 0 ? (
-                  <div className="p-12 text-center bg-card rounded-xl border border-dashed border-border text-muted-foreground space-y-2 col-span-full">
-                    <span className="material-symbols-outlined text-[40px] text-muted-foreground">
-                      diversity_3
-                    </span>
-                    <p className="font-label-md text-on-surface text-[15px]">
+                  <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center col-span-full">
+                    <Illustration
+                      src="/illustrations/undraw_connect-the-dots_4p4i.svg"
+                      alt="Belum ada struktur tim"
+                      width={180}
+                      height={130}
+                      className="mb-4 max-h-[140px]"
+                    />
+                    <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
                       Belum ada struktur tim
                     </p>
-                    <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                    <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
                       Sentra dan divisi kerja pondok akan ditampilkan di sini.
                     </p>
                   </div>

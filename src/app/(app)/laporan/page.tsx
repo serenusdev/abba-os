@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Illustration } from "@/components/ui/illustration";
 import { REPORT_CATEGORIES } from "@/modules/reports/data";
 import { DailyReport, ReportItem } from "@/modules/reports/types";
 import {
@@ -302,6 +303,26 @@ export default function LaporanPage() {
                 </span>
               </div>
             </div>
+
+            {report.submissionStatus === "submitted" && (
+              <div className="bg-success/10 border border-success/30 rounded-xl p-3.5 flex items-center gap-3">
+                <Illustration
+                  src="/illustrations/undraw_mail-sent_dagx.svg"
+                  alt="Laporan Terkirim"
+                  width={64}
+                  height={50}
+                  className="shrink-0 max-h-[50px]"
+                />
+                <div className="min-w-0">
+                  <p className="font-label-md text-success font-semibold text-xs sm:text-sm">
+                    Laporan Berhasil Terkirim
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                    Laporan harian telah tersimpan dan masuk antrean tinjauan asatidz pembina.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Deadline & SLA Banner (BR-REP-03, BR-REP-04) */}
             <div className="bg-surface-container-low rounded-lg p-3.5 flex gap-2.5 items-start">

@@ -10,6 +10,7 @@ import {
 import { AttendanceRecordItem } from "@/modules/attendance/types";
 import { getActivePolicyAction, type PolicySettingItem } from "@/modules/analytics/actions";
 import { LiveClock } from "@/components/ui/live-clock";
+import { Illustration } from "@/components/ui/illustration";
 
 export default function KehadiranPage() {
   // Live server clock
@@ -242,16 +243,20 @@ export default function KehadiranPage() {
             {/* Interactive Tactile Button with Ripple & State */}
             <div className="relative">
               {checkedIn ? (
-                <div className="p-4 bg-surface-container-low text-success border border-success/30 rounded-2xl flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[32px]">
-                    check_circle
-                  </span>
+                <div className="p-4 bg-surface-container-low text-success border border-success/30 rounded-2xl flex items-center gap-3.5">
+                  <Illustration
+                    src="/illustrations/undraw_done_erdp.svg"
+                    alt="Presensi Berhasil"
+                    width={70}
+                    height={55}
+                    className="shrink-0 max-h-[55px]"
+                  />
                   <div className="flex-1 min-w-0">
-                    <p className="font-headline-sm text-[17px] font-bold leading-tight">
+                    <p className="font-headline-sm text-[16px] font-bold leading-tight text-on-surface">
                       Presensi Anda Telah Tercatat
                     </p>
-                    <p className="font-body-sm text-[13px] text-muted-foreground mt-0.5">
-                      {checkedInTime} • Status: {checkedInStatus} (Tervalidasi Server)
+                    <p className="font-body-sm text-[12px] sm:text-[13px] text-muted-foreground mt-0.5">
+                      {checkedInTime} • Status: <span className="font-semibold text-success">{checkedInStatus}</span> (Tervalidasi Server)
                     </p>
                   </div>
                 </div>

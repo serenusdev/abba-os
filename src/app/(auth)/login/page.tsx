@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Illustration } from "@/components/ui/illustration";
 import { createClient } from "@/lib/supabase/client";
 import { ensureSuperAdminAccountAction } from "@/modules/iam/actions";
 
@@ -71,9 +72,13 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-sm">
         {/* Brand header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white font-bold text-xl shadow-sm mb-3">
-            P
-          </div>
+          <Illustration
+            src="/illustrations/undraw_protection-enabled_pve7.svg"
+            alt="Keamanan Terjamin"
+            width={120}
+            height={85}
+            className="mb-3 max-h-[80px]"
+          />
           <h2 className="font-headline-sm text-[22px] text-on-surface font-bold">
             Pondok OS
           </h2>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Illustration } from "@/components/ui/illustration";
 import { CATEGORIES_DATA } from "@/modules/library/data";
 import { CategorySummary, ResourceItem } from "@/modules/library/types";
 import { getResourcesAction, getCategoriesAction } from "@/modules/library/actions";
@@ -377,11 +378,15 @@ export default function ResourceLibraryPage() {
 
           {/* Empty State */}
           {filteredResources.length === 0 ? (
-            <div className="p-12 text-center bg-card rounded-2xl border border-dashed border-border space-y-3">
-              <span className="material-symbols-outlined text-[36px] text-muted-foreground">
-                search_off
-              </span>
-              <h3 className="font-headline-sm text-headline-sm text-on-surface">
+            <div className="p-8 sm:p-12 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+              <Illustration
+                src="/illustrations/undraw_road-to-knowledge_ufma.svg"
+                alt="Tidak Ada Resource yang Cocok"
+                width={200}
+                height={140}
+                className="mb-4 max-h-[150px]"
+              />
+              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
                 Tidak Ada Resource yang Cocok
               </h3>
               <p className="font-body-sm text-[13px] text-muted-foreground max-w-sm mx-auto">

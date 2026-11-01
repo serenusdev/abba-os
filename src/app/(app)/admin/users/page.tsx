@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { UnauthorizedState } from "@/components/ui/unauthorized-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Illustration } from "@/components/ui/illustration";
 import { UserProfile } from "@/lib/auth/types";
 import {
   getAccountRequestsAction,
@@ -173,19 +174,28 @@ export default function AdminUsersPage() {
   return (
     <div className="flex flex-col w-full pb-8 max-w-4xl mx-auto">
       {/* 1. Content Context Header */}
-      <div className="flex flex-col gap-1 mb-4">
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-mono text-[12px] tracking-tight font-semibold">
-            PRD-01 • IAM &amp; ACCESS
-          </span>
-          <span className="font-mono text-[12px] text-muted-foreground">IAM-001</span>
+      <div className="flex items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border mb-5 shadow-xs">
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-mono text-[12px] tracking-tight font-semibold">
+              PRD-01 • IAM &amp; ACCESS
+            </span>
+            <span className="font-mono text-[12px] text-muted-foreground">IAM-001</span>
+          </div>
+          <h2 className="font-headline-lg text-headline-lg font-bold text-on-surface">
+            Kelola Akses &amp; Akun
+          </h2>
+          <p className="font-body-md text-body-md text-muted-foreground">
+            Persetujuan pendaftaran santri, manajemen sesi aktif, dan kontrol peran berbasis RBAC.
+          </p>
         </div>
-        <h2 className="font-headline-lg text-headline-lg text-on-surface">
-          Kelola Akses &amp; Akun
-        </h2>
-        <p className="font-body-md text-body-md text-muted-foreground">
-          Persetujuan pendaftaran santri, manajemen sesi aktif, dan kontrol peran berbasis RBAC.
-        </p>
+        <Illustration
+          src="/illustrations/undraw_team-permissions_1lrk.svg"
+          alt="Kelola Akses & Akun"
+          width={130}
+          height={90}
+          className="hidden md:block shrink-0 max-h-[85px]"
+        />
       </div>
 
       {/* 2. Security Notice Banner */}
@@ -283,14 +293,18 @@ export default function AdminUsersPage() {
               <p className="font-body-sm text-[13px] mt-2">Memuat antrean registrasi...</p>
             </div>
           ) : pendingRequests.length === 0 ? (
-            <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1.5">
-              <span className="material-symbols-outlined text-[36px] text-muted-foreground">
-                how_to_reg
-              </span>
-              <p className="font-label-md text-on-surface text-[14px]">
+            <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+              <Illustration
+                src="/illustrations/undraw_done_erdp.svg"
+                alt="Tidak ada antrean pendaftaran"
+                width={170}
+                height={120}
+                className="mb-4 max-h-[130px]"
+              />
+              <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
                 Tidak ada permohonan pendaftaran yang menunggu
               </p>
-              <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
                 Calon santri atau pengurus yang mendaftar secara mandiri akan muncul di sini untuk verifikasi dan persetujuan hak akses RBAC.
               </p>
             </div>
@@ -505,14 +519,18 @@ export default function AdminUsersPage() {
                 <p className="font-body-sm text-[13px] mt-2">Memuat daftar pengguna aktif...</p>
               </div>
             ) : filteredActiveUsers.length === 0 ? (
-              <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1.5">
-                <span className="material-symbols-outlined text-[36px] text-muted-foreground">
-                  group_off
-                </span>
-                <p className="font-label-md text-on-surface text-[14px]">
+              <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+                <Illustration
+                  src="/illustrations/undraw_profile_9xdn.svg"
+                  alt="Belum ada pengguna aktif"
+                  width={170}
+                  height={120}
+                  className="mb-4 max-h-[130px]"
+                />
+                <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
                   Belum ada pengguna aktif terdaftar
                 </p>
-                <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
                   Gunakan tombol &quot;Buat Akun Manual (Jalur B Admin)&quot; di bawah untuk menambahkan pengguna baru secara langsung.
                 </p>
               </div>
@@ -582,15 +600,19 @@ export default function AdminUsersPage() {
       {activeTab === "archived" && (
         <div className="flex flex-col gap-3 mb-6">
           {suspendedUsersList.length === 0 ? (
-            <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1.5">
-              <span className="material-symbols-outlined text-[36px] text-muted-foreground">
-                shield_person
-              </span>
-              <p className="font-label-md text-on-surface text-[14px]">
+            <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center">
+              <Illustration
+                src="/illustrations/undraw_protection-enabled_pve7.svg"
+                alt="Tidak ada akun ditangguhkan"
+                width={160}
+                height={110}
+                className="mb-4 max-h-[120px]"
+              />
+              <p className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-1">
                 Tidak ada akun yang ditangguhkan
               </p>
-              <p className="text-[12px] text-muted-foreground max-w-sm mx-auto">
-                Akun yang dinonaktifkan atau disuspend oleh kebijakan IAM akan tercatat di sini.
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
+                Semua akun berada dalam status tertib. Akun yang dinonaktifkan atau disuspend oleh kebijakan IAM akan tercatat di sini.
               </p>
             </div>
           ) : (
