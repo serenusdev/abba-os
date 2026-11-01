@@ -133,8 +133,28 @@ export async function generateICalSubscriptionAction(): Promise<{
   icalUrl: string;
   message: string;
 }> {
-  const token = "usr-salman-feed-token-9988";
-  const icalUrl = `https://pondok.os/api/calendar/feed?token=${token}`;
+  let baseUrl = "";
+  try {
+    const { headers } = await import("next/headers");
+    const headerList = await headers();
+    const host = headerList.get("x-forwarded-host") || headerList.get("host");
+    const proto = headerList.get("x-forwarded-proto") || "https";
+    if (host) {
+      baseUrl = `${proto}://${host}`;
+    }
+  } catch {
+    // fallback for vitest runner or background task
+    baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pondok.os";
+  }
+
+  if (!baseUrl) {
+    baseUrl = "https://pondok.os";
+  }
+
+  // Generate unique dynamic subscriber token
+  const token = `feed-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const icalUrl = `${baseUrl}/api/calendar/feed?token=${token}`;
+
   return {
     success: true,
     icalUrl,
