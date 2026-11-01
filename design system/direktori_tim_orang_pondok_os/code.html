@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+
+<html lang="id"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-secondary-fixed": "#121e1e", "border": "rgba(19, 38, 44, 0.11)", "error": "#ba1a1a", "secondary-container": "#d8e5e5", "tertiary-container": "#915233", "surface-dim": "#c9dde5", "on-primary": "#ffffff", "tertiary-fixed": "#ffdbcc", "card": "#ffffff", "surface-container": "#ddf1f9", "muted": "#e9f0f2", "on-secondary-fixed-variant": "#3d4949", "on-secondary-container": "#5a6767", "ring": "#0b6e6a", "on-primary-container": "#9cede8", "tertiary": "#743b1e", "warning": "#f0b94a", "on-error-container": "#93000a", "on-primary-fixed-variant": "#00504d", "on-surface": "#0a1e24", "surface-container-high": "#d7ecf4", "on-tertiary-container": "#ffd7c5", "primary-container": "#0b6e6a", "on-error": "#ffffff", "inverse-on-surface": "#e0f4fc", "on-tertiary-fixed-variant": "#6f371a", "secondary-fixed-dim": "#bcc9c9", "surface-container-highest": "#d1e6ee", "surface": "#f2fbff", "accent": "#d6ecea", "outline": "#6e7978", "primary-fixed-dim": "#84d4cf", "primary-fixed": "#a0f1eb", "input-border": "rgba(19, 38, 44, 0.26)", "muted-foreground": "#4c6168", "on-surface-variant": "#3e4948", "inverse-primary": "#84d4cf", "tertiary-fixed-dim": "#ffb694", "background": "#f6f9fa", "on-background": "#0a1e24", "success": "#1e7a4c", "accent-foreground": "#0a4d4a", "primary": "#005451", "surface-container-low": "#e3f7ff", "inverse-surface": "#203339", "secondary-fixed": "#d8e5e5", "destructive": "#b42f3a", "surface-variant": "#d1e6ee", "surface-container-lowest": "#ffffff", "surface-bright": "#f2fbff", "on-secondary": "#ffffff", "on-primary-fixed": "#00201e", "on-tertiary": "#ffffff", "error-container": "#ffdad6", "outline-variant": "#bec9c7", "secondary": "#546161", "surface-tint": "#006a66" }, borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" }, spacing: { gutter: "1rem", margin: "1rem", "space-xl": "2rem", "margin-desktop": "1.5rem", "space-xs": "0.25rem", "space-sm": "0.5rem", "space-md": "1rem", "gutter-desktop": "1.5rem", "space-lg": "1.5rem" }, fontFamily: { "label-sm": ["Hanken Grotesk"], display: ["Hanken Grotesk"], "display-mobile": ["Hanken Grotesk"], "headline-lg-mobile": ["Hanken Grotesk"], "body-sm": ["Hanken Grotesk"], "body-md": ["Hanken Grotesk"], "headline-md": ["Hanken Grotesk"], "headline-lg": ["Hanken Grotesk"], "label-md": ["Hanken Grotesk"], "body-lg": ["Hanken Grotesk"], "headline-sm": ["Hanken Grotesk"], "code-md": ["IBM Plex Mono"] }, fontSize: { "label-sm": ["12px", { lineHeight: "1.3", fontWeight: "600" }], display: ["48px", { lineHeight: "1.08", letterSpacing: "-0.02em", fontWeight: "600" }], "display-mobile": ["32px", { lineHeight: "1.12", letterSpacing: "-0.015em", fontWeight: "600" }], "headline-lg-mobile": ["28px", { lineHeight: "1.18", letterSpacing: "-0.01em", fontWeight: "600" }], "body-sm": ["14px", { lineHeight: "1.5", fontWeight: "400" }], "body-md": ["16px", { lineHeight: "1.6", fontWeight: "400" }], "headline-md": ["24px", { lineHeight: "1.25", fontWeight: "600" }], "headline-lg": ["36px", { lineHeight: "1.12", letterSpacing: "-0.01em", fontWeight: "600" }], "label-md": ["14px", { lineHeight: "1.35", fontWeight: "600" }], "body-lg": ["17px", { lineHeight: "1.6", fontWeight: "400" }], "headline-sm": ["20px", { lineHeight: "1.35", fontWeight: "600" }], "code-md": ["13px", { lineHeight: "1.5", fontWeight: "400" }] } } } };</script><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#f6f9fa;}body{overscroll-behavior:y contain;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 0.5rem);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-background font-body-md text-on-surface antialiased min-h-screen flex flex-col"><header class="fixed top-0 inset-x-0 z-50 bg-card/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="h-16 px-4 flex items-center justify-between"><div class="flex items-center gap-2.5 min-w-0"><img alt="Pondok OS Logo" class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1XtYxOgpptwo46Hqq0k7qBYIqJQpewrGo_IFkNcl57inPRiVQ1xL9QZ6ANvBXcSu2Zp4QDzNlxkYdX0yRyDw4ooUpVawlh81yRfTNlhshVz_u7clehkgenZp-2s26megUSCKuaHtj__BuXi0Xx7kGabxtCJPc0N0EbAWX2mszTN6hZLfqTXD9kV65rm_amzX-qffohfsva9H8239wv2XV39qmu5r6r-L5HM1MqXqVYI"/><div class="flex flex-col min-w-0"><div class="flex items-center gap-1.5"><span class="font-headline-sm text-headline-sm text-primary tracking-tight leading-none truncate">Pondok OS</span><span class="px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground font-label-sm text-[10px] leading-tight flex-shrink-0">Santri / Pengurus</span></div><span class="font-body-sm text-[11px] text-muted-foreground truncate leading-tight mt-0.5">Direktori Tim &amp; Orang   Pondok Os</span></div></div><div class="flex items-center gap-1.5 flex-shrink-0"><button aria-label="Notifikasi Operasional" class="relative w-12 h-12 flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-accent/40 active:scale-95 transition-all" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-error ring-2 ring-card"></span></button><div class="w-12 h-12 flex items-center justify-center"><img alt="Profile Avatar" class="w-8 h-8 rounded-full object-cover ring-1 ring-border" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCH3s1V5k5nvQ8WRQJE6gU9pCzSCvhXwpWSW4uUm4pJ2Xr6_DWoddnDbThs-MSH-RciThzPO6PU2B_OrPvozfhbFdaN-4ut-n8FD7fV7FWR_qD3Qry0XOnad54qj9QnoaMWUyWkl8L_OtBH8vtqsLcUPN2mlxzisFKs9vCTXstZUSvQ3XThF6zHhg2UQqDGfFXRn-EoAtjX2xWNET9wAUHs1HbECpc_lvrVsqThcM"/></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-28 px-4 bg-background"><div class="flex flex-col w-full pb-6 space-y-4">
+<!-- Header Sub-title & Quick Stat Capsule -->
+<section class="flex flex-col gap-2 pt-1">
+<div class="flex items-center justify-between">
+<div>
+<p class="font-label-sm text-label-sm text-primary tracking-wide uppercase">PRD-07 • People &amp; Teams</p>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface tracking-tight">Direktori Anggota &amp; Tim</h2>
+</div>
+<div class="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-primary flex-shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[22px]">diversity_3</span>
+</div>
+</div>
+<!-- Stat bar pill -->
+<div class="flex items-center gap-2 bg-surface-container-high px-3.5 py-2 rounded-xl text-on-surface-variant">
+<span class="inline-flex w-2 h-2 rounded-full bg-success animate-pulse"></span>
+<span class="font-label-sm text-label-sm font-semibold text-on-surface">38 Anggota Aktif</span>
+<span class="text-outline-variant">•</span>
+<span class="font-body-sm text-body-sm text-muted-foreground">4 Tim Kolaborasi</span>
+<div class="ml-auto flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[16px]">verified_user</span>
+<span class="font-label-sm text-[11px] font-medium">Data Terverifikasi</span>
+</div>
+</div>
+</section>
+<!-- Segmented Tab Switcher -->
+<div class="grid grid-cols-2 p-1 bg-surface-variant rounded-xl gap-1" id="viewTabs">
+<button class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-card text-primary shadow-sm font-label-md text-label-md transition-all" id="tabAnggotaBtn" type="button">
+<span class="material-symbols-outlined text-[18px]">group</span>
+<span>Daftar Anggota</span>
+</button>
+<button class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-all" id="tabTimBtn" type="button">
+<span class="material-symbols-outlined text-[18px]">account_tree</span>
+<span>Struktur Tim</span>
+<span class="px-1.5 py-0.2 bg-primary-container text-on-primary font-label-sm text-[10px] rounded-full">4</span>
+</button>
+</div>
+<!-- Search and Horizontal Chip Filters -->
+<div class="space-y-2.5">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]">search</span>
+<input class="w-full h-12 pl-11 pr-10 bg-card rounded-xl text-on-surface font-body-md text-body-md placeholder:text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all" id="searchInput" placeholder="Cari nama santri, ustadz, atau keahlian..." type="text"/>
+<button aria-label="Filter Lanjutan" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary" type="button">
+<span class="material-symbols-outlined text-[20px]">tune</span>
+</button>
+</div>
+<!-- Filter chips scroll -->
+<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-nowrap" id="roleFilters">
+<button class="px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-medium shadow-sm transition-all flex items-center gap-1" type="button">
+<span>Semua</span>
+<span class="text-[11px] opacity-80">(38)</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-full bg-card hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm transition-all flex items-center gap-1 shadow-sm" type="button">
+<span>Santri</span>
+<span class="text-[11px] text-muted-foreground">(28)</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-full bg-card hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm transition-all flex items-center gap-1 shadow-sm" type="button">
+<span>Ustadz</span>
+<span class="text-[11px] text-muted-foreground">(4)</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-full bg-card hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm transition-all flex items-center gap-1 shadow-sm" type="button">
+<span>Pengurus</span>
+<span class="text-[11px] text-muted-foreground">(4)</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-full bg-card hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm transition-all flex items-center gap-1 shadow-sm" type="button">
+<span>Yayasan</span>
+<span class="text-[11px] text-muted-foreground">(2)</span>
+</button>
+</div>
+</div>
+<!-- MAIN TAB CONTENT: DAFTAR ANGGOTA -->
+<div class="space-y-3.5" id="contentAnggota">
+<div class="flex items-center justify-between text-muted-foreground px-0.5">
+<span class="font-label-sm text-[12px]">Menampilkan 4 dari 38 personil</span>
+<span class="font-label-sm text-[12px] flex items-center gap-1 text-primary cursor-pointer">
+        Urutkan: Sesuai Tim <span class="material-symbols-outlined text-[14px]">expand_more</span>
+</span>
+</div>
+<!-- KARTU 1: Salman Al-Farisi (Pengguna Aktif & Koordinator) -->
+<article class="bg-card rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+<div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full pointer-events-none"></div>
+<div class="flex items-start gap-3">
+<div class="relative flex-shrink-0">
+<img class="w-13 h-13 rounded-full object-cover shadow-inner" data-alt="Portrait photography of a 20-year-old Indonesian male student wearing a neat cream koko shirt and peci, smiling politely in a bright Islamic library room with teal-toned modern study shelves, soft studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbSmKvNu_Bngc5W1dZeaq31mdMR2JzX3PcQFQWejSdWI_MWy8952S_X_3ZFkE5H0ocrQEj9Of-J0536FERy_PK3ouLYJYHUXwI-xIF9Kob0Sc-Wkm-CAQ0aDGK5ED2_23E2sV8Q38Volx5PFZLsMcwSfH8bPFnSCVZgLaCp0vhPvCvfmRplz0A98dqWNpr7jWSir1JZRxhWC0nRX1EtQkap8Wq2MBl1NhaK5eB_PM" style="width: 52px; height: 52px;"/>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success rounded-full shadow-sm ring-2 ring-card" title="Online Aktif"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1">
+<h3 class="font-headline-sm text-headline-sm text-on-surface truncate">Salman Al-Farisi</h3>
+<span class="px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-label-sm text-[11px] flex-shrink-0">Anda</span>
+</div>
+<div class="flex items-center gap-2 mt-1 flex-wrap">
+<span class="px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-fixed font-label-sm text-[11px]">Santri</span>
+<span class="px-2 py-0.5 rounded-md bg-primary-container text-on-primary font-label-sm text-[11px] font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">military_tech</span> Koordinator Tim
+            </span>
+</div>
+</div>
+</div>
+<!-- Detail Penugasan & Metadata -->
+<div class="mt-3.5 pt-3 bg-surface-container-low rounded-xl p-3 space-y-2">
+<div class="flex items-start justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px] flex-shrink-0">
+<span class="material-symbols-outlined text-[16px] text-primary">groups</span> Tim:
+          </span>
+<span class="font-label-md text-label-md text-on-surface text-right font-medium">Sentra Digitalpreneur (Media &amp; IT)</span>
+</div>
+<div class="flex items-start justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px] flex-shrink-0">
+<span class="material-symbols-outlined text-[16px] text-tertiary">assignment_ind</span> Pereview Utama:
+          </span>
+<span class="font-label-sm text-label-sm text-primary font-semibold text-right">Ustadz Ahmad Fauzi, S.Pd.I</span>
+</div>
+<div class="flex items-center justify-between text-xs gap-2 pt-1">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px]">
+<span class="material-symbols-outlined text-[16px] text-secondary">contact_phone</span> Kontak:
+          </span>
+<!-- Nomor HP terproteksi hak akses PRD-07 §4.2 -->
+<div class="flex items-center gap-1.5 bg-card px-2 py-0.5 rounded-md text-on-surface-variant font-code-md text-code-md">
+<span class="material-symbols-outlined text-[13px] text-muted-foreground">lock</span>
+<span>+62 812-•••-9821</span>
+</div>
+</div>
+</div>
+<!-- Flags Kewajiban (BR-PPL-02 & PPL-008) -->
+<div class="mt-3 flex items-center justify-between flex-wrap gap-1.5 pt-1">
+<div class="flex items-center gap-1.5">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-success font-label-sm text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Wajib Absen
+          </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-success font-label-sm text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[14px]">description</span> Wajib Lapor Harian
+          </span>
+</div>
+<button aria-label="Buka profil Salman" class="w-8 h-8 rounded-lg bg-surface hover:bg-accent text-primary flex items-center justify-center transition-all ml-auto" type="button">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</article>
+<!-- KARTU 2: Ustadz Ahmad Fauzi, S.Pd.I (Pereview & Pembina) -->
+<article class="bg-card rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+<div class="flex items-start gap-3">
+<div class="relative flex-shrink-0">
+<img class="w-13 h-13 rounded-full object-cover shadow-inner" data-alt="Warm and respectful portrait of an Indonesian Islamic teacher in his late 30s with a neat trimmed beard wearing a white modest thobe and soft green scarf, smiling gently against an architectural mosque courtyard background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfrdkKL6LYZsB36-6vj9ZwMxmuEnLBcIcaK3wfcfJzeqaSiq822wwUNybxYzdF2rdbdafsbGt8odIDW41YtezV3vKllLX7_ipFc3CtZ-q8vJXWwYKnPjmv45QZBOuQmntFmvklGVjD6tVzsgipBpBLHqVQbdydD96JgyiHdgdMgdsl3wrEWVvN9tt2RN0rKV-5mydePnWKy6BOrGVwiI_rG3fLovDv7KomBJYfsnI" style="width: 52px; height: 52px;"/>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success rounded-full shadow-sm ring-2 ring-card"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1">
+<h3 class="font-headline-sm text-headline-sm text-on-surface truncate">Ustadz Ahmad Fauzi, S.Pd.I</h3>
+</div>
+<div class="flex items-center gap-2 mt-1 flex-wrap">
+<span class="px-2 py-0.5 rounded-md bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-sm text-[11px] font-semibold">Ustadz &amp; Pengurus</span>
+<span class="px-2 py-0.5 rounded-md bg-surface-variant text-on-surface-variant font-label-sm text-[11px]">Dewan Pembina</span>
+</div>
+</div>
+</div>
+<div class="mt-3.5 pt-3 bg-surface-container-low rounded-xl p-3 space-y-2">
+<div class="flex items-start justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px] flex-shrink-0">
+<span class="material-symbols-outlined text-[16px] text-primary">groups</span> Tim:
+          </span>
+<span class="font-label-md text-label-md text-on-surface text-right font-medium">Sentra Digital &amp; Tahfidz Al-Qur'an</span>
+</div>
+<div class="flex items-start justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px] flex-shrink-0">
+<span class="material-symbols-outlined text-[16px] text-tertiary">rate_review</span> Peran Khusus:
+          </span>
+<span class="font-label-sm text-label-sm text-tertiary font-semibold text-right">Koordinator Pembina &amp; Pereview Laporan</span>
+</div>
+<div class="flex items-center justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px]">
+<span class="material-symbols-outlined text-[16px] text-secondary">contact_phone</span> Kontak:
+          </span>
+<div class="flex items-center gap-1.5 bg-card px-2 py-0.5 rounded-md text-on-surface-variant font-code-md text-code-md">
+<span class="material-symbols-outlined text-[13px] text-success">lock_open</span>
+<span>+62 811-2345-6701</span>
+</div>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-between flex-wrap gap-1.5 pt-1">
+<div class="flex items-center gap-1.5">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent text-accent-foreground font-label-sm text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[14px]">fact_check</span> Reviewer Aktif (8 Santri)
+          </span>
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-container text-muted-foreground font-label-sm text-[11px]">
+            Halaqah Sore
+          </span>
+</div>
+<button aria-label="Buka profil Ahmad Fauzi" class="w-8 h-8 rounded-lg bg-surface hover:bg-accent text-primary flex items-center justify-center transition-all ml-auto" type="button">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</article>
+<!-- KARTU 3: Muhammad Zaky (Santri Multimedia) -->
+<article class="bg-card rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+<div class="flex items-start gap-3">
+<div class="relative flex-shrink-0">
+<div class="w-13 h-13 rounded-full bg-surface-dim flex items-center justify-center text-primary font-headline-sm font-semibold shadow-inner" style="width: 52px; height: 52px;">
+            MZ
+          </div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success rounded-full shadow-sm ring-2 ring-card"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1">
+<h3 class="font-headline-sm text-headline-sm text-on-surface truncate">Muhammad Zaky</h3>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[10px]">Aktif</span>
+</div>
+<div class="flex items-center gap-2 mt-1 flex-wrap">
+<span class="px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-fixed font-label-sm text-[11px]">Santri</span>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-[11px] font-medium">Koord. Media</span>
+</div>
+</div>
+</div>
+<div class="mt-3.5 pt-3 bg-surface-container-low rounded-xl p-3 space-y-2">
+<div class="flex items-start justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px] flex-shrink-0">
+<span class="material-symbols-outlined text-[16px] text-primary">groups</span> Tim:
+          </span>
+<span class="font-label-md text-label-md text-on-surface text-right font-medium">Multimedia &amp; Dokumentasi</span>
+</div>
+<div class="flex items-start justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px] flex-shrink-0">
+<span class="material-symbols-outlined text-[16px] text-tertiary">assignment_ind</span> Pereview Utama:
+          </span>
+<span class="font-label-sm text-label-sm text-primary font-medium text-right">Ustadz Ahmad Fauzi, S.Pd.I</span>
+</div>
+<div class="flex items-center justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px]">
+<span class="material-symbols-outlined text-[16px] text-secondary">contact_phone</span> Kontak:
+          </span>
+<div class="flex items-center gap-1.5 bg-card px-2 py-0.5 rounded-md text-on-surface-variant font-code-md text-code-md">
+<span class="material-symbols-outlined text-[13px] text-muted-foreground">lock</span>
+<span>+62 857-•••-1109</span>
+</div>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-between flex-wrap gap-1.5 pt-1">
+<div class="flex items-center gap-1.5">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-success font-label-sm text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Wajib Absen
+          </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-success font-label-sm text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[14px]">task</span> Lapor Harian
+          </span>
+</div>
+<button aria-label="Buka profil Muhammad Zaky" class="w-8 h-8 rounded-lg bg-surface hover:bg-accent text-primary flex items-center justify-center transition-all ml-auto" type="button">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</article>
+<!-- KARTU 4: Fikri Haikal (Santri Jaringan & IT) -->
+<article class="bg-card rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+<div class="flex items-start gap-3">
+<div class="relative flex-shrink-0">
+<img class="w-13 h-13 rounded-full object-cover shadow-inner" data-alt="Candid studio portrait of a young Indonesian male student in a casual navy flannel shirt with focused and friendly expression, tech workshop background with blurred server racks and warm warm daylight." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhkq_fprKAGp080byL3B2JYcEe63mMt4sRzHOwP-hguxZwUBMfRqGksK9XBDTjZpKWj3-y3nxbHxevZZmySvDwVVB36kuq1BA1oalfNgGZGN8gkklAl69zO1koYfAQfcP6PJPlGdYGJDWSs-1D7cLoO3FBxwEFv39xcLn33Jp42xb6Q1YBH2Xrb2Ncmj9zjj-qVqkr18k6eoH-OBO4nS30F939psu0LNZ__DRaOkw" style="width: 52px; height: 52px;"/>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-warning rounded-full shadow-sm ring-2 ring-card" title="Sedang Tugas Lapangan"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1">
+<h3 class="font-headline-sm text-headline-sm text-on-surface truncate">Fikri Haikal</h3>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-muted-foreground font-label-sm text-[10px]">Tugas Luar</span>
+</div>
+<div class="flex items-center gap-2 mt-1 flex-wrap">
+<span class="px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-fixed font-label-sm text-[11px]">Santri</span>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-[11px]">Teknisi Lab</span>
+</div>
+</div>
+</div>
+<div class="mt-3.5 pt-3 bg-surface-container-low rounded-xl p-3 space-y-2">
+<div class="flex items-start justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px] flex-shrink-0">
+<span class="material-symbols-outlined text-[16px] text-primary">groups</span> Tim:
+          </span>
+<span class="font-label-md text-label-md text-on-surface text-right font-medium">Infrastruktur &amp; Jaringan Pondok</span>
+</div>
+<div class="flex items-start justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px] flex-shrink-0">
+<span class="material-symbols-outlined text-[16px] text-tertiary">assignment_ind</span> Pereview Utama:
+          </span>
+<span class="font-label-sm text-label-sm text-primary font-medium text-right">Ustadz Hendra, S.T.</span>
+</div>
+<div class="flex items-center justify-between text-xs gap-2">
+<span class="text-muted-foreground flex items-center gap-1 font-body-sm text-[13px]">
+<span class="material-symbols-outlined text-[16px] text-secondary">contact_phone</span> Kontak:
+          </span>
+<div class="flex items-center gap-1.5 bg-card px-2 py-0.5 rounded-md text-on-surface-variant font-code-md text-code-md">
+<span class="material-symbols-outlined text-[13px] text-muted-foreground">lock</span>
+<span>+62 821-•••-4420</span>
+</div>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-between flex-wrap gap-1.5 pt-1">
+<div class="flex items-center gap-1.5">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-success font-label-sm text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Wajib Absen
+          </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-success font-label-sm text-[11px] font-semibold">
+<span class="material-symbols-outlined text-[14px]">history_edu</span> Wajib Lapor
+          </span>
+</div>
+<button aria-label="Buka profil Fikri Haikal" class="w-8 h-8 rounded-lg bg-surface hover:bg-accent text-primary flex items-center justify-center transition-all ml-auto" type="button">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</article>
+</div>
+<!-- SECTION: RINGKASAN TIM KOLABORASI (Sekilas Info Tim) -->
+<section class="mt-6 space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">hub</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Sekilas Tim Kolaborasi</h3>
+</div>
+<a class="font-label-sm text-label-sm text-primary hover:underline flex items-center gap-0.5" href="#">
+        Lihat Semua <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</a>
+</div>
+<div class="grid grid-cols-1 gap-2.5">
+<!-- Tim 1: Sentra Digital -->
+<div class="bg-card p-3.5 rounded-xl shadow-sm flex items-center justify-between gap-3 border-none hover:bg-surface-container-low transition-all">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-accent text-accent-foreground flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">laptop_mac</span>
+</div>
+<div class="min-w-0">
+<h4 class="font-label-md text-label-md text-on-surface font-semibold truncate">Tim Sentra Digital</h4>
+<p class="font-body-sm text-[13px] text-muted-foreground truncate">Koord: Salman Al-Farisi • 12 santri aktif</p>
+</div>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<span class="px-2 py-1 rounded-md bg-secondary-container text-on-secondary-fixed font-label-sm text-[11px] font-semibold">12 Orang</span>
+<span class="material-symbols-outlined text-muted-foreground text-[18px]">chevron_right</span>
+</div>
+</div>
+<!-- Tim 2: Media & Konten -->
+<div class="bg-card p-3.5 rounded-xl shadow-sm flex items-center justify-between gap-3 border-none hover:bg-surface-container-low transition-all">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container-high text-primary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">videocam</span>
+</div>
+<div class="min-w-0">
+<h4 class="font-label-md text-label-md text-on-surface font-semibold truncate">Tim Media &amp; Konten</h4>
+<p class="font-body-sm text-[13px] text-muted-foreground truncate">Koord: Muhammad Zaky • Produksi dakwah</p>
+</div>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<span class="px-2 py-1 rounded-md bg-secondary-container text-on-secondary-fixed font-label-sm text-[11px] font-semibold">8 Orang</span>
+<span class="material-symbols-outlined text-muted-foreground text-[18px]">chevron_right</span>
+</div>
+</div>
+<!-- Tim 3: Halaqah Tahfidz -->
+<div class="bg-card p-3.5 rounded-xl shadow-sm flex items-center justify-between gap-3 border-none hover:bg-surface-container-low transition-all">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed text-tertiary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+</div>
+<div class="min-w-0">
+<h4 class="font-label-md text-label-md text-on-surface font-semibold truncate">Tim Halaqah Tahfidz</h4>
+<p class="font-body-sm text-[13px] text-muted-foreground truncate">Koord: Ustadz Ahmad Fauzi • Rutin ba'da Subuh</p>
+</div>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<span class="px-2 py-1 rounded-md bg-secondary-container text-on-secondary-fixed font-label-sm text-[11px] font-semibold">18 Orang</span>
+<span class="material-symbols-outlined text-muted-foreground text-[18px]">chevron_right</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Delight Micro-Banner (Pondok Guidance) -->
+<div class="bg-gradient-to-r from-accent/50 to-surface-container-high/60 rounded-2xl p-4 flex items-center gap-3.5 mt-2">
+<div class="w-9 h-9 rounded-full bg-card flex items-center justify-center text-primary flex-shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">handshake</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-md text-label-md text-on-surface font-semibold leading-snug">Ta'awun &amp; Sinergi Kerja</p>
+<p class="font-body-sm text-[12px] text-muted-foreground leading-relaxed mt-0.5">Saling membantu antar penugasan tim. Koordinasikan kendala lapangan dengan pereview masing-masing.</p>
+</div>
+</div>
+</div>
+<!-- Tab and Filter Micro-Interaction Scripts -->
+<script>
+  (function() {
+    const tabAnggota = document.getElementById('tabAnggotaBtn');
+    const tabTim = document.getElementById('tabTimBtn');
+    const contentAnggota = document.getElementById('contentAnggota');
+    const roleFilters = document.querySelectorAll('#roleFilters button');
+
+    if (tabAnggota && tabTim) {
+      tabAnggota.addEventListener('click', function() {
+        tabAnggota.className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-card text-primary shadow-sm font-label-md text-label-md transition-all";
+        tabTim.className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-all";
+      });
+
+      tabTim.addEventListener('click', function() {
+        tabTim.className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-card text-primary shadow-sm font-label-md text-label-md transition-all";
+        tabAnggota.className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-all";
+      });
+    }
+
+    roleFilters.forEach(button => {
+      button.addEventListener('click', function() {
+        roleFilters.forEach(b => {
+          b.className = "px-3.5 py-1.5 rounded-full bg-card hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm transition-all flex items-center gap-1 shadow-sm";
+        });
+        this.className = "px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-medium shadow-sm transition-all flex items-center gap-1";
+      });
+    });
+  })();
+</script></main><nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-card/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)]" data-active-classes="text-primary font-semibold"><div class="flex items-center justify-around h-16 px-1 max-w-lg mx-auto"><a class="flex-1 min-w-[56px] h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-path="beranda" href="#"><span class="material-symbols-outlined text-[22px]">grid_view</span><span class="font-label-sm text-[11px] tracking-tight truncate">Beranda</span></a><a class="flex-1 min-w-[56px] h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-path="kehadiran" href="#"><span class="material-symbols-outlined text-[22px]">how_to_reg</span><span class="font-label-sm text-[11px] tracking-tight truncate">Kehadiran</span></a><a class="flex-1 min-w-[56px] h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-path="laporan" href="#"><span class="material-symbols-outlined text-[22px]">description</span><span class="font-label-sm text-[11px] tracking-tight truncate">Laporan</span></a><a class="flex-1 min-w-[56px] h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-path="tugas" href="#"><span class="material-symbols-outlined text-[22px]">calendar_month</span><span class="font-label-sm text-[11px] tracking-tight truncate">Tugas &amp; Jadwal</span></a><a class="flex-1 min-w-[56px] h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-path="lainnya" href="#"><span class="material-symbols-outlined text-[22px]">more_horiz</span><span class="font-label-sm text-[11px] tracking-tight truncate">Lainnya</span></a></div></nav></body></html>
