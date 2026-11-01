@@ -20,3 +20,4 @@ describe("Utility functions", () => {
     expect(formatted).toBe("08:15 WIB");
   });
 });
+

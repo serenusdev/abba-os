@@ -55,3 +55,4 @@ export async function getCurrentUserProfile(): Promise<UserProfile> {
     return DEFAULT_MOCK_USER;
   }
 }
+

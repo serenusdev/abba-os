@@ -30,3 +30,4 @@ export function AppShell({ children, user }: AppShellProps) {
     </div>
   );
 }
+

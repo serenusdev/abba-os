@@ -10,3 +10,4 @@ export default async function AppLayout({
 
   return <AppShell user={user}>{children}</AppShell>;
 }
+

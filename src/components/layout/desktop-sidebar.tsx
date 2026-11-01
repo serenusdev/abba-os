@@ -201,3 +201,4 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
     </aside>
   );
 }
+

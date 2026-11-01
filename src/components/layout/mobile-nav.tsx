@@ -112,3 +112,4 @@ export function MobileNav({ user }: MobileNavProps) {
     </>
   );
 }
+

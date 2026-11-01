@@ -16,3 +16,4 @@ describe("Auth Session & Roles", () => {
     expect(profile.email).toBe(DEFAULT_MOCK_USER.email);
   });
 });
+

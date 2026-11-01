@@ -33,3 +33,4 @@ export interface AuthSession {
   } | null;
   profile: UserProfile | null;
 }
+

@@ -95,3 +95,4 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
     </header>
   );
 }
+
