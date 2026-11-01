@@ -6,11 +6,12 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import { ensureSuperAdminAccountAction } from "@/modules/iam/actions";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
+  const [email, setEmail] = React.useState("serenusdev.op@gmail.com");
+  const [password, setPassword] = React.useState("Anzhaer_25");
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
 
@@ -21,10 +22,23 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
+      let { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
+
+      // Auto-provision fallback for super admin on first login attempt
+      if (error && email.trim().toLowerCase() === "serenusdev.op@gmail.com") {
+        const provisionRes = await ensureSuperAdminAccountAction();
+        if (provisionRes.success) {
+          const retry = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+          data = retry.data;
+          error = retry.error;
+        }
+      }
 
       if (error) {
         if (
@@ -108,6 +122,20 @@ export default function LoginPage() {
             {isLoading ? "Memproses Autentikasi..." : "Masuk ke Sistem"}
           </Button>
         </form>
+
+        {/* Temporary Super Admin Info Box */}
+        <div className="mt-4 p-3 rounded-xl bg-surface-container border border-border text-[12px] flex items-center justify-between">
+          <div className="flex items-center gap-2 text-on-surface">
+            <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+            <div>
+              <p className="font-semibold text-primary">Kredensial Super Admin Sementara</p>
+              <p className="text-muted-foreground font-mono">serenusdev.op@gmail.com</p>
+            </div>
+          </div>
+          <span className="text-[11px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+            Auto-fill
+          </span>
+        </div>
 
         {/* Pathway to registration */}
         <div className="mt-6 pt-6 border-t border-border text-center">

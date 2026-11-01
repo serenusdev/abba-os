@@ -343,3 +343,88 @@ export async function resetUserSessionAction(
 export async function getCurrentUserAction(): Promise<UserProfile | null> {
   return await getCurrentUserProfile();
 }
+
+/**
+ * Server Action: Ensure Super Admin Account Exists with Required Password
+ * Auto-provisions serenusdev.op@gmail.com with Anzhaer_25 and super_admin privileges.
+ */
+export async function ensureSuperAdminAccountAction(): Promise<ActionResult> {
+  if (process.env.VITEST) {
+    return { success: true, message: "Super admin mock account ready." };
+  }
+
+  try {
+    const supabase = createAdminClient();
+    const email = "serenusdev.op@gmail.com";
+    const password = "Anzhaer_25";
+    const fullName = "Super Admin Pondok";
+
+    const { data: usersData, error: listErr } = await supabase.auth.admin.listUsers();
+    if (listErr) throw listErr;
+
+    const existingUser = usersData?.users?.find(
+      (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+
+    let userId = existingUser?.id;
+
+    if (!userId) {
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName, role: "super_admin" },
+      });
+      if (createError) {
+        return { success: false, message: createError.message };
+      }
+      userId = newUser.user.id;
+    } else {
+      await supabase.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName, role: "super_admin" },
+      });
+    }
+
+    if (userId) {
+      await supabase.from("profiles").upsert({
+        id: userId,
+        email,
+        full_name: fullName,
+        status: "active",
+        member_type: "super_admin",
+        team_name: "Pengurus Inti",
+        notes: "Super Administrator Sistem Utama",
+      });
+
+      const { data: roleRow } = await supabase
+        .from("roles")
+        .select("id")
+        .eq("key", "super_admin")
+        .maybeSingle();
+
+      if (roleRow?.id) {
+        await supabase.from("user_roles").upsert(
+          {
+            user_id: userId,
+            role_id: roleRow.id,
+          },
+          { onConflict: "user_id,role_id" }
+        );
+      }
+    }
+
+    return {
+      success: true,
+      message: "Akun Super Admin berhasil disinkronisasi.",
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Gagal inisialisasi akun Super Admin.";
+    console.error("ensureSuperAdminAccountAction error:", msg);
+    return {
+      success: false,
+      message: msg,
+    };
+  }
+}
