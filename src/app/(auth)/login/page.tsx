@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Illustration } from "@/components/ui/illustration";
 import { createClient } from "@/lib/supabase/client";
 import { ensureSuperAdminAccountAction } from "@/modules/iam/actions";
 
@@ -68,6 +69,21 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center items-center px-4 py-8">
+      <div className="w-full flex flex-col lg:flex-row items-center justify-center gap-12 max-w-4xl">
+        {/* Decorative side illustration — desktop only */}
+        <div className="hidden lg:flex flex-col items-center justify-center gap-4 shrink-0" aria-hidden="true">
+          <Illustration
+            src="/illustrations/undraw_private-data_934y.svg"
+            alt=""
+            width={220}
+            height={205}
+          />
+          <p className="text-sm text-muted-foreground text-center max-w-[220px] leading-relaxed">
+            Platform operasional santri yang aman dan terpercaya.
+          </p>
+        </div>
+
+        {/* Login card */}
       <div className="w-full max-w-md bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-sm">
         {/* Brand header */}
         <div className="flex flex-col items-center text-center mb-6">
@@ -149,6 +165,7 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
+      </div>
       </div>
     </div>
   );

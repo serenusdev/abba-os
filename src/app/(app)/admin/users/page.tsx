@@ -513,10 +513,10 @@ export default function AdminUsersPage() {
             ) : filteredActiveUsers.length === 0 ? (
               <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                 <Illustration
-                  src="/illustrations/undraw_profile_9xdn.svg"
-                  alt="Belum ada pengguna aktif"
-                  width={130}
-                  height={90}
+                  src="/illustrations/undraw_team-permissions_1lrk.svg"
+                  alt="Belum ada pengguna terdaftar"
+                  width={150}
+                  height={104}
                 />
                 <div>
                   <p className="font-headline-sm text-base font-semibold text-on-surface">

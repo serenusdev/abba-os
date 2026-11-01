@@ -44,6 +44,23 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center items-center px-4 py-8">
+      <div className="w-full flex flex-col lg:flex-row items-center justify-center gap-12 max-w-4xl">
+        {/* Decorative side illustration — desktop only, hidden after success */}
+        {!submitted && (
+          <div className="hidden lg:flex flex-col items-center justify-center gap-4 shrink-0" aria-hidden="true">
+            <Illustration
+              src="/illustrations/undraw_profile_9xdn.svg"
+              alt=""
+              width={220}
+              height={125}
+            />
+            <p className="text-sm text-muted-foreground text-center max-w-[220px] leading-relaxed">
+              Daftarkan akun Anda dan mulai bergabung dengan komunitas Pondok OS.
+            </p>
+          </div>
+        )}
+
+        {/* Registration card */}
       <div className="w-full max-w-lg bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col items-center text-center mb-6">
           <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white font-bold text-xl shadow-sm mb-3">
@@ -193,6 +210,7 @@ export default function RegisterPage() {
             </div>
           </form>
         )}
+      </div>
       </div>
     </div>
   );

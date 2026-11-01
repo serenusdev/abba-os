@@ -340,17 +340,41 @@ export default function ReviewPage() {
           {filteredReports.length === 0 ? (
             <div className="bg-card rounded-2xl p-8 sm:p-10 text-center border border-dashed border-border shadow-xs flex flex-col items-center justify-center space-y-3">
               <Illustration
-                src="/illustrations/undraw_document-review_lfir.svg"
-                alt="Tidak ada antrean laporan"
-                width={130}
-                height={90}
+                src={
+                  activeTab === "approved"
+                    ? "/illustrations/undraw_organizing-work_gmo9.svg"
+                    : activeTab === "revision"
+                    ? "/illustrations/undraw_reviews_bmgj.svg"
+                    : "/illustrations/undraw_document-review_lfir.svg"
+                }
+                alt={
+                  activeTab === "approved"
+                    ? "Semua laporan telah disetujui"
+                    : activeTab === "revision"
+                    ? "Tidak ada laporan yang perlu direvisi"
+                    : "Tidak ada antrean laporan"
+                }
+                width={
+                  activeTab === "approved" ? 120 : activeTab === "revision" ? 130 : 130
+                }
+                height={
+                  activeTab === "approved" ? 105 : activeTab === "revision" ? 90 : 90
+                }
               />
               <div>
                 <p className="font-headline-sm text-base font-semibold text-on-surface">
-                  Tidak Ada Antrean Laporan
+                  {activeTab === "approved"
+                    ? "Antrean Persetujuan Bersih"
+                    : activeTab === "revision"
+                    ? "Tidak Ada Laporan Perlu Revisi"
+                    : "Tidak Ada Antrean Laporan"}
                 </p>
                 <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
-                  Semua laporan pada tab ini telah ditinjau atau tidak cocok dengan filter pencarian.
+                  {activeTab === "approved"
+                    ? "Semua laporan yang disetujui akan tersimpan di sini."
+                    : activeTab === "revision"
+                    ? "Laporan yang memerlukan perbaikan akan muncul di tab ini."
+                    : "Semua laporan pada tab ini telah ditinjau atau tidak cocok dengan filter pencarian."}
                 </p>
               </div>
             </div>

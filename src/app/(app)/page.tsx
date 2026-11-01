@@ -17,6 +17,7 @@ import { UserProfile } from "@/lib/auth/types";
 import type { ScheduleEventItem, AnnouncementItem } from "@/modules/schedules/types";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { LiveClock } from "@/components/ui/live-clock";
+import { Illustration } from "@/components/ui/illustration";
 
 export default function BerandaPage() {
   const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
@@ -173,6 +174,16 @@ export default function BerandaPage() {
                 <span className="material-symbols-outlined text-[16px]">schedule</span>
                 <span>Atur Jam</span>
               </button>
+            </div>
+
+            {/* Decorative illustration — desktop only, aria-hidden */}
+            <div className="hidden md:flex items-end justify-end shrink-0 self-center" aria-hidden="true">
+              <Illustration
+                src="/illustrations/adapted/undraw_control-panel_s0j2.svg"
+                alt=""
+                width={140}
+                height={100}
+              />
             </div>
           </div>
 

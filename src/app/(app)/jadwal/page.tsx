@@ -528,10 +528,10 @@ export default function JadwalPage() {
                 {announcements.length === 0 ? (
                   <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                     <Illustration
-                      src="/illustrations/undraw_mail-sent_dagx.svg"
+                      src="/illustrations/adapted/undraw_notify_drs8.svg"
                       alt="Belum ada pengumuman"
-                      width={120}
-                      height={85}
+                      width={140}
+                      height={103}
                     />
                     <div>
                       <p className="font-headline-sm text-base font-semibold text-on-surface">
