@@ -2,30 +2,57 @@
 
 import * as React from "react";
 import {
-  WEEK_ATTENDANCE_STRIP,
-  ATTENDANCE_MONTHLY_STATS,
-} from "@/modules/attendance/data";
-import {
   checkInAttendanceAction,
   getAttendanceHistoryAction,
   submitCorrectionAction,
   submitExceptionAction,
 } from "@/modules/attendance/actions";
 import { AttendanceRecordItem } from "@/modules/attendance/types";
+import { getActivePolicyAction, type PolicySettingItem } from "@/modules/analytics/actions";
 
 export default function KehadiranPage() {
-  // Live server clock simulation
-  const [clockTime, setClockTime] = React.useState("07:48:15");
+  // Live server clock
+  const [clockTime, setClockTime] = React.useState("--:--:--");
+  const [currentDateFormatted, setCurrentDateFormatted] = React.useState("");
   const [checkedIn, setCheckedIn] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const [checkedInTime, setCheckedInTime] = React.useState("07:48:15 WIB");
+  const [checkedInTime, setCheckedInTime] = React.useState("");
   const [checkedInStatus, setCheckedInStatus] = React.useState("Tepat Waktu");
   const [historyItems, setHistoryItems] = React.useState<AttendanceRecordItem[]>([]);
+  const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
 
   React.useEffect(() => {
     getAttendanceHistoryAction().then((data) => {
       setHistoryItems(data || []);
     });
+    getActivePolicyAction().then((p) => {
+      setPolicy(p);
+    });
+
+    const updateClock = () => {
+      const now = new Date();
+      setClockTime(
+        now.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          timeZone: "Asia/Jakarta",
+        })
+      );
+      setCurrentDateFormatted(
+        now.toLocaleDateString("id-ID", {
+          weekday: "long",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "Asia/Jakarta",
+        })
+      );
+    };
+
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   // Correction Modal State
@@ -40,30 +67,6 @@ export default function KehadiranPage() {
   const [exceptionType, setExceptionType] = React.useState("sick");
   const [exceptionReason, setExceptionReason] = React.useState("");
   const [exceptionSuccessMsg, setExceptionSuccessMsg] = React.useState("");
-
-  // Update live clock every second
-  React.useEffect(() => {
-    let sec = 15;
-    let min = 48;
-    let hr = 7;
-
-    const timer = setInterval(() => {
-      sec++;
-      if (sec >= 60) {
-        sec = 0;
-        min++;
-        if (min >= 60) {
-          min = 0;
-          hr++;
-        }
-      }
-      setClockTime(
-        `${String(hr).padStart(2, "0")}:${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
-      );
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   const handleCheckin = async () => {
     setIsProcessing(true);
@@ -166,23 +169,30 @@ export default function KehadiranPage() {
           </div>
           <div className="text-right">
             <p className="font-label-md text-label-md text-on-surface font-semibold">
-              Senin, 18 Nov 2026
+              {currentDateFormatted || "Memuat..."}
             </p>
             <span className="inline-block mt-0.5 font-label-sm text-[11px] text-primary bg-accent px-2.5 py-0.5 rounded-md font-semibold">
-              Shift Pagi Santri
+              {policy ? policy.name : "Belum Diatur Admin"}
             </span>
           </div>
         </div>
 
         {/* Threshold Rules Bar (BR-ATT-03 & 09) */}
         <div className="bg-surface-container-low rounded-xl p-3 text-on-surface space-y-1.5 border border-border/40">
-          <div className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-primary text-[18px]">
-              info
-            </span>
-            <span className="font-label-sm text-label-sm text-on-surface font-semibold">
-              Aturan Kebijakan Presensi (BR-ATT-03 &amp; 09)
-            </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-[18px]">
+                info
+              </span>
+              <span className="font-label-sm text-label-sm text-on-surface font-semibold">
+                Aturan Kebijakan Presensi (BR-ATT-03 &amp; 09)
+              </span>
+            </div>
+            {!policy && (
+              <span className="text-[11px] font-mono text-error font-semibold bg-error-container/40 px-2 py-0.5 rounded">
+                Jam Belum Dikonfigurasi
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-3 gap-2 text-center pt-1">
             <div className="bg-card rounded-xl p-2.5 shadow-xs border border-border/40">
@@ -191,7 +201,7 @@ export default function KehadiranPage() {
                 Tepat
               </p>
               <p className="font-mono text-[13px] text-on-surface mt-0.5 font-bold">
-                ≤ 08:00
+                {policy ? `≤ ${policy.attendanceCutoffTime}` : "--:--"}
               </p>
             </div>
             <div className="bg-card rounded-xl p-2.5 shadow-xs border border-border/40">
@@ -200,7 +210,9 @@ export default function KehadiranPage() {
                 Toleransi
               </p>
               <p className="font-mono text-[13px] text-on-surface mt-0.5 font-bold">
-                08:01–08:15
+                {policy
+                  ? `${policy.attendanceCutoffTime}–${policy.attendanceGraceCutoffTime}`
+                  : "--:--"}
               </p>
             </div>
             <div className="bg-card rounded-xl p-2.5 shadow-xs border border-border/40">
@@ -209,10 +221,15 @@ export default function KehadiranPage() {
                 Terlambat
               </p>
               <p className="font-mono text-[13px] text-on-surface mt-0.5 font-bold">
-                &gt; 08:15
+                {policy ? `> ${policy.attendanceGraceCutoffTime}` : "--:--"}
               </p>
             </div>
           </div>
+          {!policy && (
+            <p className="text-[11px] text-muted-foreground text-center pt-0.5 italic">
+              Jam operasional resmi belum ditetapkan oleh Admin tertinggi.
+            </p>
+          )}
         </div>
       </div>
 
@@ -311,16 +328,20 @@ export default function KehadiranPage() {
                 <div>
                   <p className="font-body-sm text-[12px] text-muted-foreground">Catatan Terakhir</p>
                   <p className="font-label-md text-label-md text-on-surface font-semibold">
-                    Sabtu, 16 Nov • 07:54 WIB
+                    {historyItems[0]
+                      ? `${historyItems[0].dateFormatted} • ${historyItems[0].timeStr}`
+                      : "Belum ada presensi tercatat"}
                   </p>
                 </div>
               </div>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-semibold">
-                <span className="material-symbols-outlined text-[14px] text-success">
-                  check_circle
+              {historyItems[0] && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-semibold">
+                  <span className="material-symbols-outlined text-[14px] text-success">
+                    check_circle
+                  </span>
+                  {historyItems[0].label}
                 </span>
-                Tepat Waktu
-              </span>
+              )}
             </div>
           </div>
 
@@ -336,55 +357,34 @@ export default function KehadiranPage() {
                 </h3>
               </div>
               <div className="flex items-center gap-1 bg-surface-container-low px-2.5 py-1 rounded-lg border border-border/40">
-                <span className="font-label-sm text-label-sm text-on-surface font-semibold">
-                  November 2026
-                </span>
-                <span className="material-symbols-outlined text-[16px] text-muted-foreground">
-                  expand_more
+                <span className="font-label-sm text-label-sm text-on-surface font-semibold capitalize">
+                  {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })}
                 </span>
               </div>
             </div>
 
-            {/* Visual Strip: Week 3 Focused View (10 - 16 Nov) */}
+            {/* Visual Strip: Current Week */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="font-label-sm text-[12px] text-muted-foreground">
-                  Minggu ke-3 (Periode Aktif)
-                </span>
-                <span className="font-label-sm text-[11px] text-primary font-semibold hover:underline cursor-pointer">
-                  Lihat Semua Minggu
+                  Pekan Berjalan
                 </span>
               </div>
               <div className="grid grid-cols-7 gap-1.5 text-center">
-                {WEEK_ATTENDANCE_STRIP.map((day) => {
+                {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((dayName) => {
                   return (
                     <div
-                      key={day.dateNum}
-                      className={`flex flex-col items-center p-2 rounded-xl transition-all ${
-                        day.status === "holiday"
-                          ? "bg-muted/70 opacity-70"
-                          : "bg-surface-container-low border border-border/30 hover:border-primary/40"
-                      }`}
+                      key={dayName}
+                      className="flex flex-col items-center p-2 rounded-xl bg-surface-container-low border border-border/30"
                     >
                       <span className="font-label-sm text-[11px] text-muted-foreground">
-                        {day.dayName}
+                        {dayName}
                       </span>
                       <span className="font-label-md text-label-md text-on-surface font-semibold my-0.5">
-                        {day.dateNum}
+                        -
                       </span>
-                      <span
-                        className={`material-symbols-outlined text-[16px] ${
-                          day.status === "on_time"
-                            ? "text-success"
-                            : day.status === "grace"
-                            ? "text-warning"
-                            : day.status === "excused"
-                            ? "text-accent-foreground"
-                            : "text-muted-foreground"
-                        }`}
-                        title={day.label}
-                      >
-                        {day.icon}
+                      <span className="material-symbols-outlined text-[16px] text-muted-foreground">
+                        remove
                       </span>
                     </div>
                   );
@@ -399,7 +399,7 @@ export default function KehadiranPage() {
                   check_circle
                 </span>
                 <span className="font-headline-sm text-headline-sm font-bold text-on-surface">
-                  {ATTENDANCE_MONTHLY_STATS.onTimeCount}
+                  {historyItems.filter((i) => i.classification === "on_time").length}
                 </span>
                 <span className="font-label-sm text-[11px] text-muted-foreground mt-0.5">
                   Tepat Waktu
@@ -410,7 +410,7 @@ export default function KehadiranPage() {
                   timelapse
                 </span>
                 <span className="font-headline-sm text-headline-sm font-bold text-on-surface">
-                  {ATTENDANCE_MONTHLY_STATS.graceCount}
+                  {historyItems.filter((i) => i.classification === "grace").length}
                 </span>
                 <span className="font-label-sm text-[11px] text-muted-foreground mt-0.5">
                   Toleransi
@@ -421,7 +421,7 @@ export default function KehadiranPage() {
                   event_busy
                 </span>
                 <span className="font-headline-sm text-headline-sm font-bold text-on-surface">
-                  {ATTENDANCE_MONTHLY_STATS.excusedCount}
+                  {historyItems.filter((i) => i.classification === "excused").length}
                 </span>
                 <span className="font-label-sm text-[11px] text-muted-foreground mt-0.5">
                   Izin / Sakit

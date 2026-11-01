@@ -2,42 +2,63 @@
 
 import * as React from "react";
 import {
-  ACTIVE_POLICY_SETTING,
-  INITIAL_ATTENDANCE_METRIC,
-  INITIAL_AUDIT_LOGS,
-  INITIAL_REPORT_METRIC,
-  INITIAL_TASK_METRIC,
-} from "@/modules/analytics/data";
-import {
-  AnalyticsPeriodOption,
   AuditLogItem,
 } from "@/modules/analytics/types";
 import {
   exportAuditedDataAction,
   queryAuditLogsAction,
+  getActivePolicyAction,
+  updatePolicySettingsAction,
+  type PolicySettingItem,
 } from "@/modules/analytics/actions";
 
 export default function AdminAuditPage() {
-  const [period, setPeriod] = React.useState<AnalyticsPeriodOption>("this_week");
   const [scope, setScope] = React.useState("Semua Tim (Organisasi)");
-  const [auditLogs, setAuditLogs] = React.useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
-
-  React.useEffect(() => {
-    queryAuditLogsAction("").then((res) => {
-      if (res.success && res.logs && res.logs.length > 0) {
-        setAuditLogs(res.logs);
-      }
-    });
-  }, []);
+  const [auditLogs, setAuditLogs] = React.useState<AuditLogItem[]>([]);
+  const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
   const [searchLogQuery, setSearchLogQuery] = React.useState("");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   // Modals state
   const [isExportDialogOpen, setIsExportDialogOpen] = React.useState(false);
   const [isDrilldownOpen, setIsDrilldownOpen] = React.useState(false);
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = React.useState(false);
   const [exportFormat, setExportFormat] = React.useState<"csv" | "pdf">("csv");
   const [exportCategory, setExportCategory] = React.useState("presensi_laporan");
   const [isExporting, setIsExporting] = React.useState(false);
+
+  // Policy Form State (For Highest Admin to fill in and adjust hours)
+  const [policyForm, setPolicyForm] = React.useState({
+    name: "Shift Reguler Operasional Santri",
+    attendanceCutoffTime: "08:00",
+    attendanceGraceCutoffTime: "08:15",
+    reportDeadlineTime: "21:00",
+  });
+
+  const loadPolicyAndLogs = React.useCallback(async () => {
+    try {
+      const p = await getActivePolicyAction();
+      setPolicy(p);
+      if (p) {
+        setPolicyForm({
+          name: p.name,
+          attendanceCutoffTime: p.attendanceCutoffTime,
+          attendanceGraceCutoffTime: p.attendanceGraceCutoffTime,
+          reportDeadlineTime: p.reportDeadlineTime,
+        });
+      }
+      const res = await queryAuditLogsAction("");
+      if (res.success && res.logs) {
+        setAuditLogs(res.logs);
+      }
+    } catch (err) {
+      console.error("Failed to load audit or policy:", err);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadPolicyAndLogs();
+  }, [loadPolicyAndLogs]);
 
   // Handle Log search
   const handleSearchLogs = async (q: string) => {
@@ -70,6 +91,20 @@ export default function AdminAuditPage() {
     }
   };
 
+  // Handle Save Policy Settings (Setting and adjusting hours by Super Admin)
+  const handleSavePolicy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await updatePolicySettingsAction(policyForm);
+    if (res.success) {
+      setToastMessage(res.message);
+      setIsPolicyModalOpen(false);
+      await loadPolicyAndLogs();
+      setTimeout(() => setToastMessage(null), 4500);
+    } else {
+      setToastMessage(res.message);
+    }
+  };
+
   return (
     <div className="w-full max-w-7xl mx-auto space-y-5 pb-24">
       {/* Toast Alert Notice */}
@@ -99,54 +134,25 @@ export default function AdminAuditPage() {
             Audit Hash Valid
           </span>
         </div>
-        <h1 className="font-headline-lg-mobile text-headline-sm sm:text-headline-md text-on-surface tracking-tight font-bold mt-1">
-          Dasbor Operasional &amp; Audit
+        <h1 className="font-headline-sm text-xl sm:text-2xl text-on-surface font-semibold tracking-tight">
+          Pusat Kontrol Kebijakan &amp; Audit Trail
         </h1>
         <p className="font-body-sm text-xs sm:text-sm text-muted-foreground">
-          Pemantauan kepatuhan terverifikasi dan jejak audit append-only sistem pondok.
+          Kelola kebijakan jam operasional, pantau ringkasan kepatuhan organisasi, dan periksa jejak audit append-only.
         </p>
       </div>
 
-      {/* Filter & Scope Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-3 sm:p-4 rounded-xl border border-border shadow-xs">
-        {/* Time Period Tabs */}
-        <div className="inline-flex p-1 bg-muted rounded-lg gap-1 max-w-md">
-          <button
-            type="button"
-            onClick={() => setPeriod("this_week")}
-            className={`flex-1 py-1.5 px-3 text-center rounded font-label-sm text-xs transition-all ${
-              period === "this_week"
-                ? "bg-card text-primary shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-on-surface"
-            }`}
-          >
-            Pekan Ini
-          </button>
-          <button
-            type="button"
-            onClick={() => setPeriod("this_month")}
-            className={`flex-1 py-1.5 px-3 text-center rounded font-label-sm text-xs transition-all ${
-              period === "this_month"
-                ? "bg-card text-primary shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-on-surface"
-            }`}
-          >
-            Bulan Ini (Nov)
-          </button>
-          <button
-            type="button"
-            onClick={() => setPeriod("q4")}
-            className={`flex-1 py-1.5 px-3 text-center rounded font-label-sm text-xs transition-all ${
-              period === "q4"
-                ? "bg-card text-primary shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-on-surface"
-            }`}
-          >
-            Kuartal IV
-          </button>
+      {/* Scope Selector Bar */}
+      <div className="bg-card rounded-xl p-3 sm:p-4 shadow-xs border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="font-label-md text-xs sm:text-sm font-semibold text-on-surface">
+            Status Operasional
+          </span>
+          <span className="font-mono text-xs text-muted-foreground">
+            • Data Terhubung Dinamis
+          </span>
         </div>
 
-        {/* Scope Selector */}
         <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-border">
           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <span className="material-symbols-outlined text-[18px] text-primary">
@@ -176,9 +182,7 @@ export default function AdminAuditPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">
-                    how_to_reg
-                  </span>
+                  <span className="material-symbols-outlined text-[22px]">how_to_reg</span>
                 </div>
                 <div>
                   <span className="font-label-sm text-xs text-muted-foreground uppercase tracking-wider block">
@@ -191,62 +195,38 @@ export default function AdminAuditPage() {
               </div>
               <div className="text-right">
                 <div className="font-code-md text-xl sm:text-2xl text-primary font-bold leading-none">
-                  {INITIAL_ATTENDANCE_METRIC.rate}%
+                  0%
                 </div>
                 <span className="font-body-sm text-xs text-muted-foreground">
-                  {INITIAL_ATTENDANCE_METRIC.checkedInCount} dari{" "}
-                  {INITIAL_ATTENDANCE_METRIC.totalPopulation} Santri
+                  0 dari 0 Santri Terdaftar
                 </span>
               </div>
             </div>
 
             {/* Progress Bar Segments */}
             <div className="w-full bg-muted h-2.5 rounded-full overflow-hidden flex">
-              <div
-                className="bg-primary h-full transition-all"
-                style={{ width: `${INITIAL_ATTENDANCE_METRIC.onTimePercent}%` }}
-                title="Tepat Waktu"
-              ></div>
-              <div
-                className="bg-warning h-full transition-all"
-                style={{ width: `${INITIAL_ATTENDANCE_METRIC.gracePercent}%` }}
-                title="Toleransi"
-              ></div>
-              <div
-                className="bg-error h-full transition-all"
-                style={{ width: `${INITIAL_ATTENDANCE_METRIC.unrecordedPercent}%` }}
-                title="Belum Check-in"
-              ></div>
+              <div className="bg-primary h-full transition-all" style={{ width: "0%" }} />
             </div>
 
             {/* Detailed Badges */}
             <div className="grid grid-cols-3 gap-2 pt-1 text-center">
               <div className="bg-surface-container-low p-2 rounded-lg flex flex-col border border-border/40">
                 <span className="font-label-sm text-[11px] text-muted-foreground flex items-center justify-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>{" "}
-                  Tepat Waktu
+                  <span className="w-2 h-2 rounded-full bg-primary inline-block"></span> Tepat Waktu
                 </span>
-                <span className="font-code-md text-base text-primary font-semibold mt-0.5">
-                  {INITIAL_ATTENDANCE_METRIC.onTimeCount}
-                </span>
+                <span className="font-code-md text-base text-primary font-semibold mt-0.5">0</span>
               </div>
               <div className="bg-surface-container-low p-2 rounded-lg flex flex-col border border-border/40">
                 <span className="font-label-sm text-[11px] text-muted-foreground flex items-center justify-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-warning inline-block"></span>{" "}
-                  Toleransi
+                  <span className="w-2 h-2 rounded-full bg-warning inline-block"></span> Toleransi
                 </span>
-                <span className="font-code-md text-base text-on-surface font-semibold mt-0.5">
-                  {INITIAL_ATTENDANCE_METRIC.graceCount}
-                </span>
+                <span className="font-code-md text-base text-on-surface font-semibold mt-0.5">0</span>
               </div>
               <div className="bg-surface-container-low p-2 rounded-lg flex flex-col border border-border/40">
                 <span className="font-label-sm text-[11px] text-muted-foreground flex items-center justify-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-error inline-block"></span>{" "}
-                  Belum Hadir
+                  <span className="w-2 h-2 rounded-full bg-error inline-block"></span> Belum Hadir
                 </span>
-                <span className="font-code-md text-base text-error font-semibold mt-0.5">
-                  {INITIAL_ATTENDANCE_METRIC.unrecordedCount}
-                </span>
+                <span className="font-code-md text-base text-error font-semibold mt-0.5">0</span>
               </div>
             </div>
 
@@ -256,9 +236,7 @@ export default function AdminAuditPage() {
               className="w-full mt-1 py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-dim text-primary font-label-sm text-xs flex items-center justify-center gap-1.5 transition-all"
             >
               <span>Rincian Record Presensi</span>
-              <span className="material-symbols-outlined text-[16px]">
-                arrow_forward
-              </span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </button>
           </div>
 
@@ -267,9 +245,7 @@ export default function AdminAuditPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center text-accent-foreground shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">
-                    assignment_turned_in
-                  </span>
+                  <span className="material-symbols-outlined text-[22px]">assignment_turned_in</span>
                 </div>
                 <div>
                   <span className="font-label-sm text-xs text-muted-foreground uppercase tracking-wider block">
@@ -282,10 +258,10 @@ export default function AdminAuditPage() {
               </div>
               <div className="text-right">
                 <div className="font-code-md text-xl sm:text-2xl text-primary font-bold leading-none">
-                  {INITIAL_REPORT_METRIC.rate}%
+                  0%
                 </div>
                 <span className="font-body-sm text-xs text-muted-foreground">
-                  {INITIAL_REPORT_METRIC.deadlineStr}
+                  {policy ? `Tenggat ${policy.reportDeadlineTime} WIB` : "Tenggat Belum Diatur"}
                 </span>
               </div>
             </div>
@@ -297,105 +273,46 @@ export default function AdminAuditPage() {
                   Rekap Pelaporan
                 </span>
                 <div className="flex items-baseline gap-2 mt-0.5 text-xs">
-                  <span className="font-code-md text-primary font-semibold">
-                    {INITIAL_REPORT_METRIC.onTimeCount} Tepat
-                  </span>
+                  <span className="font-code-md text-primary font-semibold">0 Tepat</span>
                   <span className="text-muted-foreground">•</span>
-                  <span className="font-code-md text-warning font-semibold">
-                    {INITIAL_REPORT_METRIC.lateCount} Terlambat
-                  </span>
+                  <span className="font-code-md text-warning font-semibold">0 Terlambat</span>
                   <span className="text-muted-foreground">•</span>
-                  <span className="font-code-md text-error font-semibold">
-                    {INITIAL_REPORT_METRIC.unsubmittedCount} Nihil
-                  </span>
+                  <span className="font-code-md text-error font-semibold">0 Nihil</span>
                 </div>
               </div>
               <div className="w-px h-8 bg-border"></div>
               <div className="flex flex-col text-right pl-2">
                 <span className="font-label-sm text-[11px] text-muted-foreground">
-                  Backlog Tinjauan
+                  Antrean Review
                 </span>
                 <div className="flex items-center justify-end gap-1 mt-0.5 text-xs">
-                  <span className="font-code-md font-semibold text-tertiary">
-                    {INITIAL_REPORT_METRIC.reviewBacklogCount} Berkas
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    (~{INITIAL_REPORT_METRIC.reviewBacklogHoursEst}j)
-                  </span>
+                  <span className="font-code-md font-semibold text-tertiary">0 Berkas</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Metric 3: Progres Tugas & Sprint Operasional */}
-          <div className="bg-card rounded-xl p-4 sm:p-5 shadow-xs border border-border flex flex-col gap-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">task_alt</span>
-                </div>
-                <div>
-                  <span className="font-label-sm text-xs text-muted-foreground uppercase tracking-wider block">
-                    Sprint Mingguan Tim
-                  </span>
-                  <span className="font-headline-sm text-sm sm:text-base font-semibold text-on-surface">
-                    Penyelesaian Tugas
-                  </span>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-code-md text-xl sm:text-2xl text-primary font-bold leading-none">
-                  {INITIAL_TASK_METRIC.completionRate}%
-                </div>
-                <span className="font-body-sm text-xs text-muted-foreground">
-                  {INITIAL_TASK_METRIC.completedCount} dari{" "}
-                  {INITIAL_TASK_METRIC.totalCount} Tugas
-                </span>
-              </div>
+          {/* Guidance Banner ISO/IEC 27001 */}
+          <div className="bg-surface-container-low rounded-xl p-4 flex items-center gap-3.5 border border-border/40">
+            <div className="w-9 h-9 rounded-lg bg-surface flex items-center justify-center text-primary shrink-0 shadow-2xs">
+              <span className="material-symbols-outlined text-[20px]">security</span>
             </div>
-
-            {/* Alert Bar for Overdue */}
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-error-container/60 text-on-error-container text-xs">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] text-destructive">
-                  warning
-                </span>
-                <span className="font-label-sm">
-                  {INITIAL_TASK_METRIC.overdueCount} Tugas melewati tenggat waktu (Overdue)
-                </span>
-              </div>
-              <a
-                href="/tugas"
-                className="font-code-md underline font-semibold cursor-pointer hover:text-destructive"
-              >
-                Periksa
-              </a>
-            </div>
-          </div>
-
-          {/* Infobox Prinsip Amanah BR-ADM-04 */}
-          <div className="bg-surface-container-high/60 rounded-xl p-4 flex items-start gap-3 border border-border/40">
-            <span className="material-symbols-outlined text-primary text-[22px] shrink-0 mt-0.5">
-              verified_user
-            </span>
-            <div className="flex flex-col gap-0.5">
-              <span className="font-label-sm text-xs font-semibold text-primary">
-                Prinsip Amanah BR-ADM-04
-              </span>
-              <p className="font-body-sm text-xs text-on-surface-variant leading-relaxed">
-                Metrik murni untuk pemantauan operasional dan tindak lanjut
-                pendampingan santri, bukan untuk pemeringkatan atau penghakiman skor
-                individu.
+            <div className="flex-1 min-w-0">
+              <h4 className="font-label-md text-xs font-semibold text-on-surface">
+                Integritas Operasional &amp; Keamanan Data
+              </h4>
+              <p className="font-body-sm text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+                Semua penetapan jam kerja, persetujuan akun, dan penerbitan laporan diaudit secara kriptografis menggunakan audit log append-only.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Kebijakan Aktif, Jejak Audit Explorer, Actions (col-span-5) */}
+        {/* Right Column: Policy Settings & Audit Trail Explorer (col-span-5) */}
         <div className="lg:col-span-5 space-y-4">
-          {/* Versi Kebijakan Operasional Aktif (BR-ADM-05) */}
-          <div className="bg-card rounded-xl p-4 sm:p-5 shadow-xs border border-border flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-border pb-2.5">
+          {/* Policy Settings Card (PRD-08 §5) */}
+          <div className="bg-card rounded-xl p-4 sm:p-5 shadow-xs border border-border flex flex-col gap-3.5">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[20px]">
                   rule_folder
@@ -404,41 +321,80 @@ export default function AdminAuditPage() {
                   Kebijakan Operasional Aktif
                 </span>
               </div>
-              <span className="inline-flex items-center gap-1 font-label-sm text-[11px] text-primary bg-accent px-2 py-0.5 rounded-full font-semibold">
-                <span className="material-symbols-outlined text-[13px]">lock</span>
-                Terkonfirmasi &amp; Terkunci
-              </span>
+              {policy ? (
+                <span className="inline-flex items-center gap-1 font-label-sm text-[11px] text-primary bg-accent px-2 py-0.5 rounded-full font-semibold">
+                  <span className="material-symbols-outlined text-[13px]">lock</span>
+                  Terkonfirmasi &amp; Terkunci
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 font-label-sm text-[11px] text-error bg-error-container/40 px-2 py-0.5 rounded-full font-semibold">
+                  Belum Dikonfigurasi
+                </span>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="flex flex-col">
-                <span className="font-body-sm text-muted-foreground">ID Kebijakan</span>
-                <span className="font-code-md text-on-surface font-semibold text-sm">
-                  {ACTIVE_POLICY_SETTING.code}
-                </span>
-                <span className="font-body-sm text-[11px] text-muted-foreground mt-0.5">
-                  {ACTIVE_POLICY_SETTING.effectiveFromStr}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-body-sm text-muted-foreground">
-                  Parameter Kehadiran
-                </span>
-                <span className="font-code-md text-on-surface text-sm">
-                  {ACTIVE_POLICY_SETTING.attendanceCutoffStr}
-                </span>
-                <span className="font-body-sm text-[11px] text-muted-foreground mt-0.5">
-                  {ACTIVE_POLICY_SETTING.attendanceGraceStr}
-                </span>
-              </div>
-            </div>
+            {policy ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="flex flex-col">
+                    <span className="font-body-sm text-muted-foreground">ID Kebijakan</span>
+                    <span className="font-code-md text-on-surface font-semibold text-sm">
+                      {policy.code}
+                    </span>
+                    <span className="font-body-sm text-[11px] text-muted-foreground mt-0.5">
+                      Berlaku: {policy.effectiveFrom}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-body-sm text-muted-foreground">
+                      Parameter Kehadiran
+                    </span>
+                    <span className="font-code-md text-on-surface text-sm">
+                      Tepat: ≤ {policy.attendanceCutoffTime} WIB
+                    </span>
+                    <span className="font-body-sm text-[11px] text-muted-foreground mt-0.5">
+                      Toleransi: s.d. {policy.attendanceGraceCutoffTime} WIB
+                    </span>
+                  </div>
+                </div>
 
-            <div className="pt-2 border-t border-border flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Batas Pelaporan Harian:</span>
-              <span className="font-code-md font-semibold text-primary">
-                {ACTIVE_POLICY_SETTING.reportDeadlineStr}
-              </span>
-            </div>
+                <div className="pt-2 border-t border-border flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Batas Pelaporan Harian:</span>
+                  <span className="font-code-md font-semibold text-primary">
+                    {policy.reportDeadlineTime} WIB
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPolicyModalOpen(true)}
+                  className="w-full mt-1 py-2 px-3 rounded-lg bg-surface-container hover:bg-surface-dim text-primary font-label-sm text-xs flex items-center justify-center gap-1.5 transition-all font-semibold"
+                >
+                  <span className="material-symbols-outlined text-[16px]">tune</span>
+                  <span>Ubah Jam Operasional (Super Admin)</span>
+                </button>
+              </>
+            ) : (
+              <div className="p-4 rounded-xl bg-surface-container-low border border-dashed border-border text-center space-y-2">
+                <span className="material-symbols-outlined text-[32px] text-muted-foreground">
+                  schedule
+                </span>
+                <p className="font-label-md text-on-surface text-xs">
+                  Jam operasional belum ditentukan oleh Admin tertinggi.
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Atur jam masuk, batas toleransi, dan deadline laporan agar sistem memiliki jadwal yang pasti dan dapat diisi mandiri.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsPolicyModalOpen(true)}
+                  className="h-9 px-4 rounded-lg bg-primary text-on-primary font-label-md text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">edit_calendar</span>
+                  <span>+ Atur Jam Operasional Sekarang</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Append-Only Audit Log List (PRD-08 §7) */}
@@ -458,9 +414,7 @@ export default function AdminAuditPage() {
             </div>
 
             <div className="flex items-center gap-1.5 text-success font-label-sm text-[11px] pb-1">
-              <span className="material-symbols-outlined text-[15px]">
-                enhanced_encryption
-              </span>
+              <span className="material-symbols-outlined text-[15px]">enhanced_encryption</span>
               <span>Hash Chaining Valid • Supabase Cryptographic Logs</span>
             </div>
 
@@ -480,35 +434,44 @@ export default function AdminAuditPage() {
 
             {/* Entry Timeline */}
             <div className="flex flex-col space-y-3 pt-1">
-              {auditLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex flex-col gap-1.5 p-3 rounded-lg bg-surface-container-low border border-border/40 text-xs"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-code-md text-xs text-primary font-semibold break-all">
-                      {log.eventName}
-                    </span>
-                    <span className="font-code-md text-[10px] text-muted-foreground shrink-0">
-                      {log.timeAgo}
-                    </span>
-                  </div>
-                  <div className="text-on-surface-variant">
-                    Oleh{" "}
-                    <strong className="text-on-surface font-semibold">
-                      {log.actorName}
-                    </strong>{" "}
-                    • Target:{" "}
-                    <span className="font-code-md text-primary">
-                      {log.targetLabel}
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground bg-card p-2 rounded border border-border/60">
-                    <span className="font-medium text-on-surface">Aksi:</span>{" "}
-                    {log.actionDetail}
-                  </div>
+              {auditLogs.length === 0 ? (
+                <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1">
+                  <span className="material-symbols-outlined text-[32px] text-muted-foreground">
+                    history_toggle_off
+                  </span>
+                  <p className="font-label-md text-on-surface text-[13px]">
+                    Belum ada jejak audit tercatat
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Setiap aksi administratif, perubahan jam kebijakan, dan persetujuan akun akan tercatat di sini secara otomatis.
+                  </p>
                 </div>
-              ))}
+              ) : (
+                auditLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex flex-col gap-1.5 p-3 rounded-lg bg-surface-container-low border border-border/40 text-xs"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-code-md text-xs text-primary font-semibold break-all">
+                        {log.eventName}
+                      </span>
+                      <span className="font-code-md text-[10px] text-muted-foreground shrink-0">
+                        {log.timeAgo}
+                      </span>
+                    </div>
+                    <div className="text-on-surface-variant">
+                      Oleh{" "}
+                      <strong className="text-on-surface font-semibold">{log.actorName}</strong> •
+                      Target:{" "}
+                      <span className="font-code-md text-primary">{log.targetLabel}</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground bg-card p-2 rounded border border-border/60">
+                      <span className="font-medium text-on-surface">Aksi:</span> {log.actionDetail}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -528,14 +491,125 @@ export default function AdminAuditPage() {
               onClick={() => handleSearchLogs("")}
               className="w-full h-11 bg-secondary-container hover:bg-secondary-fixed text-on-secondary-fixed font-label-md text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all"
             >
-              <span className="material-symbols-outlined text-[18px]">
-                manage_search
-              </span>
+              <span className="material-symbols-outlined text-[18px]">manage_search</span>
               <span>Reset &amp; Muat Ulang Log Explorer</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Modal Dialog: Atur Jam Operasional Kebijakan (Super Admin) */}
+      {isPolicyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+          <div className="bg-card rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-xl border border-border space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">
+                  schedule
+                </span>
+                <h3 className="font-headline-sm text-base text-on-surface font-semibold">
+                  Atur Kebijakan Jam Operasional
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPolicyModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePolicy} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-on-surface block mb-1">
+                  Nama Kebijakan / Shift Kerja
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={policyForm.name}
+                  onChange={(e) => setPolicyForm({ ...policyForm, name: e.target.value })}
+                  placeholder="Contoh: Shift Reguler Santri 2026/2027"
+                  className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-on-surface block mb-1">
+                    Batas Check-in Tepat Waktu (WIB)
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={policyForm.attendanceCutoffTime}
+                    onChange={(e) =>
+                      setPolicyForm({ ...policyForm, attendanceCutoffTime: e.target.value })
+                    }
+                    className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <span className="text-[11px] text-muted-foreground mt-0.5 block">
+                    Presensi sebelum jam ini diklasifikasikan Tepat Waktu
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-on-surface block mb-1">
+                    Batas Masa Toleransi (WIB)
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={policyForm.attendanceGraceCutoffTime}
+                    onChange={(e) =>
+                      setPolicyForm({ ...policyForm, attendanceGraceCutoffTime: e.target.value })
+                    }
+                    className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <span className="text-[11px] text-muted-foreground mt-0.5 block">
+                    Lewat jam ini otomatis berstatus Terlambat
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-on-surface block mb-1">
+                  Batas Akhir Pelaporan Harian Mutaba&apos;ah (WIB)
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={policyForm.reportDeadlineTime}
+                  onChange={(e) =>
+                    setPolicyForm({ ...policyForm, reportDeadlineTime: e.target.value })
+                  }
+                  className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <span className="text-[11px] text-muted-foreground mt-0.5 block">
+                  Tenggat akhir pengisian laporan santri harian
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setIsPolicyModalOpen(false)}
+                  className="h-10 px-4 rounded-xl bg-surface-container text-xs font-semibold text-on-surface hover:bg-muted"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="h-10 px-5 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow-xs hover:bg-primary-container"
+                >
+                  Simpan &amp; Terapkan Kebijakan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Dialog: Drill-down Record Presensi */}
       {isDrilldownOpen && (
@@ -553,45 +627,16 @@ export default function AdminAuditPage() {
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="p-3 rounded-lg bg-surface-container-low flex justify-between items-center">
-                <div>
-                  <p className="font-semibold text-on-surface">Salman Al-Farisi</p>
-                  <p className="text-muted-foreground">07:54 WIB • Tepat Waktu</p>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-success/15 text-success font-semibold">
-                  Tepat Waktu
-                </span>
-              </div>
-              <div className="p-3 rounded-lg bg-surface-container-low flex justify-between items-center">
-                <div>
-                  <p className="font-semibold text-on-surface">Fikri Haikal</p>
-                  <p className="text-muted-foreground">08:08 WIB • Koreksi Disetujui</p>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-warning/20 text-tertiary font-semibold">
-                  Toleransi (ATT-007)
-                </span>
-              </div>
-              <div className="p-3 rounded-lg bg-surface-container-low flex justify-between items-center">
-                <div>
-                  <p className="font-semibold text-on-surface">Zaid bin Tsabit</p>
-                  <p className="text-muted-foreground">Surat Sakit Terkonfirmasi</p>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-semibold">
-                  Izin Sakit
-                </span>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setIsDrilldownOpen(false)}
-                className="h-9 px-4 rounded-xl bg-primary text-on-primary font-label-md text-xs font-semibold"
-              >
-                Tutup
-              </button>
+            <div className="p-8 text-center bg-surface-container-low rounded-xl border border-dashed border-border text-muted-foreground space-y-1">
+              <span className="material-symbols-outlined text-[32px] text-muted-foreground">
+                group_off
+              </span>
+              <p className="font-label-md text-on-surface text-xs font-semibold">
+                Belum ada presensi santri yang tercatat hari ini
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Daftar absensi harian akan langsung diperbarui saat santri melakukan check-in.
+              </p>
             </div>
           </div>
         </div>
@@ -617,16 +662,16 @@ export default function AdminAuditPage() {
             <form onSubmit={handleExecuteExport} className="space-y-3.5">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-on-surface block">
-                  Kategori Data
+                  Kategori Rekap
                 </label>
                 <select
                   value={exportCategory}
                   onChange={(e) => setExportCategory(e.target.value)}
-                  className="w-full h-10 px-2.5 rounded-lg bg-surface-container-low border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full h-9 px-2.5 rounded-lg bg-surface-container-low border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="presensi_laporan">Rekap Presensi &amp; Laporan Santri</option>
-                  <option value="tugas_sprint">Penyelesaian Tugas &amp; Proyek</option>
-                  <option value="audit_logs">Laporan Jejak Audit Append-Only</option>
+                  <option value="presensi_laporan">Presensi &amp; Laporan Harian Terpadu</option>
+                  <option value="tugas_proyek">Rekap Tugas &amp; Proyek Sentra</option>
+                  <option value="audit_logs">Log Audit ISO/IEC 27001 Lengkap</option>
                 </select>
               </div>
 
@@ -661,8 +706,7 @@ export default function AdminAuditPage() {
               </div>
 
               <p className="text-[11px] text-muted-foreground leading-relaxed bg-surface-container-low p-2.5 rounded-lg border border-border/40">
-                Sesuai <strong>BR-ADM-08</strong>, setiap aksi ekspor data pribadi
-                tercatat secara otomatis di dalam audit log sistem.
+                Sesuai <strong>BR-ADM-08</strong>, setiap aksi ekspor data pribadi tercatat secara otomatis di dalam audit log sistem.
               </p>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">

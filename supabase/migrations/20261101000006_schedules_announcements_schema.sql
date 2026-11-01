@@ -24,13 +24,6 @@ CREATE TABLE IF NOT EXISTS public.events (
   deleted_at timestamptz
 );
 
--- Seed Default Events (matching 18 Nov 2026)
-INSERT INTO public.events (id, title, description, starts_at, ends_at, location, location_changed, previous_location, category, status) VALUES
-  ('c0000000-0000-0000-0000-000000000001', 'Workshop Next.js Server Actions & Supabase RLS', 'Hands-on koding backend Supabase dan Postgres function.', '2026-11-18T08:30:00+07:00', '2026-11-18T11:30:00+07:00', 'Lab Komputer Utama, Gedung B', false, NULL, 'teknologi', 'scheduled'),
-  ('c0000000-0000-0000-0000-000000000002', 'Halaqah Tahsin & Muroja''ah Al-Quran', 'Ziyadah dan murajaah tartil hafalan santri.', '2026-11-18T13:30:00+07:00', '2026-11-18T15:00:00+07:00', 'Masjid Baitul Quran Lt. 2', false, NULL, 'keagamaan', 'scheduled'),
-  ('c0000000-0000-0000-0000-000000000003', 'Evaluasi Harian & Muhasabah Malam', 'Review standup harian dan pelaporan presensi santri asrama.', '2026-11-18T20:00:00+07:00', '2026-11-18T21:00:00+07:00', 'Aula Pertemuan Utama', true, 'Ruang Teori', 'operasional', 'scheduled')
-ON CONFLICT (id) DO NOTHING;
-
 -- 2. Create Announcements Table
 CREATE TABLE IF NOT EXISTS public.announcements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

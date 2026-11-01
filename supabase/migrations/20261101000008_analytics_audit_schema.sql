@@ -18,13 +18,6 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
   hash text -- Cryptographic verification hash
 );
 
--- Seed Default Audit Logs (matching Stitch screen)
-INSERT INTO public.audit_logs (id, event_name, actor_name, target_id, target_label, action_detail, created_at, hash) VALUES
-  ('f0000000-0000-0000-0000-000000000001', 'attendance.correction_approved', 'Ustadz Ahmad Fauzi', 'usr-fikri', 'Fikri Haikal (ATT-007)', 'Status diubah ke Tepat Waktu (Alasan: Penugasan lab riset).', now() - interval '10 minutes', 'sha256-hash-chain-001'),
-  ('f0000000-0000-0000-0000-000000000002', 'policy.settings_updated', 'Super Admin', 'pol-2026-v21', 'POL-2026-v2.1', 'Kalender libur tasyafa''ah semester ganjil ditambahkan.', now() - interval '1 day', 'sha256-hash-chain-002'),
-  ('f0000000-0000-0000-0000-000000000003', 'iam.account_approved', 'Super Admin', 'usr-ridwan', 'Santri Baru (M. Ridwan)', 'Penetapan hak akses peranan: santri divisi Media IT.', now() - interval '2 days', 'sha256-hash-chain-003')
-ON CONFLICT (id) DO NOTHING;
-
 -- 2. Create Policy Settings Table (Berversi per BR-ADM-05 & BR-ADM-06)
 CREATE TABLE IF NOT EXISTS public.policy_settings (
   id text PRIMARY KEY,
@@ -38,11 +31,6 @@ CREATE TABLE IF NOT EXISTS public.policy_settings (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
--- Seed Active Policy
-INSERT INTO public.policy_settings (id, code, name, attendance_cutoff_time, attendance_grace_cutoff_time, report_deadline_time, status, effective_from) VALUES
-  ('pol-2026-v21', 'POL-2026-v2.1', 'Kebijakan Operasional Terpadu Semester Ganjil 2026/2027', '08:00:00', '08:15:00', '21:00:00', 'active', '2026-11-01')
-ON CONFLICT (id) DO NOTHING;
 
 -- 3. Create Export Logs Table (Pencatatan ekspor data beraudit per BR-ADM-08)
 CREATE TABLE IF NOT EXISTS public.export_logs (

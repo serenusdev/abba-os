@@ -1,19 +1,50 @@
 "use client";
 
 import * as React from "react";
-import {
-  INITIAL_USER_DAILY_REPORT,
-  REPORT_CATEGORIES,
-} from "@/modules/reports/data";
+import { REPORT_CATEGORIES } from "@/modules/reports/data";
 import { DailyReport, ReportItem } from "@/modules/reports/types";
 import {
   saveReportDraftAction,
   submitReportAction,
   getTodayReportAction,
 } from "@/modules/reports/actions";
+import { getActivePolicyAction, type PolicySettingItem } from "@/modules/analytics/actions";
+
+const BLANK_REPORT: DailyReport = {
+  id: "rep-draft",
+  userId: "",
+  authorName: "Santri",
+  authorRole: "Santri",
+  teamName: "Sentra Santri",
+  reportDate: new Date().toISOString().split("T")[0],
+  reportDateFormatted: new Date().toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }),
+  submissionStatus: "draft",
+  isLate: false,
+  reviewStatus: "not_reviewed",
+  revisionNo: 1,
+  items: [
+    {
+      id: "item-init",
+      categoryId: REPORT_CATEGORIES[0].id,
+      categoryName: REPORT_CATEGORIES[0].name,
+      title: "",
+      description: "",
+      resultProgress: "",
+      obstacles: "",
+      durationMinutes: 60,
+      sortOrder: 1,
+    },
+  ],
+};
 
 export default function LaporanPage() {
-  const [report, setReport] = React.useState<DailyReport>(INITIAL_USER_DAILY_REPORT);
+  const [report, setReport] = React.useState<DailyReport>(BLANK_REPORT);
+  const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
   const [feedback, setFeedback] = React.useState<{
     type: "success" | "error" | "info";
     message: string;
@@ -24,6 +55,9 @@ export default function LaporanPage() {
   React.useEffect(() => {
     getTodayReportAction().then((data) => {
       if (data) setReport(data);
+    });
+    getActivePolicyAction().then((p) => {
+      setPolicy(p);
     });
   }, []);
 
@@ -198,7 +232,7 @@ export default function LaporanPage() {
                   calendar_today
                 </span>
                 <span className="font-label-sm text-label-sm text-primary">
-                  18 Nov 2026
+                  {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                 </span>
               </div>
             </div>
@@ -237,8 +271,8 @@ export default function LaporanPage() {
                   </span>
                   <span>
                     {report.isLate
-                      ? `Terlambat (${report.submittedAtTime || "21:15"})`
-                      : `Tepat Waktu (${report.submittedAtTime || "20:45"})`}
+                      ? `Terlambat ${report.submittedAtTime ? `(${report.submittedAtTime})` : ""}`
+                      : `Tepat Waktu ${report.submittedAtTime ? `(${report.submittedAtTime})` : ""}`}
                   </span>
                 </div>
               )}
@@ -276,7 +310,9 @@ export default function LaporanPage() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-label-md text-label-md text-on-surface">
-                  Batas pengumpulan: 21.00 WIB
+                  {policy
+                    ? `Batas pengumpulan: ${policy.reportDeadlineTime} WIB`
+                    : "Batas pengumpulan: Belum diatur Admin"}
                 </p>
                 <p className="font-body-sm text-body-sm text-muted-foreground text-xs leading-relaxed mt-0.5">
                   Laporan terlambat tetap dapat dikirim dan ditandai terlambat sesuai
@@ -288,17 +324,26 @@ export default function LaporanPage() {
             {/* Reviewer Info Meta */}
             <div className="flex items-center gap-3 pt-2 border-t border-border/60">
               <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-accent-foreground font-label-sm text-label-sm shrink-0">
-                AF
+                {report.reviewerName
+                  ? report.reviewerName
+                      .split(" ")
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase()
+                  : "PB"}
               </div>
               <div className="min-w-0">
                 <p className="font-body-sm text-body-sm text-muted-foreground text-xs leading-tight">
                   Peninjau Terjadwal
                 </p>
                 <p className="font-label-md text-label-md text-on-surface truncate">
-                  {report.reviewerName}{" "}
-                  <span className="text-muted-foreground font-body-sm text-xs">
-                    ({report.reviewerRole})
-                  </span>
+                  {report.reviewerName || "Ustadz Pembina"}
+                  {report.reviewerRole && (
+                    <span className="text-muted-foreground font-body-sm text-xs ml-1">
+                      ({report.reviewerRole})
+                    </span>
+                  )}
                 </p>
               </div>
             </div>

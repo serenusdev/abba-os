@@ -36,13 +36,8 @@ export default function ResourceLibraryPage() {
       isMounted = false;
     };
   }, [searchQuery, selectedCategory]);
-  const [expandedFields, setExpandedFields] = React.useState<Record<string, boolean>>({
-    "res-001": true, // Default open on top resource
-  });
-  const [favorites, setFavorites] = React.useState<Record<string, boolean>>({
-    "res-001": true,
-    "res-003": true,
-  });
+  const [expandedFields, setExpandedFields] = React.useState<Record<string, boolean>>({});
+  const [favorites, setFavorites] = React.useState<Record<string, boolean>>({});
   const [copyFeedback, setCopyFeedback] = React.useState<Record<string, boolean>>({});
   const [detailModalItem, setDetailModalItem] = React.useState<ResourceItem | null>(null);
 

@@ -1,10 +1,6 @@
 "use client";
 
 import * as React from "react";
-import {
-  REVIEW_QUEUE_REPORTS,
-  QUEUE_FILTER_COUNTS,
-} from "@/modules/reports/data";
 import { DailyReport, ReviewStatus } from "@/modules/reports/types";
 import { reviewReportAction, getReviewQueueAction } from "@/modules/reports/actions";
 
@@ -13,19 +9,29 @@ type QueueTab = "pending" | "revision" | "resubmitted" | "approved" | "unassigne
 export default function ReviewPage() {
   const [activeTab, setActiveTab] = React.useState<QueueTab>("pending");
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [reports, setReports] = React.useState<DailyReport[]>(REVIEW_QUEUE_REPORTS);
-  const [selectedReportId, setSelectedReportId] = React.useState<string>(
-    REVIEW_QUEUE_REPORTS[0]?.id || ""
-  );
+  const [reports, setReports] = React.useState<DailyReport[]>([]);
+  const [selectedReportId, setSelectedReportId] = React.useState<string>("");
 
   React.useEffect(() => {
     getReviewQueueAction().then((data) => {
-      if (data && data.length > 0) {
-        setReports(data);
-        setSelectedReportId(data[0].id);
+      const list = data || [];
+      setReports(list);
+      if (list.length > 0) {
+        setSelectedReportId(list[0].id);
       }
     });
   }, []);
+
+  // Compute live counts from reports
+  const filterCounts = React.useMemo(() => {
+    return {
+      pending: reports.filter((r) => r.reviewStatus === "not_reviewed").length,
+      revision: reports.filter((r) => r.reviewStatus === "revision_required").length,
+      resubmitted: reports.filter((r) => (r.revisionNo || 1) > 1 && r.reviewStatus === "not_reviewed").length,
+      approved: reports.filter((r) => r.reviewStatus === "approved").length,
+      unassigned: 0,
+    };
+  }, [reports]);
   const [feedbackNotes, setFeedbackNotes] = React.useState("");
   const [isSubmittingReview, setIsSubmittingReview] = React.useState(false);
   const [alertNotice, setAlertNotice] = React.useState<{
@@ -209,7 +215,7 @@ export default function ReviewPage() {
                   : "bg-surface-container text-primary"
               }`}
             >
-              {QUEUE_FILTER_COUNTS.pending}
+              {filterCounts.pending}
             </span>
           </button>
 
@@ -224,7 +230,7 @@ export default function ReviewPage() {
           >
             <span>Perlu Revisi</span>
             <span className="px-1.5 py-0.5 rounded-full bg-warning/20 text-tertiary font-semibold text-[11px] leading-none">
-              {QUEUE_FILTER_COUNTS.revision}
+              {filterCounts.revision}
             </span>
           </button>
 
@@ -239,7 +245,7 @@ export default function ReviewPage() {
           >
             <span>Dikirim Ulang</span>
             <span className="px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground font-semibold text-[11px] leading-none">
-              {QUEUE_FILTER_COUNTS.resubmitted}
+              {filterCounts.resubmitted}
             </span>
           </button>
 
@@ -254,7 +260,7 @@ export default function ReviewPage() {
           >
             <span>Disetujui</span>
             <span className="px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium text-[11px] leading-none">
-              {QUEUE_FILTER_COUNTS.approved}
+              {filterCounts.approved}
             </span>
           </button>
 
@@ -269,7 +275,7 @@ export default function ReviewPage() {
           >
             <span>Belum Ditugaskan</span>
             <span className="px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium text-[11px] leading-none">
-              {QUEUE_FILTER_COUNTS.unassigned}
+              {filterCounts.unassigned}
             </span>
           </button>
         </section>

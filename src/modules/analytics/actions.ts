@@ -110,3 +110,98 @@ export async function queryAuditLogsAction(
 
   return { success: true, logs: [] };
 }
+
+export interface PolicySettingItem {
+  id: string;
+  code: string;
+  name: string;
+  attendanceCutoffTime: string;
+  attendanceGraceCutoffTime: string;
+  reportDeadlineTime: string;
+  status: string;
+  effectiveFrom: string;
+}
+
+/**
+ * Server Action: Query current active operational hours & policy
+ */
+export async function getActivePolicyAction(): Promise<PolicySettingItem | null> {
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("policy_settings")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data) {
+      return {
+        id: data.id,
+        code: data.code,
+        name: data.name,
+        attendanceCutoffTime: (data.attendance_cutoff_time || "08:00").substring(0, 5),
+        attendanceGraceCutoffTime: (data.attendance_grace_cutoff_time || "08:15").substring(0, 5),
+        reportDeadlineTime: (data.report_deadline_time || "21:00").substring(0, 5),
+        status: data.status,
+        effectiveFrom: data.effective_from,
+      };
+    }
+  } catch (err) {
+    console.error("Failed to query active policy from Supabase:", err);
+  }
+  return null;
+}
+
+/**
+ * Server Action: Update or set operational hours & policy by Super Admin
+ */
+export async function updatePolicySettingsAction(payload: {
+  name: string;
+  attendanceCutoffTime: string;
+  attendanceGraceCutoffTime: string;
+  reportDeadlineTime: string;
+}): Promise<{ success: boolean; message: string }> {
+  try {
+    const supabase = createAdminClient();
+    const code = `POL-${new Date().getFullYear()}-v${Date.now().toString().slice(-4)}`;
+    const id = `pol-${Date.now()}`;
+
+    // Archive old active policies
+    await supabase.from("policy_settings").update({ status: "archived" }).eq("status", "active");
+
+    const { error } = await supabase.from("policy_settings").insert({
+      id,
+      code,
+      name: payload.name || "Kebijakan Operasional Pesantren",
+      attendance_cutoff_time: `${payload.attendanceCutoffTime}:00`,
+      attendance_grace_cutoff_time: `${payload.attendanceGraceCutoffTime}:00`,
+      report_deadline_time: `${payload.reportDeadlineTime}:00`,
+      status: "active",
+      effective_from: new Date().toISOString().split("T")[0],
+    });
+
+    if (error) throw error;
+
+    await supabase.from("audit_logs").insert({
+      event_name: "policy.settings_updated",
+      actor_name: "Super Admin",
+      target_id: id,
+      target_label: code,
+      action_detail: `Pembaruan jam operasional: Tepat ≤ ${payload.attendanceCutoffTime}, Toleransi ≤ ${payload.attendanceGraceCutoffTime}, Batas Laporan ${payload.reportDeadlineTime} WIB.`,
+      hash: `sha256-policy-${Date.now()}`,
+    });
+
+    return {
+      success: true,
+      message: "Kebijakan jam operasional berhasil disimpan dan langsung berlaku.",
+    };
+  } catch (err: any) {
+    console.error("Failed to update policy settings:", err);
+    return {
+      success: false,
+      message: err.message || "Gagal menyimpan kebijakan operasional.",
+    };
+  }
+}

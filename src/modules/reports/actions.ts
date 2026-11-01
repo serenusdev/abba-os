@@ -295,10 +295,43 @@ export async function submitReportAction(
   const seconds = now.getSeconds();
 
   const submittedAtTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} WIB`;
-  // Per BR-REP-03: Deadline is 21:00 WIB
-  const isLate = hours > 21 || (hours === 21 && (minutes > 0 || seconds > 0));
 
-  const statusLabel = isLate ? "Terlambat (melewati 21.00 WIB)" : "Tepat Waktu";
+  // Dynamic deadline check from policy_settings (fallback to 21:00 if not yet set by Admin)
+  let deadlineH = 21;
+  let deadlineM = 0;
+  let deadlineDisplay = "21.00 WIB";
+
+  try {
+    const supabaseAdmin = createAdminClient();
+    const { data: policy } = await supabaseAdmin
+      .from("policy_settings")
+      .select("report_deadline_time")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (policy?.report_deadline_time) {
+      const parts = policy.report_deadline_time.split(":");
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(h) && !isNaN(m)) {
+          deadlineH = h;
+          deadlineM = m;
+          deadlineDisplay = `${policy.report_deadline_time} WIB`;
+        }
+      }
+    }
+  } catch {
+    // Non-fatal, use fallback
+  }
+
+  const nowTotal = hours * 60 + minutes + (seconds > 0 ? 0.5 : 0);
+  const deadlineTotal = deadlineH * 60 + deadlineM;
+  const isLate = nowTotal > deadlineTotal;
+
+  const statusLabel = isLate ? `Terlambat (melewati ${deadlineDisplay})` : "Tepat Waktu";
 
   try {
     const supabase = createAdminClient();

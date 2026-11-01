@@ -14,8 +14,25 @@ export interface CheckinResult {
 }
 
 /**
+ * Helper: parse "HH:MM" policy time string into { hours, minutes }.
+ * Returns null if the string is missing or malformed.
+ */
+function parsePolicyTime(timeStr: string | null | undefined): { hours: number; minutes: number } | null {
+  if (!timeStr) return null;
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  return { hours: h, minutes: m };
+}
+
+/**
  * Server Action: Process 1-tap Attendance Check-in
- * Strictly enforces server time (BR-ATT-05) and minute threshold (BR-ATT-09).
+ * Strictly enforces server time (BR-ATT-05) and reads classification
+ * thresholds from policy_settings (attendance_cutoff_time /
+ * attendance_grace_cutoff_time) — falls back to 08:00 / 08:15 when
+ * no policy is configured yet.
  */
 export async function checkInAttendanceAction(): Promise<CheckinResult> {
   const now = new Date();
@@ -25,11 +42,39 @@ export async function checkInAttendanceAction(): Promise<CheckinResult> {
 
   const timeFormatted = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} WIB`;
 
-  // Classification calculation (WIB)
+  // --- Load policy thresholds dynamically from Supabase ---
+  let cutoffH = 8, cutoffM = 0;   // default: 08:00 if admin hasn't set policy
+  let graceH  = 8, graceM  = 15; // default: 08:15 grace end
+  try {
+    const supabaseAdmin = createAdminClient();
+    const { data: policy } = await supabaseAdmin
+      .from("policy_settings")
+      .select("attendance_cutoff_time, attendance_grace_cutoff_time")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (policy) {
+      const cutoff = parsePolicyTime(policy.attendance_cutoff_time);
+      const grace  = parsePolicyTime(policy.attendance_grace_cutoff_time);
+      if (cutoff) { cutoffH = cutoff.hours; cutoffM = cutoff.minutes; }
+      if (grace)  { graceH  = grace.hours;  graceM  = grace.minutes; }
+    }
+  } catch {
+    // non-fatal — fall back to defaults
+  }
+
+  // Convert current time and thresholds to total minutes for easy comparison
+  const nowTotal    = hours * 60 + minutes;
+  const cutoffTotal = cutoffH * 60 + cutoffM;
+  const graceTotal  = graceH  * 60 + graceM;
+
+  // Classification calculation against dynamic thresholds
   let classification: AttendanceClassification = "on_time";
-  if (hours > 8 || (hours === 8 && minutes > 15)) {
+  if (nowTotal > graceTotal) {
     classification = "late";
-  } else if (hours === 8 && minutes >= 1 && minutes <= 15) {
+  } else if (nowTotal > cutoffTotal) {
     classification = "grace";
   } else {
     classification = "on_time";
