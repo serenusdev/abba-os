@@ -1,18 +1,28 @@
 "use client";
 
 import * as React from "react";
+import { UnauthorizedState } from "@/components/ui/unauthorized-state";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { getCurrentUserAction } from "@/modules/iam/actions";
+import { UserProfile } from "@/lib/auth/types";
 import { DailyReport, ReviewStatus } from "@/modules/reports/types";
 import { reviewReportAction, getReviewQueueAction } from "@/modules/reports/actions";
 
 type QueueTab = "pending" | "revision" | "resubmitted" | "approved" | "unassigned";
 
 export default function ReviewPage() {
+  const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<QueueTab>("pending");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [reports, setReports] = React.useState<DailyReport[]>([]);
   const [selectedReportId, setSelectedReportId] = React.useState<string>("");
 
   React.useEffect(() => {
+    getCurrentUserAction()
+      .then((user) => setCurrentUser(user))
+      .finally(() => setIsLoadingAuth(false));
+
     getReviewQueueAction().then((data) => {
       const list = data || [];
       setReports(list);
@@ -32,6 +42,7 @@ export default function ReviewPage() {
       unassigned: 0,
     };
   }, [reports]);
+
   const [feedbackNotes, setFeedbackNotes] = React.useState("");
   const [isSubmittingReview, setIsSubmittingReview] = React.useState(false);
   const [alertNotice, setAlertNotice] = React.useState<{
@@ -67,6 +78,25 @@ export default function ReviewPage() {
 
   const selectedReport =
     reports.find((r) => r.id === selectedReportId) || filteredReports[0] || reports[0];
+
+  if (isLoadingAuth) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[350px] gap-3">
+        <LoadingSpinner size="lg" />
+        <p className="font-body-sm text-sm text-muted-foreground">Memverifikasi hak akses...</p>
+      </div>
+    );
+  }
+
+  const canReview =
+    currentUser?.role === "super_admin" ||
+    currentUser?.role === "yayasan" ||
+    currentUser?.role === "pengurus" ||
+    currentUser?.role === "koordinator";
+
+  if (!canReview) {
+    return <UnauthorizedState requiredRole="Koordinator / Ustadz Pembina / Pengurus" />;
+  }
 
   const handleReviewDecision = async (decision: "approved" | "revision_required") => {
     if (!selectedReport) return;

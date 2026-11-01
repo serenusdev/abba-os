@@ -183,6 +183,15 @@ export async function publishAnnouncementAction(payload: {
       .single();
 
     if (inserted?.id) newId = inserted.id;
+
+    // Log to audit
+    await supabase.from("audit_logs").insert({
+      event_name: "announcement.published",
+      actor_name: "Super Admin",
+      target_id: newId,
+      target_label: payload.title,
+      action_detail: `Menerbitkan pengumuman prioritas ${payload.priority} untuk ${payload.targetAudienceLabel}`,
+    });
   } catch (err) {
     console.error("Failed to insert announcement in Supabase:", err);
   }
@@ -203,4 +212,109 @@ export async function publishAnnouncementAction(payload: {
     message: `Pengumuman "${payload.title}" berhasil diterbitkan untuk ${payload.targetAudienceLabel}.`,
     announcement: newAnn,
   };
+}
+
+/**
+ * Server Action: Delete Announcement
+ */
+export async function deleteAnnouncementAction(
+  announcementId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const supabase = createAdminClient();
+    await supabase.from("announcements").delete().eq("id", announcementId);
+    await supabase.from("audit_logs").insert({
+      event_name: "announcement.deleted",
+      actor_name: "Super Admin",
+      target_id: announcementId,
+      target_label: "Pengumuman",
+      action_detail: `Menghapus pengumuman ID ${announcementId}`,
+    });
+    return { success: true, message: "Pengumuman berhasil dihapus." };
+  } catch (err) {
+    console.error("Failed to delete announcement:", err);
+    return { success: false, message: "Gagal menghapus pengumuman." };
+  }
+}
+
+export interface CreateEventPayload {
+  title: string;
+  description?: string;
+  startsAt: string; // ISO string or datetime-local
+  endsAt: string;
+  location: string;
+  category: "teknologi" | "keagamaan" | "operasional" | "umum";
+}
+
+/**
+ * Server Action: Create Event / Agenda
+ */
+export async function createEventAction(
+  payload: CreateEventPayload
+): Promise<{ success: boolean; message: string; eventId?: string }> {
+  if (!payload.title.trim()) {
+    return { success: false, message: "Judul agenda wajib diisi." };
+  }
+  if (!payload.startsAt || !payload.endsAt) {
+    return { success: false, message: "Waktu mulai dan selesai wajib ditentukan." };
+  }
+
+  try {
+    const supabase = createAdminClient();
+    const { data: inserted, error } = await supabase
+      .from("events")
+      .insert({
+        title: payload.title,
+        description: payload.description || "",
+        starts_at: new Date(payload.startsAt).toISOString(),
+        ends_at: new Date(payload.endsAt).toISOString(),
+        location: payload.location || "Lab Utama Pondok",
+        category: payload.category || "umum",
+        status: "scheduled",
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+
+    await supabase.from("audit_logs").insert({
+      event_name: "event.created",
+      actor_name: "Super Admin",
+      target_id: inserted?.id,
+      target_label: payload.title,
+      action_detail: `Menambahkan agenda baru: ${payload.title} (${payload.category}) di ${payload.location}`,
+    });
+
+    return {
+      success: true,
+      message: `Agenda "${payload.title}" berhasil ditambahkan ke jadwal.`,
+      eventId: inserted?.id,
+    };
+  } catch (err) {
+    console.error("Failed to create event:", err);
+    return { success: false, message: "Gagal menambahkan agenda kegiatan." };
+  }
+}
+
+/**
+ * Server Action: Delete Event
+ */
+export async function deleteEventAction(
+  eventId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const supabase = createAdminClient();
+    await supabase.from("events").delete().eq("id", eventId);
+    await supabase.from("audit_logs").insert({
+      event_name: "event.deleted",
+      actor_name: "Super Admin",
+      target_id: eventId,
+      target_label: "Agenda",
+      action_detail: `Menghapus agenda ID ${eventId}`,
+    });
+    return { success: true, message: "Agenda berhasil dihapus." };
+  } catch (err) {
+    console.error("Failed to delete event:", err);
+    return { success: false, message: "Gagal menghapus agenda." };
+  }
 }

@@ -1,6 +1,10 @@
 "use client";
 
 import * as React from "react";
+import { UnauthorizedState } from "@/components/ui/unauthorized-state";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { getCurrentUserAction } from "@/modules/iam/actions";
+import { UserProfile } from "@/lib/auth/types";
 import {
   AuditLogItem,
 } from "@/modules/analytics/types";
@@ -13,6 +17,8 @@ import {
 } from "@/modules/analytics/actions";
 
 export default function AdminAuditPage() {
+  const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
   const [scope, setScope] = React.useState("Semua Tim (Organisasi)");
   const [auditLogs, setAuditLogs] = React.useState<AuditLogItem[]>([]);
   const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
@@ -57,8 +63,30 @@ export default function AdminAuditPage() {
   }, []);
 
   React.useEffect(() => {
+    getCurrentUserAction()
+      .then((user) => setCurrentUser(user))
+      .finally(() => setIsLoadingAuth(false));
+
     loadPolicyAndLogs();
   }, [loadPolicyAndLogs]);
+
+  if (isLoadingAuth) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[350px] gap-3">
+        <LoadingSpinner size="lg" />
+        <p className="font-body-sm text-sm text-muted-foreground">Memverifikasi hak akses...</p>
+      </div>
+    );
+  }
+
+  const isAdminOrPengurus =
+    currentUser?.role === "super_admin" ||
+    currentUser?.role === "yayasan" ||
+    currentUser?.role === "pengurus";
+
+  if (!isAdminOrPengurus) {
+    return <UnauthorizedState requiredRole="Super Admin / Pengurus / Yayasan" />;
+  }
 
   // Handle Log search
   const handleSearchLogs = async (q: string) => {

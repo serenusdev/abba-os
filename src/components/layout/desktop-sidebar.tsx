@@ -42,6 +42,7 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
 
   const adminNav = [
     { label: "Kelola Pengguna IAM", href: "/admin/users", icon: "manage_accounts" },
+    { label: "Kelola Jadwal & Siaran", href: "/admin/jadwal", icon: "edit_calendar" },
     { label: "Analitik & Audit Log", href: "/admin/audit", icon: "monitoring" },
   ];
 

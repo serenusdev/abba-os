@@ -22,38 +22,67 @@ export function MobileNav({ user }: MobileNavProps) {
     return pathname.startsWith(path);
   };
 
-  const navItems = [
-    {
-      label: "Beranda",
-      href: "/",
-      icon: "dashboard",
-      active: isActive("/") && !isMoreOpen,
-    },
-    {
-      label: "Kehadiran",
-      href: "/kehadiran",
-      icon: "how_to_reg",
-      active: isActive("/kehadiran") && !isMoreOpen,
-    },
-    {
-      label: "Laporan",
-      href: "/laporan",
-      icon: "edit_document",
-      active: isActive("/laporan") && !isMoreOpen,
-    },
-    {
-      label: "Review",
-      href: "/review",
-      icon: "fact_check",
-      active: isActive("/review") && !isMoreOpen,
-    },
-  ];
+  const isAdminOrPengurus =
+    user.role === "super_admin" ||
+    user.role === "yayasan" ||
+    user.role === "pengurus" ||
+    user.role === "koordinator";
 
-  const isOtherActive =
-    !isActive("/") &&
-    !isActive("/kehadiran") &&
-    !isActive("/laporan") &&
-    !isActive("/review");
+  const navItems = isAdminOrPengurus
+    ? [
+        {
+          label: "Beranda",
+          href: "/",
+          icon: "dashboard",
+          active: isActive("/") && !isMoreOpen,
+        },
+        {
+          label: "Review",
+          href: "/review",
+          icon: "fact_check",
+          active: isActive("/review") && !isMoreOpen,
+        },
+        {
+          label: "Jadwal",
+          href: "/admin/jadwal",
+          icon: "calendar_month",
+          active: (isActive("/admin/jadwal") || isActive("/jadwal")) && !isMoreOpen,
+        },
+        {
+          label: "Audit",
+          href: "/admin/audit",
+          icon: "monitoring",
+          active: isActive("/admin/audit") && !isMoreOpen,
+        },
+      ]
+    : [
+        {
+          label: "Beranda",
+          href: "/",
+          icon: "dashboard",
+          active: isActive("/") && !isMoreOpen,
+        },
+        {
+          label: "Kehadiran",
+          href: "/kehadiran",
+          icon: "how_to_reg",
+          active: isActive("/kehadiran") && !isMoreOpen,
+        },
+        {
+          label: "Laporan",
+          href: "/laporan",
+          icon: "edit_document",
+          active: isActive("/laporan") && !isMoreOpen,
+        },
+        {
+          label: "Jadwal",
+          href: "/jadwal",
+          icon: "calendar_month",
+          active: isActive("/jadwal") && !isMoreOpen,
+        },
+      ];
+
+  const isOtherActive = !navItems.some((it) => it.active);
 
   return (
     <>

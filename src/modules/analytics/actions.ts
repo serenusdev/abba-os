@@ -205,3 +205,79 @@ export async function updatePolicySettingsAction(payload: {
     };
   }
 }
+
+export interface AdminDashboardMetrics {
+  totalSantri: number;
+  todayCheckedIn: number;
+  todayLate: number;
+  pendingReports: number;
+  approvedReports: number;
+  pendingAccountRequests: number;
+  activeTasks: number;
+}
+
+/**
+ * Server Action: Query high-level operational counts for Admin Overview Dashboard
+ */
+export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetrics> {
+  const result: AdminDashboardMetrics = {
+    totalSantri: 0,
+    todayCheckedIn: 0,
+    todayLate: 0,
+    pendingReports: 0,
+    approvedReports: 0,
+    pendingAccountRequests: 0,
+    activeTasks: 0,
+  };
+
+  try {
+    const supabase = createAdminClient();
+    const today = new Date().toISOString().split("T")[0];
+
+    // 1. Total santri
+    const { count: santriCount } = await supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "santri");
+    result.totalSantri = santriCount || 0;
+
+    // 2. Attendance today
+    const { data: attendances } = await supabase
+      .from("attendance_records")
+      .select("classification")
+      .eq("attendance_date", today);
+    if (attendances) {
+      result.todayCheckedIn = attendances.length;
+      result.todayLate = attendances.filter((a) => a.classification === "late").length;
+    }
+
+    // 3. Reports
+    const { data: reports } = await supabase
+      .from("daily_reports")
+      .select("review_status");
+    if (reports) {
+      result.pendingReports = reports.filter(
+        (r) => r.review_status === "not_reviewed" || !r.review_status
+      ).length;
+      result.approvedReports = reports.filter((r) => r.review_status === "approved").length;
+    }
+
+    // 4. Pending account requests
+    const { count: reqCount } = await supabase
+      .from("account_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending");
+    result.pendingAccountRequests = reqCount || 0;
+
+    // 5. Active tasks
+    const { count: taskCount } = await supabase
+      .from("tasks")
+      .select("*", { count: "exact", head: true })
+      .neq("status", "done");
+    result.activeTasks = taskCount || 0;
+  } catch (err) {
+    console.error("Failed to query admin dashboard stats:", err);
+  }
+
+  return result;
+}

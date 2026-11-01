@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { UnauthorizedState } from "@/components/ui/unauthorized-state";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { UserProfile } from "@/lib/auth/types";
 import {
   getAccountRequestsAction,
   getActiveUsersAction,
@@ -9,11 +12,14 @@ import {
   rejectAccountApplicationAction,
   createManualAccountAction,
   resetUserSessionAction,
+  getCurrentUserAction,
   type AccountRequestItem,
   type ActiveUserItem,
 } from "@/modules/iam/actions";
 
 export default function AdminUsersPage() {
+  const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<"queue" | "active" | "archived">("queue");
   const [selectedRoleFilter, setSelectedRoleFilter] = React.useState("Semua");
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -63,8 +69,30 @@ export default function AdminUsersPage() {
   }, []);
 
   React.useEffect(() => {
+    getCurrentUserAction()
+      .then((user) => setCurrentUser(user))
+      .finally(() => setIsLoadingAuth(false));
+
     loadData();
   }, [loadData]);
+
+  if (isLoadingAuth) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[350px] gap-3">
+        <LoadingSpinner size="lg" />
+        <p className="font-body-sm text-sm text-muted-foreground">Memverifikasi hak akses...</p>
+      </div>
+    );
+  }
+
+  const isAdminOrPengurus =
+    currentUser?.role === "super_admin" ||
+    currentUser?.role === "yayasan" ||
+    currentUser?.role === "pengurus";
+
+  if (!isAdminOrPengurus) {
+    return <UnauthorizedState requiredRole="Super Admin / Pengurus / Yayasan" />;
+  }
 
   const handleApprove = async (cardId: string) => {
     const role = applicantRoles[cardId] || "Santri • Sentra Digitalpreneur";

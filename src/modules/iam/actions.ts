@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUserProfile } from "@/lib/auth/session";
+import { UserProfile } from "@/lib/auth/types";
 import { ManualAccountPayload } from "./types";
 
 export interface ActionResult<T = unknown> {
@@ -273,4 +275,11 @@ export async function resetUserSessionAction(
     success: true,
     message: `Seluruh sesi aktif untuk ID pengguna ${userId} telah berhasil dicabut.`,
   };
+}
+
+/**
+ * Server Action: Get Current User Profile for Client Components
+ */
+export async function getCurrentUserAction(): Promise<UserProfile> {
+  return await getCurrentUserProfile();
 }

@@ -159,6 +159,24 @@ export function MoreSheet({ isOpen, onClose, user }: MoreSheetProps) {
               </Link>
 
               <Link
+                href="/admin/jadwal"
+                onClick={onClose}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-on-surface hover:bg-accent/40 active:bg-accent transition-colors"
+              >
+                <span className="material-symbols-outlined text-primary text-[22px]">
+                  edit_calendar
+                </span>
+                <div className="flex-1">
+                  <span className="font-label-md text-label-md block">
+                    Kelola Jadwal &amp; Siaran
+                  </span>
+                  <span className="font-body-sm text-[11px] text-muted-foreground block">
+                    Buat agenda &amp; siarkan pengumuman
+                  </span>
+                </div>
+              </Link>
+
+              <Link
                 href="/admin/audit"
                 onClick={onClose}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-on-surface hover:bg-accent/40 active:bg-accent transition-colors"
@@ -171,7 +189,7 @@ export function MoreSheet({ isOpen, onClose, user }: MoreSheetProps) {
                     Analitik &amp; Audit Trail
                   </span>
                   <span className="font-body-sm text-[11px] text-muted-foreground block">
-                    Metrik operasional &amp; log perubahan
+                    Atur jam operasional &amp; log perubahan
                   </span>
                 </div>
               </Link>
