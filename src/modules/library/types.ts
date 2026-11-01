@@ -1,0 +1,33 @@
+export interface DocumentationFields {
+  accessSetup?: string | null;
+  howToUse?: string | null;
+  workflowExamples?: string | null;
+  limitationsCautions?: string | null;
+  officialSources?: string | null;
+  documentationStatus?: string | null;
+}
+
+export interface ResourceItem extends DocumentationFields {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  categorySlug: string;
+  officialUrl?: string | null;
+  tags: string[];
+  isFavorited?: boolean;
+  filledFieldsCount: number;
+  totalFieldsCount: number;
+  lastUpdated: string;
+  author: string;
+  visibility: "internal" | "restricted";
+  status: "draft" | "published" | "archived";
+}
+
+export interface CategorySummary {
+  name: string;
+  slug: string;
+  count: number;
+  icon?: string;
+}

@@ -42,3 +42,4 @@ export interface RejectionPayload {
   applicantId: string;
   reason: string;
 }
+

@@ -43,3 +43,4 @@ describe("Stage 2 — Identity & Access Management (IAM)", () => {
     expect(result.message).toContain("berhasil dicabut");
   });
 });
+

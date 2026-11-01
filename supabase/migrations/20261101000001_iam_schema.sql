@@ -185,3 +185,4 @@ INSERT INTO public.permissions (key, description) VALUES
   ('iam.audit.read', 'Membaca riwayat audit akses dan keamanan'),
   ('iam.session.revoke', 'Mencabut sesi perangkat pengguna')
 ON CONFLICT (key) DO NOTHING;
+
