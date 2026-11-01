@@ -64,11 +64,7 @@ CREATE POLICY "Audit logs are viewable by authorized administrators"
   ON public.audit_logs FOR SELECT
   TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('admin', 'super_admin', 'pengurus', 'mudir', 'yayasan')
-    )
+    app.has_any_role('admin', 'super_admin', 'pengurus', 'mudir', 'yayasan')
   );
 
 CREATE POLICY "Policy settings are readable by authenticated users"

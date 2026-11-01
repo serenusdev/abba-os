@@ -139,6 +139,43 @@ AS $$
   );
 $$;
 
+-- Helper: cek apakah user aktif memiliki role tertentu (by role key)
+-- Digunakan oleh RLS policies di modul lain (activity_reports, analytics, dll.)
+CREATE OR REPLACE FUNCTION app.has_role(role_key TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, app, pg_temp
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles ur
+    JOIN public.roles r ON r.id = ur.role_id
+    WHERE ur.user_id = auth.uid()
+      AND ur.revoked_at IS NULL
+      AND r.key = role_key
+  );
+$$;
+
+-- Helper: cek apakah user memiliki salah satu dari beberapa role (variadic)
+CREATE OR REPLACE FUNCTION app.has_any_role(VARIADIC role_keys TEXT[])
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, app, pg_temp
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles ur
+    JOIN public.roles r ON r.id = ur.role_id
+    WHERE ur.user_id = auth.uid()
+      AND ur.revoked_at IS NULL
+      AND r.key = ANY(role_keys)
+  );
+$$;
+
 -- 11. Row Level Security Policies
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;

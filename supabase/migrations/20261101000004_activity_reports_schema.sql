@@ -182,11 +182,7 @@ CREATE POLICY "Reviewers can view assigned or unassigned reports"
   TO authenticated
   USING (
     reviewer_id = auth.uid() OR
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('admin', 'pengurus', 'pembina', 'mudir')
-    )
+    app.has_any_role('admin', 'pengurus', 'pembina', 'mudir')
   );
 
 -- Policies for report_items
@@ -210,11 +206,7 @@ CREATE POLICY "Reviewers can view items of reviewed reports"
       WHERE daily_reports.id = report_items.report_id
       AND (
         daily_reports.reviewer_id = auth.uid() OR
-        EXISTS (
-          SELECT 1 FROM public.profiles
-          WHERE profiles.id = auth.uid()
-          AND profiles.role IN ('admin', 'pengurus', 'pembina', 'mudir')
-        )
+        app.has_any_role('admin', 'pengurus', 'pembina', 'mudir')
       )
     )
   );
