@@ -82,3 +82,4 @@ CREATE POLICY "Users can mark announcements as read"
   TO authenticated
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+

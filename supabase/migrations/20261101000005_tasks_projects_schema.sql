@@ -172,3 +172,4 @@ CREATE POLICY "Task history readable by authenticated users"
   ON public.task_status_history FOR SELECT
   TO authenticated
   USING (true);
+

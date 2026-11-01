@@ -47,3 +47,4 @@ export interface WeekDayPickerItem {
   isActive: boolean;
   hasEvent: boolean;
 }
+
