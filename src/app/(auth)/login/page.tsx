@@ -11,8 +11,8 @@ import { ensureSuperAdminAccountAction } from "@/modules/iam/actions";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = React.useState("serenusdev.op@gmail.com");
-  const [password, setPassword] = React.useState("Anzhaer_25");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
 

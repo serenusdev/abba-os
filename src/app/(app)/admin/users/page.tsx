@@ -595,7 +595,7 @@ export default function AdminUsersPage() {
           {suspendedUsersList.length === 0 ? (
             <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
               <Illustration
-                src="/illustrations/undraw_protection-enabled_pve7.svg"
+                src="/illustrations/undraw_blocked_ldel.svg"
                 alt="Tidak ada akun ditangguhkan"
                 width={120}
                 height={85}
