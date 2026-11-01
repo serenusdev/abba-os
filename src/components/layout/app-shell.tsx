@@ -4,6 +4,7 @@ import { MobileNav } from "./mobile-nav";
 import { DesktopSidebar } from "./desktop-sidebar";
 import { DesktopHeader } from "./desktop-header";
 import { UserProfile } from "@/lib/auth/types";
+import { PushNotificationsInit } from "@/components/notifications/push-notifications-init";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface AppShellProps {
 export function AppShell({ children, user }: AppShellProps) {
   return (
     <div className="min-h-screen bg-background text-on-surface antialiased flex flex-col">
+      <PushNotificationsInit userId={user.id} />
       {/* Mobile Header & Bottom Navigation */}
       <MobileHeader user={user} />
       <MobileNav user={user} />
