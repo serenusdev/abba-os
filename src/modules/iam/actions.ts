@@ -294,6 +294,16 @@ export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
       .order("created_at", { ascending: false });
 
     if (!error && data && data.length > 0) {
+      const userIds = data.map((profile: any) => profile.id).filter(Boolean);
+      const { data: deviceRows } = userIds.length
+        ? await supabase.from("device_tokens").select("user_id, platform, device_label").in("user_id", userIds)
+        : { data: [] as any[] };
+      const devicesByUser = new Map<string, any[]>();
+      for (const device of deviceRows || []) {
+        const devices = devicesByUser.get(device.user_id) || [];
+        devices.push(device);
+        devicesByUser.set(device.user_id, devices);
+      }
       return data.map((d: any) => {
         const initials = d.full_name
           ? d.full_name
@@ -303,6 +313,8 @@ export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
               .substring(0, 2)
               .toUpperCase()
           : "U";
+        const devices = devicesByUser.get(d.id) || [];
+        const deviceLabels = Array.from(new Set(devices.map((device: any) => device.device_label || device.platform))).filter(Boolean);
         return {
           id: d.id,
           fullName: d.full_name,
@@ -311,8 +323,10 @@ export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
           teamName: d.team_name || "Sentra Santri",
           status: d.status || "active",
           initials,
-          devicesCount: 1,
-          deviceInfo: "1 Perangkat Aktif",
+          devicesCount: devices.length,
+          deviceInfo: devices.length
+            ? `${devices.length} Perangkat Aktif${deviceLabels.length ? ` · ${deviceLabels.slice(0, 2).join(", ")}` : ""}`
+            : "Belum ada perangkat terhubung",
           mfaEnabled: false,
           isVerified: d.status === "active",
         };
