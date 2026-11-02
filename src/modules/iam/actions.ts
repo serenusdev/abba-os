@@ -4,7 +4,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserProfile } from "@/lib/auth/session";
-import { getHighestRole, requireRole, ROLE_PRIORITY } from "@/lib/auth/guards";
+import { getHighestRole, requireAuthUser, requireRole, ROLE_PRIORITY } from "@/lib/auth/guards";
 import { UserProfile } from "@/lib/auth/types";
 import { ManualAccountPayload } from "./types";
 import { sendPushToUsers } from "@/lib/fcm";
@@ -700,7 +700,7 @@ export async function updateProfileAction(payload: {
  */
 export async function uploadAvatarAction(
   formData: FormData
-): Promise<ActionResult<{ avatarUrl: string }>> {
+): Promise<ActionResult<{ avatarUrl: string; storagePath: string }>> {
   const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
 
@@ -734,11 +734,25 @@ export async function uploadAvatarAction(
     return {
       success: true,
       message: "Foto profil berhasil diunggah.",
-      data: { avatarUrl: urlData.publicUrl },
+      data: { avatarUrl: urlData.publicUrl, storagePath: path },
     };
   } catch (err: any) {
     console.error("uploadAvatarAction error:", err);
     return { success: false, message: err.message || "Gagal mengunggah foto profil." };
+  }
+}
+
+export async function deleteAvatarAction(storagePath: string): Promise<ActionResult> {
+  if (!storagePath) return { success: true, message: "Tidak ada avatar sementara yang perlu dibersihkan." };
+  try {
+    await requireAuthUser();
+    const supabase = createAdminClient();
+    const { error } = await supabase.storage.from("avatars").remove([storagePath]);
+    if (error) throw error;
+    return { success: true, message: "Avatar sementara dibersihkan." };
+  } catch (err: any) {
+    console.error("deleteAvatarAction error:", err);
+    return { success: false, message: err.message || "Gagal membersihkan avatar sementara." };
   }
 }
 

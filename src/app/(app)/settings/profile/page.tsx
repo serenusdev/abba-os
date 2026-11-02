@@ -6,6 +6,7 @@ import {
   getCurrentUserAction,
   updateProfileAction,
   uploadAvatarAction,
+  deleteAvatarAction,
   changePasswordAction,
 } from "@/modules/iam/actions";
 import { UserProfile } from "@/lib/auth/types";
@@ -61,31 +62,37 @@ export default function ProfileSettingsPage() {
     setIsSavingProfile(true);
 
     let finalAvatarUrl = avatarUrl || undefined;
+    let uploadedStoragePath: string | undefined;
+    try {
+      if (avatarFile) {
+        const fd = new FormData();
+        fd.append("avatar", avatarFile);
+        const uploadRes = await uploadAvatarAction(fd);
+        if (!uploadRes.success || !uploadRes.data) {
+          setProfileMsg({ type: "error", text: uploadRes.message });
+          return;
+        }
+        finalAvatarUrl = uploadRes.data.avatarUrl;
+        uploadedStoragePath = uploadRes.data.storagePath;
+      }
 
-    // Upload avatar first if a new file was chosen
-    if (avatarFile) {
-      const fd = new FormData();
-      fd.append("avatar", avatarFile);
-      const uploadRes = await uploadAvatarAction(fd);
-      if (!uploadRes.success || !uploadRes.data) {
-        setProfileMsg({ type: "error", text: uploadRes.message });
-        setIsSavingProfile(false);
+      const res = await updateProfileAction({ fullName, phoneNumber, avatarUrl: finalAvatarUrl });
+      if (!res.success) {
+        if (uploadedStoragePath) await deleteAvatarAction(uploadedStoragePath);
+        setProfileMsg({ type: "error", text: res.message });
         return;
       }
-      finalAvatarUrl = uploadRes.data.avatarUrl;
-      setAvatarUrl(finalAvatarUrl);
+
+      setAvatarUrl(finalAvatarUrl || null);
       setAvatarPreview(null);
       setAvatarFile(null);
+      setProfileMsg({ type: "success", text: res.message });
+    } catch (error) {
+      if (uploadedStoragePath) await deleteAvatarAction(uploadedStoragePath);
+      setProfileMsg({ type: "error", text: error instanceof Error ? error.message : "Gagal menyimpan profil." });
+    } finally {
+      setIsSavingProfile(false);
     }
-
-    const res = await updateProfileAction({
-      fullName,
-      phoneNumber,
-      avatarUrl: finalAvatarUrl,
-    });
-
-    setProfileMsg({ type: res.success ? "success" : "error", text: res.message });
-    setIsSavingProfile(false);
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
