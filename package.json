@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:android": "NEXT_PUBLIC_CAPACITOR_BUILD=true next build",
+    "build:android": "npx cap sync android",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

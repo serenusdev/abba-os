@@ -30,3 +30,7 @@ google-services.json
 
 # kiro agent artifacts
 .agents/
+
+.idea
+*.iml
+android/.idea
