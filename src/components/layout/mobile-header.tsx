@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Avatar } from "@/components/ui/avatar";
 import { UserProfile } from "@/lib/auth/types";
+import { getUnreadAnnouncementsCountAction } from "@/modules/schedules/actions";
 
 interface MobileHeaderProps {
   user: UserProfile;
@@ -15,6 +16,17 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ user, title }: MobileHeaderProps) {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    let mounted = true;
+    getUnreadAnnouncementsCountAction().then((count) => {
+      if (mounted) setUnreadCount(count);
+    }).catch(() => {
+      if (mounted) setUnreadCount(0);
+    });
+    return () => { mounted = false; };
+  }, [pathname]);
 
   // Determine page title based on path if not explicitly provided
   const getPageTitle = () => {
@@ -79,7 +91,7 @@ export function MobileHeader({ user, title }: MobileHeaderProps) {
             className="relative w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-accent/40 active:scale-95 transition-all"
           >
             <span className="material-symbols-outlined text-[22px]">notifications</span>
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-error ring-2 ring-card" />
+            {unreadCount > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-error ring-2 ring-card" aria-label={`${unreadCount} notifikasi belum dibaca`} />}
           </Link>
 
           <Link href="/tim" className="w-11 h-11 flex items-center justify-center">

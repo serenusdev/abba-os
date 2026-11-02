@@ -48,15 +48,27 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // An authenticated Supabase user is not necessarily an active application
+  // member. Suspended/deactivated profiles must not keep rendering app routes.
+  let activeProfile = true;
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('status')
+      .eq('id', user.id)
+      .maybeSingle();
+    activeProfile = profile?.status === 'active';
+  }
+
   // If unauthenticated and accessing protected app route
-  if (!user && !isPublicRoute) {
+  if ((!user || !activeProfile) && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
   // If already authenticated and accessing login or register
-  if (user && (pathname === '/login' || pathname === '/register')) {
+  if (user && activeProfile && (pathname === '/login' || pathname === '/register')) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);

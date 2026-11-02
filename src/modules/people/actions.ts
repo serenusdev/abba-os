@@ -40,6 +40,23 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
         .select("user_id, team_id, team_role")
         .in("user_id", profileIds)
         .is("valid_to", null);
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+      const { data: dutyRows } = await supabase
+        .from("attendance_duty_flags")
+        .select("user_id, attendance_required, report_required, date_from, date_to, created_at")
+        .in("user_id", profileIds)
+        .lte("date_from", today)
+        .order("created_at", { ascending: false });
+      const dutyByUser = new Map<string, { attendanceRequired: boolean; reportRequired: boolean }>();
+      for (const duty of dutyRows || []) {
+        if (duty.date_to && duty.date_to < today) continue;
+        if (!dutyByUser.has(duty.user_id)) {
+          dutyByUser.set(duty.user_id, {
+            attendanceRequired: Boolean(duty.attendance_required),
+            reportRequired: Boolean(duty.report_required),
+          });
+        }
+      }
       const teamIds = Array.from(new Set((memberships || []).map((membership: any) => membership.team_id)));
       const { data: teamRows } = teamIds.length
         ? await supabase.from("teams").select("id, name, slug").in("id", teamIds)
@@ -95,8 +112,8 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
           phoneUnmasked: "",
           onlineStatus: onlineStatus as "active" | "away" | "offline",
           dutyFlags: {
-            attendanceRequired: isSantri,
-            reportRequired: isSantri,
+            attendanceRequired: dutyByUser.get(p.id)?.attendanceRequired ?? isSantri,
+            reportRequired: dutyByUser.get(p.id)?.reportRequired ?? isSantri,
           },
           bio: p.notes || "",
           primaryReviewerName: reviewer ? reviewerMap.get(reviewer.reviewer_id) || "" : "",
@@ -129,6 +146,11 @@ export async function getTeamsAction(): Promise<TeamStructureItem[]> {
     if (!error && teams) {
       if (teams.length === 0) return [];
       const teamIds = teams.map((team: any) => team.id);
+      const memberIds = Array.from(new Set((teams as any[]).flatMap((team: any) => (team.team_members || []).map((member: any) => member.user_id))));
+      const { data: activeProfiles } = memberIds.length
+        ? await supabase.from("profiles").select("id").in("id", memberIds).eq("status", "active")
+        : { data: [] };
+      const activeProfileIds = new Set((activeProfiles || []).map((profile: any) => profile.id));
       const { data: coordinators } = await supabase
         .from("team_members")
         .select("team_id, user_id")
@@ -152,7 +174,7 @@ export async function getTeamsAction(): Promise<TeamStructureItem[]> {
         slug: t.slug,
         description: t.description || "",
         coordinatorName: coordinatorByTeam.get(t.id) || "",
-        memberCount: (t.team_members || []).filter((member: any) => !member.valid_to).length,
+        memberCount: (t.team_members || []).filter((member: any) => !member.valid_to && activeProfileIds.has(member.user_id)).length,
         icon: t.slug.includes("digital") ? "terminal" : t.slug.includes("media") ? "campaign" : "diversity_3",
       }));
     }

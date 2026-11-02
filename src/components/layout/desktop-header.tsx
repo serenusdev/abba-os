@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { formatOperationalDateTime } from "@/lib/utils";
 import { UserProfile } from "@/lib/auth/types";
 import { Avatar } from "@/components/ui/avatar";
+import { getUnreadAnnouncementsCountAction } from "@/modules/schedules/actions";
 
 interface DesktopHeaderProps {
   user: UserProfile;
@@ -17,6 +18,7 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
   const [currentDateTime, setCurrentDateTime] = React.useState<string>(
     formatOperationalDateTime()
   );
+  const [unreadCount, setUnreadCount] = React.useState(0);
 
   React.useEffect(() => {
     // Update live clock every minute
@@ -25,6 +27,16 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
     }, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  React.useEffect(() => {
+    let mounted = true;
+    getUnreadAnnouncementsCountAction().then((count) => {
+      if (mounted) setUnreadCount(count);
+    }).catch(() => {
+      if (mounted) setUnreadCount(0);
+    });
+    return () => { mounted = false; };
+  }, [pathname]);
 
   const getPageTitle = () => {
     if (pathname === "/" || pathname === "/beranda") return "Beranda Santri";
@@ -88,7 +100,7 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
           className="relative w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary hover:bg-accent/40 active:scale-95 transition-all"
         >
           <span className="material-symbols-outlined text-[22px]">notifications</span>
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-error ring-2 ring-card" />
+          {unreadCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-error ring-2 ring-card" aria-label={`${unreadCount} notifikasi belum dibaca`} />}
         </Link>
 
         {/* User Mini Profile Link to Profile Page */}

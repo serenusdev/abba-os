@@ -163,6 +163,11 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
   return [];
 }
 
+export async function getUnreadAnnouncementsCountAction(): Promise<number> {
+  const announcements = await getAnnouncementsAction();
+  return announcements.filter((announcement) => !announcement.isRead).length;
+}
+
 /**
  * Server Action: Mark Announcement as Read (SCH-015)
  */

@@ -8,6 +8,7 @@ import {
   saveReportDraftAction,
   submitReportAction,
   getTodayReportAction,
+  getReportCategoriesAction,
 } from "@/modules/reports/actions";
 import { getActivePolicyAction, type PolicySettingItem } from "@/modules/analytics/actions";
 
@@ -45,6 +46,7 @@ const BLANK_REPORT: DailyReport = {
 
 export default function LaporanPage() {
   const [report, setReport] = React.useState<DailyReport>(BLANK_REPORT);
+  const [reportCategories, setReportCategories] = React.useState(REPORT_CATEGORIES);
   const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
   const [feedback, setFeedback] = React.useState<{
     type: "success" | "error" | "info";
@@ -56,6 +58,9 @@ export default function LaporanPage() {
   React.useEffect(() => {
     getTodayReportAction().then((data) => {
       if (data) setReport(data);
+    });
+    getReportCategoriesAction().then((categories) => {
+      if (categories.length) setReportCategories(categories);
     });
     getActivePolicyAction().then((p) => {
       setPolicy(p);
@@ -107,7 +112,7 @@ export default function LaporanPage() {
       items: prev.items.map((item) => {
         if (item.id === id) {
           if (field === "categoryId") {
-            const cat = REPORT_CATEGORIES.find((c) => c.id === value);
+            const cat = reportCategories.find((c) => c.id === value);
             return {
               ...item,
               categoryId: String(value),
@@ -451,7 +456,7 @@ export default function LaporanPage() {
                       Kategori Aktivitas
                     </label>
                     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
-                      {REPORT_CATEGORIES.map((cat) => {
+                      {reportCategories.map((cat) => {
                         const isSelected = item.categoryId === cat.id;
                         return (
                           <button

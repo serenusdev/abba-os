@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushToUsers } from "@/lib/fcm";
 import { requireAuthUser, requireRole, getJakartaTime } from "@/lib/auth/guards";
-import { INITIAL_USER_DAILY_REPORT, REVIEW_QUEUE_REPORTS } from "./data";
-import { DailyReport, ReportItem, ReviewDecision } from "./types";
+import { INITIAL_USER_DAILY_REPORT, REPORT_CATEGORIES, REVIEW_QUEUE_REPORTS } from "./data";
+import { DailyReport, ReportCategory, ReportItem, ReviewDecision } from "./types";
 
 export interface SaveReportDraftPayload {
   reportId: string;
@@ -28,14 +28,41 @@ export interface ReviewReportPayload {
 }
 
 function serializeReportItems(items: ReportItem[]) {
+  const categoryAliases: Record<string, string> = {
+    "cat-tech": "digital-teknologi",
+    "cat-deeni": "keagamaan",
+    "cat-edu": "pendidikan",
+    "cat-media": "media-kreatif",
+    "cat-ops": "operasional",
+  };
   return items.map((item) => ({
-    categoryId: item.categoryId,
+    // The RPC resolves canonical UUIDs and slugs. Keep legacy fixture IDs
+    // compatible so a fast first submit cannot silently lose its category.
+    categoryId: categoryAliases[item.categoryId] || item.categoryId,
     title: item.title,
     description: item.description,
     resultProgress: item.resultProgress || "",
     obstacles: item.obstacles || "",
     durationMinutes: item.durationMinutes || 60,
   }));
+}
+
+export async function getReportCategoriesAction(): Promise<ReportCategory[]> {
+  await requireAuthUser();
+  if (process.env.VITEST) return REPORT_CATEGORIES;
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("report_categories")
+      .select("id, name, slug, icon")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    if (data?.length) return data as ReportCategory[];
+  } catch (err) {
+    console.error("Failed to query report categories:", err);
+  }
+  return REPORT_CATEGORIES;
 }
 
 /**
@@ -51,7 +78,7 @@ export async function getTodayReportAction(): Promise<DailyReport> {
 
     const { data: report } = await supabase
       .from("daily_reports")
-      .select("*, report_items(*)")
+      .select("*, report_items(*, report_categories(name))")
       .eq("user_id", user.id)
       .eq("report_date", today)
       .limit(1)
@@ -97,7 +124,7 @@ export async function getTodayReportAction(): Promise<DailyReport> {
         items: (report.report_items || []).map((it: any) => ({
           id: it.id,
           categoryId: it.category_id || "digital-teknologi",
-          categoryName: "Digital & Teknologi",
+          categoryName: it.report_categories?.name || "Aktivitas Santri",
           title: it.title,
           description: it.description,
           resultProgress: it.result_progress || "",
@@ -162,7 +189,7 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
     const supabase = createAdminClient();
     const { data: reports, error } = await supabase
       .from("daily_reports")
-      .select("*, report_items(*)")
+      .select("*, report_items(*, report_categories(name))")
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -238,7 +265,7 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
           items: (r.report_items || []).map((it: any) => ({
             id: it.id,
             categoryId: it.category_id || "cat-tech",
-            categoryName: "Aktivitas Santri",
+            categoryName: it.report_categories?.name || "Aktivitas Santri",
             title: it.title,
             description: it.description,
             resultProgress: it.result_progress || "",

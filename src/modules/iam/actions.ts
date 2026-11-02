@@ -491,7 +491,13 @@ export async function rejectAccountApplicationAction(
 
     const { data: rejected, error } = await supabase
       .from("account_requests")
-      .update({ status: "rejected", notes: reason, reviewed_by: approver.id, reviewed_at: new Date().toISOString() })
+      .update({
+        status: "rejected",
+        notes: reason.trim(),
+        rejection_reason: reason.trim(),
+        reviewed_by: approver.id,
+        reviewed_at: new Date().toISOString(),
+      })
       .eq("id", applicantId)
       .eq("status", "pending")
       .select("id");
