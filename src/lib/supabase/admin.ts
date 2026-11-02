@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 
+if (process.env.NODE_ENV === 'production' && process.env.VITEST) {
+  throw new Error('VITEST must never be enabled in production.');
+}
+
 /**
  * Supabase Admin Client
  * Uses SUPABASE_SERVICE_ROLE_KEY to perform privileged operations

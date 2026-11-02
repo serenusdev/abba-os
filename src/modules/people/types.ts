@@ -18,6 +18,7 @@ export interface PersonProfile {
   roleLabel: string;
   teamName: string;
   teamId: string;
+  teams?: Array<{ id: string; name: string; slug: string; role: string }>;
   primaryReviewerName: string;
   phoneMasked: string;
   phoneUnmasked: string;

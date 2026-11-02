@@ -4,6 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import { UserProfile } from "@/lib/auth/types";
 import { Avatar } from "@/components/ui/avatar";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { cleanupPushNotifications } from "@/lib/notifications";
 
 interface MoreSheetProps {
   isOpen: boolean;
@@ -12,7 +15,16 @@ interface MoreSheetProps {
 }
 
 export function MoreSheet({ isOpen, onClose, user }: MoreSheetProps) {
+  const router = useRouter();
   if (!isOpen) return null;
+
+  const handleLogout = async () => {
+    await cleanupPushNotifications();
+    await createClient().auth.signOut();
+    onClose();
+    router.replace("/login");
+    router.refresh();
+  };
 
   const isAdminOrPengurus =
     user.role === "super_admin" ||
@@ -216,14 +228,14 @@ export function MoreSheet({ isOpen, onClose, user }: MoreSheetProps) {
 
         {/* Footer actions */}
         <div className="pt-3 border-t border-border flex items-center justify-between">
-          <Link
-            href="/login"
-            onClick={onClose}
+          <button
+            type="button"
+            onClick={handleLogout}
             className="flex items-center gap-2 text-destructive font-label-md text-body-sm py-2 px-3 rounded-lg hover:bg-destructive/10"
           >
             <span className="material-symbols-outlined text-[20px]">logout</span>
             <span>Keluar Akun</span>
-          </Link>
+          </button>
 
           <span className="text-[11px] font-mono text-muted-foreground">
             v2.0 • Asia/Jakarta

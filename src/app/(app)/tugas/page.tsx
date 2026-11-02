@@ -42,7 +42,7 @@ export default function TugasPage() {
   const [newTitle, setNewTitle] = React.useState("");
   const [newProjectId, setNewProjectId] = React.useState(projects[0]?.id || "proj-general");
   const [newPriority, setNewPriority] = React.useState<TaskPriority>("normal");
-  const [newDueDate, setNewDueDate] = React.useState("Hari Ini (20:00 WIB)");
+  const [newDueDate, setNewDueDate] = React.useState("");
   const [newRequiresReview, setNewRequiresReview] = React.useState(false);
   const [newDescription, setNewDescription] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
@@ -133,6 +133,7 @@ export default function TugasPage() {
         priority: newPriority,
         requiresReview: newRequiresReview,
         dueDateStr: newDueDate,
+        dueDateIso: newDueDate || undefined,
         description: newDescription,
       });
 
@@ -148,16 +149,9 @@ export default function TugasPage() {
           status: "todo",
           requiresReview: newRequiresReview,
           dueDateStr: newDueDate,
-          isDueToday: newDueDate.toLowerCase().includes("hari ini"),
+          isDueToday: Boolean(newDueDate && newDueDate === new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())),
           checklist: [],
-          assignees: [
-            {
-              userId: "usr-salman",
-              name: "Salman Al-Farisi",
-              role: "Santri",
-              avatar: "SA",
-            },
-          ],
+          assignees: [],
         };
 
         setTasks((prev) => [newTask, ...prev]);
@@ -784,7 +778,7 @@ export default function TugasPage() {
                   Judul Tugas <span className="text-error">*</span>
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
@@ -840,7 +834,6 @@ export default function TugasPage() {
                   type="text"
                   value={newDueDate}
                   onChange={(e) => setNewDueDate(e.target.value)}
-                  placeholder="Contoh: Hari Ini (20:00 WIB) atau Kamis, 20 Nov"
                   className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>

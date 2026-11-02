@@ -2,9 +2,7 @@
 
 import * as React from "react";
 import { Illustration } from "@/components/ui/illustration";
-import {
-  WEEK_DAYS_AGENDA,
-} from "@/modules/schedules/data";
+import { WEEK_DAYS_AGENDA } from "@/modules/schedules/data";
 import {
   AnnouncementItem,
   ScheduleEventItem,
@@ -23,11 +21,30 @@ type ScheduleTab = "agenda" | "announcements";
 export default function JadwalPage() {
   const [activeTab, setActiveTab] = React.useState<ScheduleTab>("agenda");
   const [weekDays, setWeekDays] = React.useState<WeekDayPickerItem[]>(WEEK_DAYS_AGENDA);
-  const [selectedDate, setSelectedDate] = React.useState("2026-11-18");
+  const [selectedDate, setSelectedDate] = React.useState("");
   const [events, setEvents] = React.useState<ScheduleEventItem[]>([]);
   const [announcements, setAnnouncements] = React.useState<AnnouncementItem[]>([]);
 
   React.useEffect(() => {
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    setSelectedDate(today);
+    setWeekDays(() => {
+      const base = new Date(`${today}T12:00:00+07:00`);
+      const mondayOffset = (base.getUTCDay() + 6) % 7;
+      base.setUTCDate(base.getUTCDate() - mondayOffset);
+      return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(base);
+        date.setUTCDate(base.getUTCDate() + index);
+        const iso = date.toISOString().slice(0, 10);
+        return {
+          dayName: new Intl.DateTimeFormat("id-ID", { weekday: "short", timeZone: "Asia/Jakarta" }).format(date),
+          dateNum: Number(iso.slice(-2)),
+          fullDate: iso,
+          isActive: iso === today,
+          hasEvent: false,
+        };
+      });
+    });
     Promise.all([getEventsAction(), getAnnouncementsAction()]).then(([evData, anData]) => {
       setEvents(evData || []);
       setAnnouncements(anData || []);
@@ -81,6 +98,13 @@ export default function JadwalPage() {
       bodyMarkdown: newAnnBody,
       priority: newAnnPriority,
       targetAudienceLabel: newAnnAudience,
+      audienceConfig: newAnnAudience.toLowerCase().includes("pengurus")
+        ? { scope: "member_type", memberTypes: ["pengurus"] }
+        : newAnnAudience.toLowerCase().includes("koordinator")
+          ? { scope: "member_type", memberTypes: ["koordinator"] }
+          : newAnnAudience.toLowerCase().includes("santri") && !newAnnAudience.toLowerCase().includes("tim")
+            ? { scope: "member_type", memberTypes: ["santri"] }
+            : { scope: "all" },
     });
 
     if (res.success && res.announcement) {
@@ -92,8 +116,9 @@ export default function JadwalPage() {
   };
 
   const filteredEvents = events.filter((evt) => {
-    if (categoryFilter === "all") return true;
-    return evt.category === categoryFilter;
+    const dateMatches = !selectedDate || !evt.dateStr || evt.dateStr === selectedDate;
+    const categoryMatches = categoryFilter === "all" || evt.category === categoryFilter;
+    return dateMatches && categoryMatches;
   });
 
   const pinnedAnnouncement = announcements.find((a) => a.isPinned);
@@ -122,9 +147,7 @@ export default function JadwalPage() {
             type="button"
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-accent text-accent-foreground font-label-sm text-xs shadow-xs hover:bg-accent/80 transition-all"
           >
-            <span className="font-medium">
-              {selectedDate === "2026-11-18" ? "18 Nov 2026" : selectedDate}
-            </span>
+            <span className="font-medium">{selectedDate || "Ketik tanggal"}</span>
             <span className="material-symbols-outlined text-[16px]">expand_more</span>
           </button>
 

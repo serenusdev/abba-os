@@ -102,7 +102,7 @@ export async function getAttendanceHistoryAction(): Promise<AttendanceRecordItem
       .limit(30);
 
     // Santri only sees their own attendance history
-    if (user.role === "santri") {
+    if (["santri", "koordinator"].includes(user.role)) {
       query = query.eq("user_id", user.id);
     }
 
@@ -180,15 +180,43 @@ export async function submitCorrectionAction(
 
   try {
     const supabase = createAdminClient();
-    const { error } = await supabase.from("audit_logs").insert({
-      event_name: "attendance.correction_requested",
-      actor_name: user.full_name,
-      target_id: payload.attendanceDate,
-      target_label: `Koreksi Presensi ${payload.attendanceDate} (${user.full_name})`,
-      action_detail: `Alasan: ${payload.reasonCategory}. Catatan: ${payload.notes || "-"}`,
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(payload.attendanceDate) || Number.isNaN(Date.parse(`${payload.attendanceDate}T00:00:00Z`))) {
+      return { success: false, message: "Tanggal presensi tidak valid." };
+    }
+    const allowedCategories = ["wrong_time", "missed_checkin", "system_error", "other"];
+    if (!allowedCategories.includes(payload.reasonCategory)) {
+      return { success: false, message: "Kategori alasan koreksi tidak valid." };
+    }
+    const notes = (payload.notes || "").trim();
+    if (notes.length > 2000) return { success: false, message: "Catatan koreksi maksimal 2.000 karakter." };
+    const { data: existing, error: existingError } = await supabase
+      .from("attendance_corrections")
+      .select("id, status")
+      .eq("user_id", user.id)
+      .eq("attendance_date", payload.attendanceDate)
+      .in("status", ["pending", "approved"])
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existing) return { success: false, message: "Koreksi untuk tanggal tersebut sudah pernah diajukan." };
+    const { error } = await supabase.from("attendance_corrections").insert({
+      user_id: user.id,
+      attendance_date: payload.attendanceDate,
+      requested_classification: "on_time",
+      reason: `${payload.reasonCategory}: ${notes || "Tanpa catatan tambahan"}`,
+      evidence_url: payload.evidenceUrl || null,
+      status: "pending",
     });
 
     if (error) throw error;
+    await supabase.from("audit_logs").insert({
+      event_name: "attendance.correction_requested",
+      actor_id: user.id,
+      actor_name: user.full_name,
+      target_id: payload.attendanceDate,
+      target_label: `Koreksi Presensi ${payload.attendanceDate} (${user.full_name})`,
+      action_detail: `Alasan: ${payload.reasonCategory}. Catatan: ${notes || "-"}`,
+    });
   } catch (err: any) {
     console.error("Failed to log correction audit:", err);
     return {
@@ -221,6 +249,22 @@ export async function submitExceptionAction(
     };
   }
 
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  if (!datePattern.test(dateFrom) || !datePattern.test(dateTo)) {
+    return { success: false, message: "Tanggal izin harus berformat YYYY-MM-DD." };
+  }
+  const from = new Date(`${dateFrom}T00:00:00Z`);
+  const to = new Date(`${dateTo}T00:00:00Z`);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
+    return { success: false, message: "Rentang tanggal izin tidak valid." };
+  }
+  if (!(type === "excused" || type === "sick" || type === "duty")) {
+    return { success: false, message: "Jenis izin tidak valid." };
+  }
+  if (reason.trim().length > 2000) {
+    return { success: false, message: "Alasan izin maksimal 2.000 karakter." };
+  }
+
   const typeLabel = type === "sick" ? "Permohonan Sakit" : "Permohonan Izin";
 
   if (process.env.VITEST) {
@@ -232,6 +276,16 @@ export async function submitExceptionAction(
 
   try {
     const supabase = createAdminClient();
+    const { data: overlap, error: overlapError } = await supabase
+      .from("attendance_exceptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .in("status", ["pending", "approved"])
+      .lte("date_from", dateTo)
+      .gte("date_to", dateFrom)
+      .limit(1);
+    if (overlapError) throw overlapError;
+    if (overlap?.length) return { success: false, message: "Rentang tanggal bertumpang tindih dengan pengajuan yang sudah ada." };
     const { error } = await supabase.from("attendance_exceptions").insert({
       user_id: user.id,
       date_from: dateFrom,

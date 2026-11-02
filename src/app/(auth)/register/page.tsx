@@ -34,6 +34,7 @@ export default function RegisterPage() {
     notes: "",
     password: "",
     confirmPassword: "",
+    website: "",
   });
   const [passwordError, setPasswordError] = React.useState("");
 
@@ -64,6 +65,7 @@ export default function RegisterPage() {
       teamRequested: formData.teamName,
       notes: formData.notes,
       password: formData.password,
+      website: formData.website,
     });
 
     setIsLoading(false);
@@ -137,6 +139,14 @@ export default function RegisterPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                aria-hidden="true"
+                tabIndex={-1}
+                autoComplete="off"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                className="absolute -left-[9999px] h-0 w-0 opacity-0"
+              />
               <Input
                 label="Nama Lengkap"
                 type="text"
@@ -247,8 +257,6 @@ export default function RegisterPage() {
                     className="w-full h-11 px-3 rounded-xl bg-surface-container text-on-surface font-body-md text-sm border border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="santri">Santri</option>
-                    <option value="koordinator">Koordinator Tim</option>
-                    <option value="pengurus">Pengurus Harian</option>
                   </select>
                 </div>
 

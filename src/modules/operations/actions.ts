@@ -4,8 +4,37 @@
 
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { sendPushToUsers } from "@/lib/fcm";
+
+async function canAccessTask(
+  supabase: ReturnType<typeof createAdminClient>,
+  user: { id: string; role: string; roles?: string[] },
+  taskId: string
+) {
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .select("id, created_by, team_id, task_assignees(user_id, unassigned_at)")
+    .eq("id", taskId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw error;
+  if (!task) return false;
+  const roles = user.roles || [user.role];
+  if (roles.some((role) => ["super_admin", "yayasan", "pengurus"].includes(role))) return true;
+  if (task.created_by === user.id || (task.task_assignees || []).some((item: any) => item.user_id === user.id && !item.unassigned_at)) return true;
+  if (!task.team_id) return false;
+  const { data: memberships, error: membershipError } = await supabase
+    .from("team_members")
+    .select("team_id, teams(id, name, slug)")
+    .eq("user_id", user.id)
+    .is("valid_to", null);
+  if (membershipError) throw membershipError;
+  return (memberships || []).some((item: any) =>
+    task.team_id === item.team_id || task.team_id === item.teams?.id || task.team_id === item.teams?.name || task.team_id === item.teams?.slug
+  );
+}
 
 export interface OperationalAnalytics {
   period: { from: string; to: string };
@@ -35,7 +64,7 @@ export async function getOperationalAnalyticsAction(
   to?: string,
   teamId?: string
 ): Promise<OperationalAnalytics> {
-  await requireRole(["super_admin", "yayasan", "pengurus", "koordinator"]);
+  const user = await requireRole(["super_admin", "yayasan", "pengurus", "koordinator"]);
   const period = periodDefaults(from, to);
 
   if (process.env.VITEST) {
@@ -47,11 +76,31 @@ export async function getOperationalAnalyticsAction(
     };
   }
 
-  const supabase = createAdminClient();
+  const admin = createAdminClient();
+  let effectiveTeamId = teamId || null;
+  if (user.role === "koordinator") {
+    const { data: memberships, error: membershipError } = await admin
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", user.id)
+      .is("valid_to", null)
+      .limit(1);
+    if (membershipError) throw membershipError;
+    effectiveTeamId = memberships?.[0]?.team_id || null;
+    if (!effectiveTeamId) {
+      return {
+        period,
+        attendance: { population: 0, checkedIn: 0, onTime: 0, grace: 0, late: 0 },
+        reports: { total: 0, submitted: 0, late: 0, reviewBacklog: 0 },
+        tasks: { open: 0, completed: 0, overdue: 0 },
+      };
+    }
+  }
+  const supabase = await createClient();
   const { data, error } = await supabase.rpc("analytics_operational_summary", {
     p_from: period.from,
     p_to: period.to,
-    p_team_id: teamId || null,
+    p_team_id: effectiveTeamId,
   });
   if (error) throw error;
   const value = (data || {}) as any;
@@ -231,12 +280,24 @@ export async function importMembersCsvAction(
     total_rows: items.length,
     imported_rows: valid.length,
     rejected_rows: errors.length,
-    status: "completed",
+    status: "validated",
     errors,
   });
   if (batchError) throw batchError;
 
-  const { error: insertError } = await supabase.from("account_requests").insert(valid.map((item) => ({
+  const provisioned: Array<ImportRow & { auth_user_id: string }> = [];
+  for (const item of valid) {
+    const { data: invited, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(String(item.email).toLowerCase(), {
+      data: { full_name: String(item.full_name) },
+    });
+    if (inviteError || !invited.user?.id) {
+      errors.push(`Baris ${item.row}: akun Auth tidak dapat dibuat (${inviteError?.message || "ID user kosong"}).`);
+      continue;
+    }
+    provisioned.push({ ...item, auth_user_id: invited.user.id });
+  }
+  const { error: insertError } = await supabase.from("account_requests").insert(provisioned.map((item) => ({
+    auth_user_id: item.auth_user_id,
     full_name: String(item.full_name),
     email: String(item.email).toLowerCase(),
     phone_number: String(item.phone_number || "-"),
@@ -245,16 +306,21 @@ export async function importMembersCsvAction(
     notes: `Impor CSV batch ${batchId}. Attendance: ${String(item.attendance_required || "true")}; Report: ${String(item.report_required || "true")}.`,
     status: "pending",
   })));
-  if (insertError) throw insertError;
+  if (insertError) {
+    await Promise.all(provisioned.map((item) => supabase.auth.admin.deleteUser(item.auth_user_id)));
+    await supabase.from("member_import_batches").update({ status: "failed", errors: [...errors, insertError.message] }).eq("id", batchId);
+    throw insertError;
+  }
+  await supabase.from("member_import_batches").update({ status: "completed", imported_rows: provisioned.length, rejected_rows: errors.length, errors }).eq("id", batchId);
   await supabase.from("audit_logs").insert({
     event_name: "iam.member_csv_imported",
     actor_id: adminUser.id,
     actor_name: adminUser.full_name,
     target_id: batchId,
     target_label: fileName || "members.csv",
-    action_detail: `${valid.length} baris masuk antrean persetujuan; ${errors.length} baris ditolak validasi.`,
+    action_detail: `${provisioned.length} baris masuk antrean persetujuan; ${errors.length} baris ditolak atau gagal diprovisikan.`,
   });
-  return { success: true, message: `${valid.length} anggota masuk antrean persetujuan.`, totalRows: items.length, importedRows: valid.length, rejectedRows: errors.length, errors, batchId };
+  return { success: true, message: `${provisioned.length} anggota masuk antrean persetujuan.`, totalRows: items.length, importedRows: provisioned.length, rejectedRows: errors.length, errors, batchId };
 }
 
 export interface TaskDiscussionItem {
@@ -275,9 +341,10 @@ export interface TaskAttachmentItem {
 }
 
 export async function getTaskDiscussionAction(taskId: string): Promise<{ comments: TaskDiscussionItem[]; attachments: TaskAttachmentItem[] }> {
-  await requireAuthUser();
+  const user = await requireAuthUser();
   if (process.env.VITEST) return { comments: [], attachments: [] };
   const supabase = createAdminClient();
+  if (!(await canAccessTask(supabase, user, taskId))) throw new Error("FORBIDDEN: Tugas tidak dapat diakses.");
   const [{ data: comments, error: commentsError }, { data: attachments, error: attachmentsError }] = await Promise.all([
     supabase.from("task_comments").select("id, body, created_at, author_id, task_mentions(mentioned_user_id)").eq("task_id", taskId).order("created_at", { ascending: true }),
     supabase.from("task_attachments").select("id, file_name, mime_type, size_bytes, storage_path, created_at").eq("task_id", taskId).order("created_at", { ascending: false }),
@@ -309,6 +376,7 @@ export async function addTaskCommentAction(taskId: string, body: string, mention
   if (!cleanBody) return { success: false, message: "Komentar tidak boleh kosong." };
   if (process.env.VITEST) return { success: true, message: "Komentar berhasil ditambahkan." };
   const supabase = createAdminClient();
+  if (!(await canAccessTask(supabase, user, taskId))) return { success: false, message: "Anda tidak memiliki akses ke tugas ini." };
   const { data: comment, error } = await supabase.from("task_comments").insert({ task_id: taskId, author_id: user.id, body: cleanBody }).select("id").single();
   if (error) throw error;
   const uniqueMentions = Array.from(new Set(mentionedUserIds.filter((id) => id && id !== user.id)));
@@ -328,6 +396,7 @@ export async function uploadTaskAttachmentAction(formData: FormData): Promise<{ 
   if (file.size < 1 || file.size > 10 * 1024 * 1024) return { success: false, message: "Ukuran lampiran maksimal 10 MB." };
   if (process.env.VITEST) return { success: true, message: "Lampiran berhasil diunggah." };
   const supabase = createAdminClient();
+  if (!(await canAccessTask(supabase, user, taskId))) return { success: false, message: "Anda tidak memiliki akses ke tugas ini." };
   const path = `${taskId}/${user.id}/${randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
   const upload = await supabase.storage.from("task-attachments").upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type || "application/octet-stream", upsert: false });
   if (upload.error) throw upload.error;

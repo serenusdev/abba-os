@@ -31,6 +31,9 @@ export default function KehadiranPage() {
     });
 
     const now = new Date();
+    const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(now);
+    setExceptionDateFrom(todayIso);
+    setExceptionDateTo(todayIso);
     setCurrentDateFormatted(
       now.toLocaleDateString("id-ID", {
         weekday: "long",
@@ -45,7 +48,7 @@ export default function KehadiranPage() {
   // Correction Modal State
   const [isCorrectionOpen, setIsCorrectionOpen] = React.useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = React.useState<AttendanceRecordItem | null>(null);
-  const [correctionReason, setCorrectionReason] = React.useState("Piket Dapur / Operasional Kebersihan");
+  const [correctionReason, setCorrectionReason] = React.useState("other");
   const [correctionNotes, setCorrectionNotes] = React.useState("");
   const [correctionSuccessMsg, setCorrectionSuccessMsg] = React.useState("");
 
@@ -53,6 +56,8 @@ export default function KehadiranPage() {
   const [isExceptionOpen, setIsExceptionOpen] = React.useState(false);
   const [exceptionType, setExceptionType] = React.useState("sick");
   const [exceptionReason, setExceptionReason] = React.useState("");
+  const [exceptionDateFrom, setExceptionDateFrom] = React.useState("");
+  const [exceptionDateTo, setExceptionDateTo] = React.useState("");
   const [exceptionSuccessMsg, setExceptionSuccessMsg] = React.useState("");
 
   const handleCheckin = async () => {
@@ -87,7 +92,7 @@ export default function KehadiranPage() {
     if (!selectedHistoryItem) return;
 
     const res = await submitCorrectionAction({
-      attendanceDate: selectedHistoryItem.dateFormatted,
+      attendanceDate: selectedHistoryItem.dateStr,
       recordedTime: selectedHistoryItem.timeStr,
       reasonCategory: correctionReason,
       notes: correctionNotes,
@@ -105,8 +110,8 @@ export default function KehadiranPage() {
   const handleExceptionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await submitExceptionAction(
-      "18 Nov 2026",
-      "19 Nov 2026",
+      exceptionDateFrom,
+      exceptionDateTo,
       exceptionType,
       exceptionReason
     );
@@ -561,16 +566,16 @@ export default function KehadiranPage() {
                     value={correctionReason}
                     onChange={(e) => setCorrectionReason(e.target.value)}
                   >
-                    <option value="Piket Dapur / Operasional Kebersihan">
+                    <option value="wrong_time">
                       Piket Dapur / Operasional Kebersihan
                     </option>
-                    <option value="Tugas Luar / Pengawalan Pengasuh">
+                    <option value="missed_checkin">
                       Tugas Luar / Pengawalan Pengasuh
                     </option>
-                    <option value="Antrian Masuk Asrama / Gangguan Sinyal">
+                    <option value="system_error">
                       Antrian Masuk Asrama / Gangguan Sinyal
                     </option>
-                    <option value="Lainnya (Perlu Disposisi Ustadz)">
+                    <option value="other">
                       Lainnya (Perlu Disposisi Ustadz)
                     </option>
                   </select>
@@ -640,6 +645,28 @@ export default function KehadiranPage() {
               </div>
             ) : (
               <form onSubmit={handleExceptionSubmit} className="space-y-3.5">
+                <div>
+                  <label className="block font-label-sm text-label-sm font-semibold text-on-surface mb-1">
+                    Rentang Tanggal
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      required
+                      value={exceptionDateFrom}
+                      onChange={(e) => setExceptionDateFrom(e.target.value)}
+                      className="h-12 bg-surface-container text-on-surface rounded-xl px-3 font-body-md text-[15px] border border-border"
+                    />
+                    <input
+                      type="date"
+                      required
+                      min={exceptionDateFrom || undefined}
+                      value={exceptionDateTo}
+                      onChange={(e) => setExceptionDateTo(e.target.value)}
+                      className="h-12 bg-surface-container text-on-surface rounded-xl px-3 font-body-md text-[15px] border border-border"
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="block font-label-sm text-label-sm font-semibold text-on-surface mb-1">
                     Jenis Keterangan

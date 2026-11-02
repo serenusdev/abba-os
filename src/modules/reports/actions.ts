@@ -4,7 +4,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushToUsers } from "@/lib/fcm";
-import { getHighestRole, requireAuthUser, requireRole, getJakartaTime } from "@/lib/auth/guards";
+import { requireAuthUser, requireRole, getJakartaTime } from "@/lib/auth/guards";
 import { INITIAL_USER_DAILY_REPORT, REVIEW_QUEUE_REPORTS } from "./data";
 import { DailyReport, ReportItem, ReviewDecision } from "./types";
 
@@ -157,7 +157,7 @@ export async function getTodayReportAction(): Promise<DailyReport> {
 export async function getReviewQueueAction(): Promise<DailyReport[]> {
   try {
     // Only reviewers can view review queue
-    await requireRole(["super_admin", "yayasan", "pengurus", "koordinator"]);
+    const reviewer = await requireRole(["super_admin", "yayasan", "pengurus", "koordinator"]);
 
     const supabase = createAdminClient();
     const { data: reports, error } = await supabase
@@ -171,8 +171,27 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
     if (reports) {
       if (reports.length === 0) return [];
 
+      let visibleReports = reports as any[];
+      if (reviewer.role === "koordinator") {
+        const { data: memberships, error: membershipError } = await supabase
+          .from("team_members")
+          .select("team_id")
+          .eq("user_id", reviewer.id)
+          .is("valid_to", null);
+        if (membershipError) throw membershipError;
+        const teamIds = new Set((memberships || []).map((item: any) => item.team_id));
+        const authorIds = Array.from(new Set(visibleReports.map((report) => report.user_id).filter(Boolean)));
+        const { data: authorMemberships, error: authorMembershipError } = authorIds.length
+          ? await supabase.from("team_members").select("user_id, team_id").in("user_id", authorIds).is("valid_to", null)
+          : { data: [], error: null };
+        if (authorMembershipError) throw authorMembershipError;
+        const allowedAuthors = new Set((authorMemberships || []).filter((item: any) => teamIds.has(item.team_id)).map((item: any) => item.user_id));
+        visibleReports = visibleReports.filter((report) => allowedAuthors.has(report.user_id));
+      }
+      if (visibleReports.length === 0) return [];
+
       // Optimasi: Hanya ambil profil dari user_id yang ada di reports (bukan seluruh tabel profil)
-      const userIds = Array.from(new Set(reports.map((r: any) => r.user_id).filter(Boolean)));
+      const userIds = Array.from(new Set(visibleReports.map((r: any) => r.user_id).filter(Boolean)));
       let profileMap = new Map();
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
@@ -181,13 +200,13 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
           .in("id", userIds);
         profileMap = new Map(((profiles as any[]) || []).map((p: any) => [p.id, p]));
       }
-      const reviewerIds = Array.from(new Set(reports.map((report: any) => report.reviewer_id).filter(Boolean)));
+      const reviewerIds = Array.from(new Set(visibleReports.map((report: any) => report.reviewer_id).filter(Boolean)));
       const { data: reviewers } = reviewerIds.length
         ? await supabase.from("profiles").select("id, full_name").in("id", reviewerIds)
         : { data: [] };
-      const reviewerMap = new Map((reviewers || []).map((profile: any) => [profile.id, profile.full_name]));
+      const reviewerMap = new Map<string, string>((reviewers || []).map((profile: any) => [profile.id, profile.full_name] as [string, string]));
 
-      return reports.map((r: any) => {
+      return visibleReports.map((r: any) => {
         const author = profileMap.get(r.user_id);
         return {
           id: r.id,
@@ -449,12 +468,10 @@ export async function reviewReportAction(
   }
 
   try {
-    const supabase = createAdminClient();
-
-    // 1. Ambil data laporan dan pastikan validasi status
-    const { data: targetReport, error: fetchErr } = await supabase
+    const admin = createAdminClient();
+    const { data: targetReport, error: fetchErr } = await admin
       .from("daily_reports")
-      .select("id, user_id, review_status, submission_status, revision_no")
+      .select("id, user_id")
       .eq("id", payload.reportId)
       .maybeSingle();
 
@@ -463,63 +480,17 @@ export async function reviewReportAction(
       return { success: false, message: "Laporan santri tidak ditemukan." };
     }
 
-    // Cegah self-review (peninjau tidak boleh menyetujui laporannya sendiri)
-    if (targetReport.user_id === reviewer.id && getHighestRole(reviewer) !== "super_admin") {
-      return {
-        success: false,
-        message: "FORBIDDEN: Anda tidak dapat meninjau atau menyetujui laporan Anda sendiri.",
-      };
-    }
-
-    // Cegah double-approval jika laporan sudah disetujui sebelumnya
-    if (targetReport.review_status === "approved" && payload.decision === "approved") {
-      return {
-        success: false,
-        message: "Laporan ini sudah disetujui sebelumnya.",
-      };
-    }
-
-    const elevatedReviewer = ["super_admin", "yayasan", "pengurus"].includes(getHighestRole(reviewer));
-    const { data: assignment, error: assignmentError } = await supabase
-      .from("reviewer_assignments")
-      .select("id")
-      .eq("reviewee_id", targetReport.user_id)
-      .eq("reviewer_id", reviewer.id)
-      .eq("kind", "report")
-      .or(`valid_to.is.null,valid_to.gte.${new Date().toISOString().slice(0, 10)}`)
-      .limit(1)
-      .maybeSingle();
-    if (assignmentError) throw assignmentError;
-    if (!elevatedReviewer && !assignment) {
-      return { success: false, message: "Anda belum ditetapkan sebagai reviewer laporan ini." };
-    }
-    if (targetReport.submission_status !== "submitted" || targetReport.review_status === "approved") {
-      return { success: false, message: "Laporan tidak berada pada status yang dapat direview." };
-    }
-
-    // Review history is append-only; each decision is a separate record.
-    const { error: reviewError } = await supabase.from("report_reviews").insert(
-      {
-        report_id: payload.reportId,
-        revision_no: (targetReport as any).revision_no || 1,
-        reviewer_id: reviewer.id,
-        decision: payload.decision,
-        notes: payload.notes || "",
-        decided_at: new Date().toISOString(),
-      }
-    );
+    const supabase = await createClient();
+    const { data: reviewResult, error: reviewError } = await supabase.rpc("review_report", {
+      p_report_id: payload.reportId,
+      p_decision: payload.decision,
+      p_notes: payload.notes || "",
+    });
     if (reviewError) throw reviewError;
+    if (!reviewResult?.success) {
+      return { success: false, message: reviewResult?.message || "Review laporan gagal disimpan." };
+    }
 
-    const { error } = await supabase
-      .from("daily_reports")
-      .update({
-        review_status: payload.decision,
-        reviewer_id: reviewer.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", payload.reportId);
-
-    if (error) throw error;
     if (!process.env.VITEST) {
       try {
         await sendPushToUsers([targetReport.user_id], {
@@ -534,7 +505,7 @@ export async function reviewReportAction(
       }
     }
 
-    await supabase.from("audit_logs").insert({
+    await admin.from("audit_logs").insert({
       event_name: `report.review_${payload.decision}`,
       actor_name: reviewer.full_name,
       target_id: payload.reportId,

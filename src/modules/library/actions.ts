@@ -81,11 +81,28 @@ export async function getResourceStatsAction(): Promise<{
   return { totalCount: 0, validCount: 0, validPercent: 0 };
 }
 
+export async function getFavoriteResourceIdsAction(): Promise<string[]> {
+  const user = await requireAuthUser();
+  if (process.env.VITEST) return [];
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("resource_favorites")
+      .select("resource_id")
+      .eq("user_id", user.id);
+    if (error) throw error;
+    return (data || []).map((row: any) => row.resource_id).filter(Boolean);
+  } catch (err) {
+    console.error("Failed to query resource favorites:", err);
+    return [];
+  }
+}
+
 export async function getResourcesAction(
   query: string = "",
   categorySlug: string = "all"
 ): Promise<ResourceItem[]> {
-  await requireAuthUser();
+  const user = await requireAuthUser();
   try {
     const supabase = createAdminClient();
     let dbQuery = supabase
@@ -94,16 +111,25 @@ export async function getResourcesAction(
         *,
         resource_categories (
           id, name, slug
-        )
+        ),
+        resource_tags (tags (name, slug))
       `)
+      .eq("status", "published")
+      .or(user.role === "super_admin" || user.role === "yayasan" || user.role === "pengurus"
+        ? "visibility.eq.internal,visibility.eq.restricted"
+        : "visibility.eq.internal")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
 
     const sanitizedQuery = query.replace(/[,()]/g, "").trim();
     if (sanitizedQuery) {
       dbQuery = dbQuery.or(
-        `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%,slug.ilike.%${sanitizedQuery}%`
+        `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%,slug.ilike.%${sanitizedQuery}%,access_setup.ilike.%${sanitizedQuery}%,how_to_use.ilike.%${sanitizedQuery}%,workflow_examples.ilike.%${sanitizedQuery}%,limitations_cautions.ilike.%${sanitizedQuery}%,official_sources.ilike.%${sanitizedQuery}%`
       );
+    }
+    if (categorySlug && categorySlug !== "all") {
+      const { data: category } = await supabase.from("resource_categories").select("id").eq("slug", categorySlug).maybeSingle();
+      if (category?.id) dbQuery = dbQuery.eq("category_id", category.id);
     }
 
     const { data, error } = await dbQuery;
@@ -117,7 +143,7 @@ export async function getResourcesAction(
       if (authorError) throw authorError;
       const authorMap = new Map((authors || []).map((author: any) => [author.id, author.full_name]));
 
-      let mapped: ResourceItem[] = data.map((r: any) => {
+      const mapped: ResourceItem[] = data.map((r: any) => {
         const cat = r.resource_categories;
         const filledCount = [
           r.access_setup,
@@ -136,7 +162,7 @@ export async function getResourcesAction(
           category: cat?.name || "Umum",
           categorySlug: cat?.slug || "general",
           officialUrl: r.official_url,
-          tags: r.slug.split("-"),
+          tags: (r.resource_tags || []).map((item: any) => item.tags?.name).filter(Boolean),
           filledFieldsCount: filledCount,
           totalFieldsCount: 6,
           lastUpdated: new Date(r.updated_at || r.created_at).toLocaleDateString("id-ID", {
@@ -155,10 +181,6 @@ export async function getResourcesAction(
           documentationStatus: r.documentation_status,
         };
       });
-
-      if (categorySlug && categorySlug !== "all") {
-        mapped = mapped.filter((r) => r.categorySlug === categorySlug);
-      }
 
       return mapped;
     }

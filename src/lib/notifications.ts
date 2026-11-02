@@ -9,6 +9,7 @@ import { registerDeviceToken, unregisterDeviceToken } from '@/modules/notificati
 
 let currentToken: string | null = null;
 let listenersRegistered = false;
+let listenersUserId: string | null = null;
 
 function getDevicePlatform(): 'android' | 'ios' | 'web' {
   const platform = Capacitor.getPlatform();
@@ -20,8 +21,10 @@ function getDevicePlatform(): 'android' | 'ios' | 'web' {
 export async function initPushNotifications(userId: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
-  if (listenersRegistered) return;
+  if (listenersRegistered && listenersUserId === userId) return;
+  if (listenersRegistered) await cleanupPushNotifications();
   listenersRegistered = true;
+  listenersUserId = userId;
 
   if (process.env.NODE_ENV === 'development') {
     console.log('[FCM] Initializing push notifications for user:', userId);
@@ -77,9 +80,11 @@ export async function initPushNotifications(userId: string): Promise<void> {
       if (process.env.NODE_ENV === 'development') {
         console.warn('[FCM] Notification permission denied');
       }
+      await cleanupPushNotifications();
       return;
     }
   } else if (permResult.receive !== 'granted') {
+    await cleanupPushNotifications();
     return;
   }
 
@@ -94,6 +99,7 @@ export async function cleanupPushNotifications(): Promise<void> {
     }
     await PushNotifications.removeAllListeners();
     listenersRegistered = false;
+    listenersUserId = null;
     currentToken = null;
   } catch (err) {
     if (process.env.NODE_ENV === 'development') {

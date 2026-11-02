@@ -127,7 +127,11 @@ export default function LoginPage() {
             {isLoading ? "Memproses Autentikasi..." : "Masuk ke Sistem"}
           </Button>
         </form>
-
+        <div className="text-center mt-4">
+          <Link href="/forgot-password" className="text-sm text-primary font-semibold hover:underline">
+            Lupa kata sandi?
+          </Link>
+        </div>
 
 
         {/* Pathway to registration */}

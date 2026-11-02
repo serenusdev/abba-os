@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { PwaRegister } from "@/components/pwa-register";
 
 export const metadata: Metadata = {
-  title: "Pondok OS — Platform Operasional Terpadu",
+  title: "IDAROH — Platform Operasional Terpadu",
   description:
     "Platform operasional santri, pengurus, koordinator, dan yayasan Pondok Quran Digitalpreneur Abdurrahman bin Auf.",
   icons: {
@@ -36,6 +37,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-background font-body-md text-on-surface antialiased min-h-screen flex flex-col">
+        <PwaRegister />
         {children}
       </body>
     </html>

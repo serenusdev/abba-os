@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
     const { data: owner, error: ownerError } = await supabase
       .from("profiles")
-      .select("id, team_name, status")
+      .select("id, team_name, member_type, status")
       .eq("id", subscription.user_id)
       .maybeSingle();
     if (ownerError) throw ownerError;
@@ -80,10 +80,16 @@ export async function GET(request: Request) {
       "X-WR-CALDESC:Jadwal kegiatan santri, kajian kitab, dan operasional Pondok Quran Abdurrahman bin Auf",
     ];
 
-    if (events && events.length > 0) {
-      for (const event of events.filter(
-        (item: { team_id?: string | null }) => !item.team_id || item.team_id === owner.team_name
-      )) {
+    const visibleEvents = (events || []).filter((event: { audience_config?: Record<string, unknown>; team_id?: string | null }) => {
+      const config = event.audience_config || { scope: "all" };
+      if (config.scope === "users") return Array.isArray(config.userIds) && config.userIds.includes(owner.id);
+      if (config.scope === "member_type") return Array.isArray(config.memberTypes) && config.memberTypes.includes(owner.member_type || "santri");
+      if (config.scope === "team") return Array.isArray(config.teamIds) && config.teamIds.some((id) => id === owner.team_name || id === event.team_id);
+      return !event.team_id || event.team_id === owner.team_name;
+    });
+
+    if (visibleEvents.length > 0) {
+      for (const event of visibleEvents) {
         const start = new Date(event.starts_at);
         const end = new Date(event.ends_at);
 

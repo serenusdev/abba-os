@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { timingSafeEqual } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
 function authorized(request: Request) {
   const secret = process.env.CRON_SECRET;
-  return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
+  const provided = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+  if (!secret || !provided) return false;
+  const expected = Buffer.from(secret);
+  const actual = Buffer.from(provided);
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 export async function GET(request: Request) {
+  if (request.method !== "GET") return NextResponse.json({ error: "Method not allowed" }, { status: 405, headers: { Allow: "GET" } });
   if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const supabase = createAdminClient();
   const { data: run, error: startError } = await supabase.from("backup_runs").insert({ run_type: "database", status: "started", artifact_ref: "Supabase PITR / provider backup" }).select("id").single();

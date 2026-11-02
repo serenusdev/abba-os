@@ -24,19 +24,30 @@ export interface CreateTaskPayload {
  * Server Action: Query all live tasks from Supabase
  */
 export async function getTasksAction(): Promise<TaskItem[]> {
-  await requireAuthUser();
+  const user = await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: tasks, error } = await supabase
       .from("tasks")
-      .select("*, projects(*), task_checklist_items(*)")
+      .select("*, projects(*), task_checklist_items(*), task_assignees(user_id, unassigned_at)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
     if (tasks) {
       if (tasks.length === 0) return [];
-      const taskIds = tasks.map((task: any) => task.id);
+      let visibleTasks = tasks as any[];
+      if (!(user.roles || [user.role]).some((role) => ["super_admin", "yayasan", "pengurus"].includes(role))) {
+        const { data: memberships } = await supabase.from("team_members").select("team_id, teams(id, name, slug)").eq("user_id", user.id).is("valid_to", null);
+        const teamIds = new Set((memberships || []).flatMap((item: any) => [item.team_id, item.teams?.id, item.teams?.name, item.teams?.slug]));
+        visibleTasks = visibleTasks.filter((task: any) =>
+          task.created_by === user.id ||
+          (task.task_assignees || []).some((assignment: any) => assignment.user_id === user.id && !assignment.unassigned_at) ||
+          (task.team_id && teamIds.has(task.team_id))
+        );
+      }
+      if (visibleTasks.length === 0) return [];
+      const taskIds = visibleTasks.map((task: any) => task.id);
       const { data: assignments, error: assignmentError } = await supabase
         .from("task_assignees")
         .select("task_id, user_id")
@@ -57,7 +68,8 @@ export async function getTasksAction(): Promise<TaskItem[]> {
         assignmentsByTask.set(assignment.task_id, list);
       }
 
-      return tasks.map((t: any) => ({
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+      return visibleTasks.map((t: any) => ({
         id: t.id,
         title: t.title,
         description: t.description || "",
@@ -74,7 +86,8 @@ export async function getTasksAction(): Promise<TaskItem[]> {
             })
           : "Segera",
         dueDateIso: t.due_date || "",
-        isOverdue: t.due_date ? new Date(t.due_date) < new Date() && t.status !== "done" : false,
+        isOverdue: Boolean(t.due_date && t.due_date < today && !["done", "cancelled"].includes(t.status)),
+        isDueToday: t.due_date === today,
         checklist: (t.task_checklist_items || []).map((item: any) => ({ id: item.id, text: item.text, done: item.done })),
         assignees: assignmentsByTask.get(t.id) || [],
       }));
@@ -121,7 +134,7 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
         name: p.name,
         description: p.description || "",
         teamName: p.team_id || "Tim Pondok",
-        status: p.status === "active" ? "active" : "completed",
+        status: p.status as ProjectItem["status"],
         totalTasks: (byProject.get(p.id) || []).length,
         completedTasks: (byProject.get(p.id) || []).filter((task: any) => task.status === "done").length,
         blockedTasks: (byProject.get(p.id) || []).filter((task: any) => task.status === "cancelled").length,
@@ -290,7 +303,7 @@ export async function createTaskAction(
         status: "todo",
         requires_review: payload.requiresReview,
         project_id: payload.projectId && payload.projectId.length > 30 ? payload.projectId : null,
-        due_date: payload.dueDateIso || null,
+        due_date: payload.dueDateIso || (payload.dueDateStr && /^\d{4}-\d{2}-\d{2}$/.test(payload.dueDateStr) ? payload.dueDateStr : null),
         created_by: user.id,
       })
       .select("id")
@@ -303,7 +316,10 @@ export async function createTaskAction(
       const { error: assigneeError } = await supabase.from("task_assignees").insert(
         assigneeIds.map((assigneeId) => ({ task_id: newId, user_id: assigneeId, assigned_by: user.id }))
       );
-      if (assigneeError) throw assigneeError;
+      if (assigneeError) {
+        await supabase.from("tasks").delete().eq("id", newId);
+        throw assigneeError;
+      }
       try {
         await sendPushToUsers(assigneeIds, {
           type: "TASK_ASSIGNED",

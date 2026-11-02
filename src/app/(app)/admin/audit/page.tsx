@@ -124,6 +124,7 @@ export default function AdminAuditPage() {
       if (res.success) {
         setToastMessage(res.message);
         setIsExportDialogOpen(false);
+        if (res.downloadUrl) window.location.assign(res.downloadUrl);
       }
     } catch {
       setToastMessage("Terjadi kesalahan saat memproses ekspor data.");

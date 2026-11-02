@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Illustration } from "@/components/ui/illustration";
 import { CategorySummary, ResourceItem } from "@/modules/library/types";
-import { getResourcesAction, getCategoriesAction, getResourceStatsAction } from "@/modules/library/actions";
+import { getResourcesAction, getCategoriesAction, getResourceStatsAction, getFavoriteResourceIdsAction, toggleFavoriteAction } from "@/modules/library/actions";
 
 export default function ResourceLibraryPage() {
   const [selectedCategory, setSelectedCategory] = React.useState("all");
@@ -21,15 +21,17 @@ export default function ResourceLibraryPage() {
     let isMounted = true;
     async function loadData() {
       try {
-        const [resData, catData, statsData] = await Promise.all([
+        const [resData, catData, statsData, favoriteIds] = await Promise.all([
           getResourcesAction(searchQuery, selectedCategory),
           getCategoriesAction(),
           getResourceStatsAction(),
+          getFavoriteResourceIdsAction(),
         ]);
         if (isMounted) {
           setResources(resData);
           setCategories(catData);
           setStats(statsData);
+          setFavorites(Object.fromEntries(favoriteIds.map((id) => [id, true])));
         }
       } catch (err) {
         console.error("Failed to load resources:", err);
@@ -80,11 +82,10 @@ export default function ResourceLibraryPage() {
     });
   }, [resources, selectedCategory, searchQuery, onlyFavorites, onlyComplete, selectedTag, favorites]);
 
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+  const toggleFavorite = async (id: string) => {
+    const result = await toggleFavoriteAction(id);
+    if (!result.success) return;
+    setFavorites((prev) => ({ ...prev, [id]: result.isFavorited }));
   };
 
   const toggleAccordion = (id: string) => {

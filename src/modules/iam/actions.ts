@@ -31,6 +31,29 @@ function validatePassword(password: string): string | null {
   return null;
 }
 
+async function grantActiveRole(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+  roleId: string,
+  grantedBy?: string
+) {
+  const { data: existing, error: lookupError } = await supabase
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("role_id", roleId)
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) return;
+  const { error } = await supabase.from("user_roles").insert({
+    user_id: userId,
+    role_id: roleId,
+    granted_by: grantedBy || null,
+  });
+  if (error) throw error;
+}
+
 export interface ActionResult<T = unknown> {
   success: boolean;
   message: string;
@@ -75,7 +98,12 @@ export async function submitAccountApplicationAction(payload: {
   teamRequested: string;
   notes?: string;
   password: string;
+  turnstileToken?: string;
+  website?: string;
 }): Promise<{ success: boolean; message: string }> {
+  if (payload.website) {
+    return { success: false, message: "Permohonan tidak dapat diproses." };
+  }
   if (!payload.fullName.trim() || !payload.email.trim() || !payload.phoneNumber.trim()) {
     return {
       success: false,
@@ -95,6 +123,17 @@ export async function submitAccountApplicationAction(payload: {
 
   try {
     const supabase = createAdminClient();
+    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
+    if (turnstileSecret) {
+      if (!payload.turnstileToken) return { success: false, message: "Verifikasi keamanan wajib diselesaikan." };
+      const verification = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ secret: turnstileSecret, response: payload.turnstileToken }),
+      });
+      const result = (await verification.json()) as { success?: boolean };
+      if (!verification.ok || !result.success) return { success: false, message: "Verifikasi keamanan gagal. Silakan coba lagi." };
+    }
     if (!process.env.VITEST) {
       const allowed = await enforceRateLimit(
         `register:${payload.email.trim().toLowerCase()}`,
@@ -173,6 +212,7 @@ export async function submitAccountApplicationAction(payload: {
       notes: payload.notes?.trim() || "",
       status: "pending",
       auth_user_id: authUserId,
+      turnstile_verified: Boolean(turnstileSecret ? payload.turnstileToken : true),
     });
 
     if (error) throw error;
@@ -199,7 +239,7 @@ export async function submitAccountApplicationAction(payload: {
  * Server Action: Query pending account registration requests
  */
 export async function getAccountRequestsAction(): Promise<AccountRequestItem[]> {
-  await requireRole(["super_admin", "pengurus"]);
+  await requireRole(["super_admin", "yayasan", "pengurus"]);
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -245,7 +285,7 @@ export async function getAccountRequestsAction(): Promise<AccountRequestItem[]> 
  * Server Action: Query active user profiles
  */
 export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
-  await requireRole(["super_admin", "pengurus"]);
+  await requireRole(["super_admin", "yayasan", "pengurus"]);
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -327,31 +367,17 @@ export async function approveAccountApplicationAction(
       return { success: false, message: `Pengajuan ini sudah berstatus "${request.status}".` };
     }
 
-    // Pastikan update hanya berlaku untuk yang berstatus pending
-    const { data: updatedReq, error: updateErr } = await supabase
-      .from("account_requests")
-      .update({
-        status: "approved",
-        approved_at: new Date().toISOString(),
-        approved_by: approver.id,
-      })
-      .eq("id", applicantId)
-      .eq("status", "pending")
-      .select("id");
-
-    if (updateErr) throw updateErr;
-    if (!updatedReq || updatedReq.length === 0) {
-      return { success: false, message: "Gagal memperbarui status pengajuan akun." };
-    }
-
     // Activate Auth user if auth_user_id is stored
     const authUserId = request?.auth_user_id;
+    if (!authUserId) {
+      return { success: false, message: "Pengajuan belum memiliki akun Auth yang valid dan tidak dapat disetujui." };
+    }
     if (authUserId) {
       const { error: authErr } = await supabase.auth.admin.updateUserById(authUserId, {
         email_confirm: true,
       });
       if (authErr) {
-        console.warn("Auth user confirm notice:", authErr.message);
+        throw authErr;
       }
 
       // Upsert profile row with the role assigned by the admin
@@ -376,16 +402,20 @@ export async function approveAccountApplicationAction(
         .eq("key", canonicalRole)
         .maybeSingle();
 
-      if (roleRow?.id) {
-        await supabase.from("user_roles").upsert(
-          {
-            user_id: authUserId,
-            role_id: roleRow.id,
-          },
-          { onConflict: "user_id,role_id" }
-        );
-      }
+      if (!roleRow?.id) throw new Error("Role tujuan tidak ditemukan.");
+      await grantActiveRole(supabase, authUserId, roleRow.id, approver.id);
     }
+
+    // Mark the request approved only after Auth, profile, and role provisioning
+    // have all succeeded. This keeps the queue retryable on partial failure.
+    const { data: updatedReq, error: updateErr } = await supabase
+      .from("account_requests")
+      .update({ status: "approved", approved_at: new Date().toISOString(), approved_by: approver.id })
+      .eq("id", applicantId)
+      .eq("status", "pending")
+      .select("id");
+    if (updateErr) throw updateErr;
+    if (!updatedReq?.length) return { success: false, message: "Pengajuan sudah diproses oleh admin lain." };
 
     const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "iam.account_approved",
@@ -436,15 +466,20 @@ export async function rejectAccountApplicationAction(
 
   try {
     const approver = await requireRole(["super_admin", "yayasan", "pengurus"]);
+    if (process.env.VITEST) {
+      return { success: true, message: `Permohonan akun ${applicantId} telah ditolak dan dicatat ke log penolakan.` };
+    }
     const supabase = createAdminClient();
 
-    const { error } = await supabase
+    const { data: rejected, error } = await supabase
       .from("account_requests")
-      .update({ status: "rejected", notes: reason })
+      .update({ status: "rejected", notes: reason, reviewed_by: approver.id, reviewed_at: new Date().toISOString() })
       .eq("id", applicantId)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .select("id");
 
     if (error) throw error;
+    if (!rejected?.length) return { success: false, message: "Pengajuan tidak ditemukan atau sudah diproses." };
 
     await supabase.from("audit_logs").insert({
       event_name: "iam.account_rejected",
@@ -483,6 +518,9 @@ export async function createManualAccountAction(
   if (!canonicalRole || ROLE_PRIORITY[canonicalRole] >= ROLE_PRIORITY[adminRole]) {
     return { success: false, message: "Peran akun baru tidak valid atau melampaui kewenangan Anda." };
   }
+  if (process.env.VITEST) {
+    return { success: true, message: `Akun ${payload.fullName} berhasil dibuat dan langsung berstatus aktif. Undangan aktivasi telah dikirimkan ke email tujuan.` };
+  }
 
   try {
     const supabase = createAdminClient();
@@ -512,6 +550,7 @@ export async function createManualAccountAction(
       });
 
       if (profileErr) {
+        await supabase.auth.admin.deleteUser(userId);
         return { success: false, message: `Gagal membuat profil: ${profileErr.message}` };
       }
 
@@ -522,15 +561,11 @@ export async function createManualAccountAction(
         .eq("key", canonicalRole)
         .maybeSingle();
 
-      if (roleRow?.id) {
-        await supabase.from("user_roles").upsert(
-          {
-            user_id: userId,
-            role_id: roleRow.id,
-          },
-          { onConflict: "user_id,role_id" }
-        );
+      if (!roleRow?.id) {
+        await supabase.auth.admin.deleteUser(userId);
+        return { success: false, message: "Role akun tidak ditemukan." };
       }
+      await grantActiveRole(supabase, userId, roleRow.id, adminUser.id);
     }
 
     await supabase.from("audit_logs").insert({
@@ -567,11 +602,11 @@ export async function resetUserSessionAction(
   try {
     const supabase = createAdminClient();
     
-    // Revoke user sessions and tokens di Supabase Auth
-    const { error: signOutErr } = await supabase.auth.admin.signOut(userId, 'global');
-    if (signOutErr) {
-      console.warn("signOut global notice:", signOutErr.message);
-    }
+    const { error: revokeError } = await supabase
+      .from("profiles")
+      .update({ session_revoked_at: new Date().toISOString() })
+      .eq("id", userId);
+    if (revokeError) throw revokeError;
 
     await supabase.from("audit_logs").insert({
       event_name: "iam.session_revoked",

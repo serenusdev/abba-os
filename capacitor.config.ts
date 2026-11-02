@@ -4,7 +4,7 @@ const serverUrl = process.env.CAPACITOR_SERVER_URL || 'https://idaroh.pondokabdu
 
 const config: CapacitorConfig = {
   appId: 'id.web.pondokabdurrahmanbinauf.app',
-  appName: 'Pondok OS',
+  appName: 'IDAROH',
   // Web content is loaded from the deployed app; webDir remains a fallback.
   webDir: 'out',
   server: {

@@ -3,7 +3,6 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserProfile } from "@/lib/auth/session";
 import { hasMinimumRole, requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { INITIAL_PEOPLE_PROFILES, INITIAL_TEAMS } from "./data";
 import { PersonProfile, TeamStructureItem } from "./types";
@@ -12,14 +11,14 @@ import { PersonProfile, TeamStructureItem } from "./types";
  * Server Action: Query all people profiles from Supabase
  */
 export async function getPeopleAction(): Promise<PersonProfile[]> {
-  await requireAuthUser();
+  const currentUser = await requireAuthUser();
   try {
     const supabase = createAdminClient();
-    const currentUser = await getCurrentUserProfile();
 
     const { data: profiles, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id, email, full_name, phone_number, avatar_url, status, member_type, team_name, notes, created_at")
+      .eq("status", "active")
       .order("created_at", { ascending: true });
 
     if (!error && profiles) {
@@ -35,7 +34,7 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
       const { data: reviewers } = reviewerIds.length
         ? await supabase.from("profiles").select("id, full_name").in("id", reviewerIds)
         : { data: [] };
-      const reviewerMap = new Map((reviewers || []).map((reviewer: any) => [reviewer.id, reviewer.full_name]));
+      const reviewerMap = new Map<string, string>((reviewers || []).map((reviewer: any) => [reviewer.id, reviewer.full_name] as [string, string]));
       const { data: memberships } = await supabase
         .from("team_members")
         .select("user_id, team_id, team_role")
@@ -48,16 +47,29 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
       const teamMap = new Map<string, { name: string; slug: string }>(
         (teamRows || []).map((team: any) => [team.id, team] as [string, { name: string; slug: string }])
       );
-      const membershipMap = new Map<string, { team_id: string }>(
-        (memberships || []).map((membership: any) => [membership.user_id, membership] as [string, { team_id: string }])
-      );
+      const membershipsByUser = new Map<string, any[]>();
+      for (const membership of memberships || []) {
+        const list = membershipsByUser.get(membership.user_id) || [];
+        list.push(membership);
+        membershipsByUser.set(membership.user_id, list);
+      }
+      let visibleProfiles = profiles as any[];
+      if (currentUser.role === "santri") {
+        visibleProfiles = visibleProfiles.filter((profile) => profile.id === currentUser.id);
+      } else if (currentUser.role === "koordinator") {
+        const ownTeams = new Set((membershipsByUser.get(currentUser.id) || []).map((item: any) => item.team_id));
+        visibleProfiles = visibleProfiles.filter((profile) =>
+          profile.id === currentUser.id || (membershipsByUser.get(profile.id) || []).some((item: any) => ownTeams.has(item.team_id))
+        );
+      }
 
-      return profiles.map((p: any) => {
+      return visibleProfiles.map((p: any) => {
         const phone = p.phone_number || "";
         const phoneMasked = phone ? phone.replace(/(\d{4})\d{4}(\d{2,4})/, "$1-••••-$2") : "-";
         const reviewer = (assignments || []).find((assignment: any) => assignment.reviewee_id === p.id);
         const isCurrentUser = currentUser ? p.id === currentUser.id : false;
-        const membershipTeamId = membershipMap.get(p.id)?.team_id || "";
+        const userMemberships = membershipsByUser.get(p.id) || [];
+        const membershipTeamId = userMemberships[0]?.team_id || "";
 
         return {
           id: p.id,
@@ -70,9 +82,15 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
           roleLabel: p.team_name ? `Anggota ${p.team_name}` : "Belum ditempatkan",
           teamName: teamMap.get(membershipTeamId)?.name || p.team_name || "",
           teamId: teamMap.get(membershipTeamId)?.slug || "",
+          teams: userMemberships.map((membership: any) => ({
+            id: membership.team_id,
+            name: teamMap.get(membership.team_id)?.name || "",
+            slug: teamMap.get(membership.team_id)?.slug || "",
+            role: membership.team_role,
+          })),
           phoneMasked,
           phoneUnmasked: "",
-          onlineStatus: "active" as const,
+          onlineStatus: "offline" as const,
           dutyFlags: {
             attendanceRequired: true,
             reportRequired: true,
@@ -102,7 +120,7 @@ export async function getTeamsAction(): Promise<TeamStructureItem[]> {
     const supabase = createAdminClient();
     const { data: teams, error } = await supabase
       .from("teams")
-      .select("*, team_members(*)")
+        .select("*, team_members(*)")
       .order("created_at", { ascending: true });
 
     if (!error && teams) {
@@ -131,7 +149,7 @@ export async function getTeamsAction(): Promise<TeamStructureItem[]> {
         slug: t.slug,
         description: t.description || "",
         coordinatorName: coordinatorByTeam.get(t.id) || "",
-        memberCount: (t.team_members || []).length,
+        memberCount: (t.team_members || []).filter((member: any) => !member.valid_to).length,
         icon: t.slug.includes("digital") ? "terminal" : t.slug.includes("media") ? "campaign" : "diversity_3",
       }));
     }

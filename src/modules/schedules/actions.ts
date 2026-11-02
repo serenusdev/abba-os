@@ -47,6 +47,7 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
     const { data: events, error } = await supabase
       .from("events")
       .select("*")
+      .eq("status", "scheduled")
       .is("deleted_at", null)
       .order("starts_at", { ascending: true });
 
@@ -71,6 +72,7 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
 
         return {
           id: e.id,
+          dateStr: new Date(e.starts_at).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" }),
           timeRangeStr,
           statusBadge: e.location_changed ? "location_changed" : "on_schedule",
           statusLabel: e.location_changed ? "Perubahan Lokasi" : "Sesuai Jadwal",
@@ -117,6 +119,8 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
     const { data: announcements, error } = await supabase
       .from("announcements")
       .select("*")
+      .eq("status", "published")
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("published_at", { ascending: false });
 
     if (!error && announcements) {
@@ -367,17 +371,22 @@ export async function publishAnnouncementAction(payload: {
 export async function deleteAnnouncementAction(
   announcementId: string
 ): Promise<{ success: boolean; message: string }> {
-  const admin = await requireRole(["super_admin", "pengurus"]);
+  const admin = await requireRole(["super_admin", "yayasan", "pengurus"]);
   try {
     const supabase = createAdminClient();
-    await supabase.from("announcements").delete().eq("id", announcementId);
-    await supabase.from("audit_logs").insert({
+    const { error } = await supabase
+      .from("announcements")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .eq("id", announcementId);
+    if (error) throw error;
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "announcement.deleted",
       actor_name: admin.full_name,
       target_id: announcementId,
       target_label: "Pengumuman",
-      action_detail: `Menghapus pengumuman ID ${announcementId}`,
+      action_detail: `Mengarsipkan pengumuman ID ${announcementId}`,
     });
+    if (auditError) throw auditError;
     return { success: true, message: "Pengumuman berhasil dihapus." };
   } catch (err) {
     console.error("Failed to delete announcement:", err);
@@ -401,13 +410,24 @@ export interface CreateEventPayload {
 export async function createEventAction(
   payload: CreateEventPayload
 ): Promise<{ success: boolean; message: string; eventId?: string }> {
-  const admin = await requireRole(["super_admin", "pengurus"]);
+  const admin = await requireRole(["super_admin", "yayasan", "pengurus"]);
 
   if (!payload.title.trim()) {
     return { success: false, message: "Judul agenda wajib diisi." };
   }
   if (!payload.startsAt || !payload.endsAt) {
     return { success: false, message: "Waktu mulai dan selesai wajib ditentukan." };
+  }
+  const startsAt = new Date(payload.startsAt);
+  const endsAt = new Date(payload.endsAt);
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || startsAt >= endsAt) {
+    return { success: false, message: "Rentang waktu agenda tidak valid." };
+  }
+  if (payload.title.trim().length > 160 || (payload.description || "").trim().length > 5000) {
+    return { success: false, message: "Judul maksimal 160 karakter dan deskripsi maksimal 5.000 karakter." };
+  }
+  if (payload.location.trim().length > 240) {
+    return { success: false, message: "Lokasi maksimal 240 karakter." };
   }
 
   try {
@@ -417,8 +437,8 @@ export async function createEventAction(
       .insert({
         title: payload.title,
         description: payload.description || "",
-        starts_at: new Date(payload.startsAt).toISOString(),
-        ends_at: new Date(payload.endsAt).toISOString(),
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
         location: payload.location || "Lab Utama Pondok",
         category: payload.category || "umum",
         status: "scheduled",
@@ -454,17 +474,22 @@ export async function createEventAction(
 export async function deleteEventAction(
   eventId: string
 ): Promise<{ success: boolean; message: string }> {
-  const admin = await requireRole(["super_admin", "pengurus"]);
+  const admin = await requireRole(["super_admin", "yayasan", "pengurus"]);
   try {
     const supabase = createAdminClient();
-    await supabase.from("events").delete().eq("id", eventId);
-    await supabase.from("audit_logs").insert({
+    const { error } = await supabase
+      .from("events")
+      .update({ status: "cancelled", deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", eventId);
+    if (error) throw error;
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "event.deleted",
       actor_name: admin.full_name,
       target_id: eventId,
       target_label: "Agenda",
-      action_detail: `Menghapus agenda ID ${eventId}`,
+      action_detail: `Membatalkan agenda ID ${eventId}`,
     });
+    if (auditError) throw auditError;
     return { success: true, message: "Agenda berhasil dihapus." };
   } catch (err) {
     console.error("Failed to delete event:", err);

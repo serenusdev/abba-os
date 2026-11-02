@@ -5,7 +5,8 @@ import { requireRole } from "@/lib/auth/guards";
 export const dynamic = "force-dynamic";
 
 function csvCell(value: unknown): string {
-  const text = value === null || value === undefined ? "" : String(value);
+  const raw = value === null || value === undefined ? "" : String(value);
+  const text = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
   return `"${text.replace(/"/g, '""')}"`;
 }
 
@@ -64,7 +65,15 @@ export async function GET(
 
     let headers: string[] = ["id", "created_at"];
     let rows: unknown[][] = [];
-    if (log.category === "presensi") {
+    if (log.category === "presensi_laporan") {
+      headers = ["record_type", "id", "user_id", "date", "status", "review_status"];
+      const result = await supabase.from("attendance_records").select("id,user_id,attendance_date,classification").order("attendance_date", { ascending: false });
+      if (result.error) throw result.error;
+      rows = (result.data || []).map((row: Record<string, unknown>) => ["attendance", row.id, row.user_id, row.attendance_date, row.classification, ""]);
+      const reportResult = await supabase.from("daily_reports").select("id,user_id,report_date,submission_status,review_status").order("report_date", { ascending: false });
+      if (reportResult.error) throw reportResult.error;
+      rows = rows.concat((reportResult.data || []).map((row: Record<string, unknown>) => ["report", row.id, row.user_id, row.report_date, row.submission_status, row.review_status]));
+    } else if (log.category === "presensi") {
       headers = ["id", "user_id", "attendance_date", "checked_in_at", "classification"];
       const result = await supabase.from("attendance_records").select(headers.join(",")).order("attendance_date", { ascending: false });
       if (result.error) throw result.error;
@@ -74,9 +83,14 @@ export async function GET(
       const result = await supabase.from("daily_reports").select(headers.join(",")).order("report_date", { ascending: false });
       if (result.error) throw result.error;
       rows = (result.data || []).map((row: Record<string, unknown>) => headers.map((header) => row[header]));
-    } else if (log.category === "tugas") {
+    } else if (log.category === "tugas" || log.category === "tugas_proyek") {
       headers = ["id", "title", "status", "priority", "due_date", "created_by"];
       const result = await supabase.from("tasks").select(headers.join(",")).is("deleted_at", null).order("created_at", { ascending: false });
+      if (result.error) throw result.error;
+      rows = (result.data || []).map((row: Record<string, unknown>) => headers.map((header) => row[header]));
+    } else if (log.category === "users") {
+      headers = ["id", "email", "full_name", "status", "member_type", "team_name", "created_at"];
+      const result = await supabase.from("profiles").select(headers.join(",")).order("created_at", { ascending: false });
       if (result.error) throw result.error;
       rows = (result.data || []).map((row: Record<string, unknown>) => headers.map((header) => row[header]));
     } else {
@@ -87,6 +101,7 @@ export async function GET(
     }
 
     const title = `Pondok OS - Ekspor ${log.category}`;
+    await supabase.from("export_logs").update({ row_count: rows.length }).eq("id", id);
     if (exportType === "pdf") {
       const lines = [headers.join(" | "), ...rows.map((row) => row.map(String).join(" | "))];
       return new Response(Buffer.from(buildPdf(title, lines)), {
@@ -97,7 +112,7 @@ export async function GET(
         },
       });
     }
-    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
     return new Response(csv, {
       status: 200,
       headers: {

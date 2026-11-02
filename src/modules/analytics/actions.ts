@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { createHash, randomUUID } from "node:crypto";
 import { formatRelativeTimeId } from "@/lib/utils";
@@ -18,7 +19,7 @@ export async function exportAuditedDataAction(
   requesterName?: string
 ): Promise<{ success: boolean; message: string; exportId: string; downloadUrl?: string }> {
   void requesterName;
-  const admin = await requireRole(["super_admin", "pengurus"]);
+  const admin = await requireRole(["super_admin", "yayasan", "pengurus"]);
   const effectiveRequester = admin.full_name;
   const exportId = randomUUID();
   if (!category.trim()) {
@@ -69,7 +70,7 @@ export async function exportAuditedDataAction(
 export async function queryAuditLogsAction(
   query: string
 ): Promise<{ success: boolean; logs: AuditLogItem[] }> {
-  await requireRole(["super_admin", "pengurus"]);
+  await requireRole(["super_admin", "yayasan", "pengurus"]);
   try {
     const supabase = createAdminClient();
     let dbQuery = supabase
@@ -271,19 +272,12 @@ export async function approvePolicySettingsAction(policyId: string, note?: strin
 }
 
 export async function activatePolicySettingsAction(policyId: string): Promise<{ success: boolean; message: string }> {
-  const admin = await requireRole(["super_admin"]);
+  await requireRole(["super_admin"]);
   if (process.env.VITEST) return { success: true, message: "Kebijakan berhasil diaktifkan." };
-  const supabase = createAdminClient();
-  const { data: policy, error: readError } = await supabase.from("policy_settings").select("id, status, effective_from").eq("id", policyId).maybeSingle();
-  if (readError) throw readError;
-  if (!policy || policy.status !== "approved") return { success: false, message: "Kebijakan harus disetujui Yayasan terlebih dahulu." };
-  if (policy.effective_from > new Date().toISOString().slice(0, 10)) return { success: false, message: `Kebijakan baru berlaku pada ${policy.effective_from}.` };
-  const { error: archiveError } = await supabase.from("policy_settings").update({ status: "archived" }).eq("status", "active");
-  if (archiveError) throw archiveError;
-  const { error } = await supabase.from("policy_settings").update({ status: "active" }).eq("id", policyId).eq("status", "approved");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("activate_policy", { p_policy_id: policyId });
   if (error) throw error;
-  await supabase.from("policy_approval_events").insert({ policy_id: policyId, actor_id: admin.id, from_status: "approved", to_status: "active" });
-  return { success: true, message: "Kebijakan berhasil diaktifkan dan kebijakan lama diarsipkan." };
+  return data as { success: boolean; message: string };
 }
 
 export interface AdminDashboardMetrics {
@@ -300,7 +294,7 @@ export interface AdminDashboardMetrics {
  * Server Action: Query high-level operational counts for Admin Overview Dashboard
  */
 export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetrics> {
-  await requireRole(["super_admin", "pengurus"]);
+  await requireRole(["super_admin", "yayasan", "pengurus"]);
   const result: AdminDashboardMetrics = {
     totalSantri: 0,
     todayCheckedIn: 0,
@@ -316,17 +310,20 @@ export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetr
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
 
     // 1. Total santri
-    const { count: santriCount } = await supabase
+    const { count: santriCount, error: santriError } = await supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
-      .eq("member_type", "santri");
+      .eq("member_type", "santri")
+      .eq("status", "active");
+    if (santriError) throw santriError;
     result.totalSantri = santriCount || 0;
 
     // 2. Attendance today
-    const { data: attendances } = await supabase
+    const { data: attendances, error: attendanceError } = await supabase
       .from("attendance_records")
       .select("classification")
       .eq("attendance_date", today);
+    if (attendanceError) throw attendanceError;
     if (attendances) {
       result.todayCheckedIn = attendances.length;
       result.todayLate = (attendances as Array<{ classification: string }>).filter(
@@ -335,29 +332,31 @@ export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetr
     }
 
     // 3. Reports
-    const { data: reports } = await supabase
+    const { data: reports, error: reportsError } = await supabase
       .from("daily_reports")
       .select("review_status");
+    if (reportsError) throw reportsError;
     if (reports) {
       const typedReports = reports as Array<{ review_status?: string | null }>;
-      result.pendingReports = typedReports.filter(
-        (r) => r.review_status === "not_reviewed" || !r.review_status
-      ).length;
+      result.pendingReports = typedReports.filter((r) => r.review_status === "not_reviewed" || r.review_status === "under_review").length;
       result.approvedReports = typedReports.filter((r) => r.review_status === "approved").length;
     }
 
     // 4. Pending account requests
-    const { count: reqCount } = await supabase
+    const { count: reqCount, error: reqError } = await supabase
       .from("account_requests")
       .select("*", { count: "exact", head: true })
       .eq("status", "pending");
+    if (reqError) throw reqError;
     result.pendingAccountRequests = reqCount || 0;
 
     // 5. Active tasks
-    const { count: taskCount } = await supabase
+    const { count: taskCount, error: taskError } = await supabase
       .from("tasks")
       .select("*", { count: "exact", head: true })
-      .neq("status", "done");
+      .in("status", ["todo", "in_progress", "in_review"])
+      .is("deleted_at", null);
+    if (taskError) throw taskError;
     result.activeTasks = taskCount || 0;
   } catch (err) {
     console.error("Failed to query admin dashboard stats:", err);

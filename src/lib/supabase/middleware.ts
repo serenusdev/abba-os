@@ -12,7 +12,8 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute =
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
-    pathname.startsWith('/api/calendar/feed');
+    pathname.startsWith('/api/calendar/feed') ||
+    pathname.startsWith('/api/cron/');
 
   if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
     if (isPublicRoute) return supabaseResponse;

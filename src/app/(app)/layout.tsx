@@ -9,7 +9,7 @@ export default async function AppLayout({
 }) {
   const user = await getCurrentUserProfile();
 
-  if (!user) {
+  if (!user || user.status !== "active") {
     redirect("/login");
   }
 

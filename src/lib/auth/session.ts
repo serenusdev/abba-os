@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { UserProfile, UserRole } from './types';
 
+if (process.env.NODE_ENV === 'production' && process.env.VITEST) {
+  throw new Error('VITEST must never be enabled in production.');
+}
+
 export const DEFAULT_MOCK_USER: UserProfile = {
   id: 'usr-santri-001',
   email: 'salman.alfarisi@pondok.id',
@@ -72,6 +76,18 @@ export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null>
     // record without an application profile into an active application session.
     if (!profile) {
       return null;
+    }
+
+    if (profile.session_revoked_at) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      try {
+        const encodedPayload = token?.split(".")[1];
+        const claims = encodedPayload ? JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as { iat?: number } : null;
+        if (claims?.iat && claims.iat * 1000 <= new Date(profile.session_revoked_at).getTime()) return null;
+      } catch {
+        return null;
+      }
     }
 
     // Determine highest assigned role. member_type is descriptive data, not a

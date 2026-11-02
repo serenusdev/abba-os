@@ -7,6 +7,9 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { UserProfile } from "@/lib/auth/types";
 import { Avatar } from "@/components/ui/avatar";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { cleanupPushNotifications } from "@/lib/notifications";
 
 interface DesktopSidebarProps {
   user: UserProfile;
@@ -14,12 +17,20 @@ interface DesktopSidebarProps {
 
 export function DesktopSidebar({ user }: DesktopSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const isActive = (path: string) => {
     if (path === "/" || path === "/beranda") {
       return pathname === "/" || pathname === "/beranda";
     }
     return pathname.startsWith(path);
+  };
+
+  const handleLogout = async () => {
+    await cleanupPushNotifications();
+    await createClient().auth.signOut();
+    router.replace("/login");
+    router.refresh();
   };
 
   const isAdminOrPengurus =
@@ -77,7 +88,7 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-headline-sm text-headline-sm text-primary font-bold tracking-tight leading-none">
-              Pondok OS
+              IDAROH
             </span>
             <span className="px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground font-label-sm text-[10px] leading-tight flex-shrink-0">
               {roleLabel}
@@ -200,13 +211,14 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
               </p>
             </div>
           </div>
-          <Link
-            href="/login"
+          <button
+            type="button"
+            onClick={handleLogout}
             title="Keluar"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-card transition-colors flex-shrink-0"
           >
             <span className="material-symbols-outlined text-[18px]">logout</span>
-          </Link>
+          </button>
         </div>
       </div>
     </aside>
