@@ -40,7 +40,7 @@ export default function ReviewPage() {
       revision: reports.filter((r) => r.reviewStatus === "revision_required").length,
       resubmitted: reports.filter((r) => (r.revisionNo || 1) > 1 && r.reviewStatus === "not_reviewed").length,
       approved: reports.filter((r) => r.reviewStatus === "approved").length,
-      unassigned: 0,
+      unassigned: reports.filter((r) => r.submissionStatus === "submitted" && r.reviewStatus !== "approved" && !r.reviewerId).length,
     };
   }, [reports]);
 
@@ -60,6 +60,7 @@ export default function ReviewPage() {
       if (activeTab === "resubmitted" && (rep.revisionNo <= 1 || rep.reviewStatus !== "not_reviewed"))
         return false;
       if (activeTab === "approved" && rep.reviewStatus !== "approved") return false;
+      if (activeTab === "unassigned" && (rep.reviewStatus === "approved" || rep.reviewerId)) return false;
 
       // Search matching
       if (searchQuery.trim()) {

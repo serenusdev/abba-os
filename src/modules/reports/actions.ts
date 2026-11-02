@@ -118,6 +118,7 @@ export async function getTodayReportAction(): Promise<DailyReport> {
             }) + " WIB"
           : undefined,
         reviewStatus: report.review_status,
+        reviewerId: report.reviewer_id || undefined,
         reviewerName,
         reviewedAt: report.reviewed_at || undefined,
         revisionNo: report.revision_no || 1,
@@ -265,6 +266,7 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
               }) + " WIB"
             : undefined,
           reviewStatus: r.review_status,
+          reviewerId: r.reviewer_id || undefined,
           reviewerName: r.reviewer_id ? reviewerMap.get(r.reviewer_id) : undefined,
           reviewedAt: r.reviewed_at || undefined,
           revisionNo: r.revision_no || 1,

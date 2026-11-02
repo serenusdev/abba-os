@@ -52,6 +52,7 @@ export interface DailyReport {
   isLate: boolean;
   submittedAtTime?: string;
   reviewStatus: ReviewStatus;
+  reviewerId?: string;
   reviewerName?: string;
   reviewerRole?: string;
   reviewedAt?: string; // ISO timestamp when the report was reviewed/approved

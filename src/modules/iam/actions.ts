@@ -309,6 +309,17 @@ export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
         devices.push(device);
         devicesByUser.set(device.user_id, devices);
       }
+      const mfaByUser = new Map<string, boolean>();
+      await Promise.all(userIds.map(async (userId: string) => {
+        try {
+          const { data: factors, error: factorError } = await supabase.auth.admin.mfa.listFactors({ userId });
+          if (factorError) throw factorError;
+          mfaByUser.set(userId, Boolean(factors?.factors?.some((factor: { status?: string }) => factor.status === "verified")));
+        } catch (error) {
+          console.error(`Failed to query MFA factors for ${userId}:`, error);
+          mfaByUser.set(userId, false);
+        }
+      }));
       return data.map((d: any) => {
         const initials = d.full_name
           ? d.full_name
@@ -332,7 +343,7 @@ export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
           deviceInfo: devices.length
             ? `${devices.length} Perangkat Aktif${deviceLabels.length ? ` · ${deviceLabels.slice(0, 2).join(", ")}` : ""}`
             : "Belum ada perangkat terhubung",
-          mfaEnabled: false,
+          mfaEnabled: mfaByUser.get(d.id) || false,
           isVerified: d.status === "active",
         };
       });
