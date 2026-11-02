@@ -3,6 +3,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthUser, requireRole } from "@/lib/auth/guards";
+import { formatRelativeTimeId } from "@/lib/utils";
 import { INITIAL_AUDIT_LOGS } from "./data";
 import { AuditLogItem } from "./types";
 
@@ -82,7 +83,7 @@ export async function queryAuditLogsAction(
         success: true,
         logs: logs.map((l: any) => ({
           id: l.id,
-          timeAgo: "Baru saja",
+          timeAgo: formatRelativeTimeId(l.created_at),
           eventName: l.event_name,
           actorName: l.actor_name || "Sistem",
           targetLabel: l.target_label || "-",

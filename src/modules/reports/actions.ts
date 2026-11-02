@@ -369,6 +369,25 @@ export async function submitReportAction(
   try {
     const supabase = createAdminClient();
 
+    // Pastikan laporan yang sudah di-approve tidak dapat di-overwrite / dikirim ulang
+    const { data: existingReport } = await supabase
+      .from("daily_reports")
+      .select("id, review_status, first_submitted_at")
+      .eq("user_id", user.id)
+      .eq("report_date", payload.reportDate)
+      .maybeSingle();
+
+    if (existingReport && existingReport.review_status === "approved") {
+      return {
+        success: false,
+        message: "Laporan untuk tanggal ini sudah disetujui ustadz dan tidak dapat diubah kembali.",
+        isLate,
+        submittedAtTime,
+      };
+    }
+
+    const firstSubmittedAt = existingReport?.first_submitted_at || jakarta.now.toISOString();
+
     const { data: rep, error: repError } = await supabase
       .from("daily_reports")
       .upsert(
@@ -377,7 +396,7 @@ export async function submitReportAction(
           report_date: payload.reportDate,
           submission_status: "submitted",
           is_late: isLate,
-          first_submitted_at: jakarta.now.toISOString(),
+          first_submitted_at: firstSubmittedAt,
           last_submitted_at: jakarta.now.toISOString(),
           review_status: "not_reviewed",
         },
@@ -449,6 +468,47 @@ export async function reviewReportAction(
 
   try {
     const supabase = createAdminClient();
+
+    // 1. Ambil data laporan dan pastikan validasi status
+    const { data: targetReport, error: fetchErr } = await supabase
+      .from("daily_reports")
+      .select("id, user_id, review_status, submission_status")
+      .eq("id", payload.reportId)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+    if (!targetReport) {
+      return { success: false, message: "Laporan santri tidak ditemukan." };
+    }
+
+    // Cegah self-review (peninjau tidak boleh menyetujui laporannya sendiri)
+    if (targetReport.user_id === reviewer.id && reviewer.role !== "super_admin") {
+      return {
+        success: false,
+        message: "FORBIDDEN: Anda tidak dapat meninjau atau menyetujui laporan Anda sendiri.",
+      };
+    }
+
+    // Cegah double-approval jika laporan sudah disetujui sebelumnya
+    if (targetReport.review_status === "approved" && payload.decision === "approved") {
+      return {
+        success: false,
+        message: "Laporan ini sudah disetujui sebelumnya.",
+      };
+    }
+
+    // 2. Simpan evaluasi ke tabel report_reviews agar catatan ustadz tersimpan permanen
+    await supabase.from("report_reviews").upsert(
+      {
+        report_id: payload.reportId,
+        reviewer_id: reviewer.id,
+        decision: payload.decision,
+        notes: payload.notes || "",
+        reviewed_at: new Date().toISOString(),
+      },
+      { onConflict: "report_id" }
+    );
+
     const { error } = await supabase
       .from("daily_reports")
       .update({
@@ -465,7 +525,7 @@ export async function reviewReportAction(
       actor_name: reviewer.full_name,
       target_id: payload.reportId,
       target_label: `Laporan Santri (${payload.reportId})`,
-      action_detail: `Keputusan: ${payload.decision}. Catatan: ${payload.notes}`,
+      action_detail: `Keputusan: ${payload.decision}. Catatan: ${payload.notes || "-"}`,
     });
   } catch (err: any) {
     console.error("Failed to record review action:", err);
