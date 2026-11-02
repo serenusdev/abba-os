@@ -57,6 +57,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Akun pemilik kalender tidak aktif." }, { status: 403 });
     }
 
+    const { data: memberships, error: membershipError } = await supabase
+      .from("team_members")
+      .select("team_id, teams(id, name, slug)")
+      .eq("user_id", owner.id)
+      .is("valid_to", null);
+    if (membershipError) throw membershipError;
+    const ownerTeamKeys = new Set(
+      (memberships || []).flatMap((item: { team_id: string; teams?: { id?: string; name?: string; slug?: string } | null }) => [
+        item.team_id,
+        item.teams?.id,
+        item.teams?.name,
+        item.teams?.slug,
+      ]).filter(Boolean)
+    );
+
     const { data: events, error } = await supabase
       .from("events")
       .select("*")
@@ -84,8 +99,8 @@ export async function GET(request: Request) {
       const config = event.audience_config || { scope: "all" };
       if (config.scope === "users") return Array.isArray(config.userIds) && config.userIds.includes(owner.id);
       if (config.scope === "member_type") return Array.isArray(config.memberTypes) && config.memberTypes.includes(owner.member_type || "santri");
-      if (config.scope === "team") return Array.isArray(config.teamIds) && config.teamIds.some((id) => id === owner.team_name || id === event.team_id);
-      return !event.team_id || event.team_id === owner.team_name;
+      if (config.scope === "team") return Array.isArray(config.teamIds) && config.teamIds.some((id) => ownerTeamKeys.has(id));
+      return !event.team_id || event.team_id === owner.team_name || ownerTeamKeys.has(event.team_id);
     });
 
     if (visibleEvents.length > 0) {

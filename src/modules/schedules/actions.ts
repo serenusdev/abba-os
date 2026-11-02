@@ -9,14 +9,17 @@ import { AnnouncementItem, AudienceConfig, ScheduleEventItem } from "./types";
 import { randomBytes } from "node:crypto";
 
 async function filterByAudience(supabase: ReturnType<typeof createAdminClient>, rows: any[], user: any): Promise<any[]> {
-  const teamTargets = Array.from(new Set(rows.flatMap((row) => row.audience_config?.teamIds || [])));
-  const memberships = teamTargets.length
-    ? await supabase.from("team_members").select("team_id").eq("user_id", user.id).is("valid_to", null).in("team_id", teamTargets)
-    : { data: [] as any[] };
-  const userTeams = new Set((memberships.data || []).map((item: any) => item.team_id));
+  const { data: memberships } = await supabase
+    .from("team_members")
+    .select("team_id, teams(id, name, slug)")
+    .eq("user_id", user.id)
+    .is("valid_to", null);
+  const userTeams = new Set(
+    (memberships || []).flatMap((item: any) => [item.team_id, item.teams?.id, item.teams?.name, item.teams?.slug]).filter(Boolean)
+  );
   return rows.filter((row) => {
     const config = row.audience_config as AudienceConfig | null | undefined;
-    if (!config || config.scope === "all") return !row.team_id || row.team_id === user.team_name;
+    if (!config || config.scope === "all") return !row.team_id || row.team_id === user.team_name || userTeams.has(row.team_id);
     if (config.scope === "users") return (config.userIds || []).includes(user.id);
     if (config.scope === "member_type") return (config.memberTypes || []).includes(user.member_type || "santri");
     return (config.teamIds || []).some((teamId) => userTeams.has(teamId));
@@ -326,7 +329,7 @@ export async function publishAnnouncementAction(payload: {
     if (inserted?.id) newId = inserted.id;
 
     // Log to audit
-    await supabase.from("audit_logs").insert({
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "announcement.published",
       actor_id: admin.id,
       actor_name: admin.full_name,
@@ -334,6 +337,7 @@ export async function publishAnnouncementAction(payload: {
       target_label: payload.title,
       action_detail: `Menerbitkan pengumuman prioritas ${payload.priority} untuk ${payload.targetAudienceLabel}`,
     });
+    if (auditError) throw auditError;
     if (!process.env.VITEST) {
       try {
         const recipientIds = await getAudienceUserIds(supabase, payload.audienceConfig);
@@ -516,6 +520,8 @@ export async function createEventAction(
         starts_at: startsAt.toISOString(),
         ends_at: endsAt.toISOString(),
         location: payload.location || "Lab Utama Pondok",
+        organizer_id: admin.id,
+        created_by: admin.id,
         category: payload.category || "umum",
         status: "scheduled",
         audience_config: payload.audienceConfig || { scope: "all" },
@@ -525,13 +531,15 @@ export async function createEventAction(
 
     if (error) throw error;
 
-    await supabase.from("audit_logs").insert({
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "event.created",
+      actor_id: admin.id,
       actor_name: admin.full_name,
       target_id: inserted?.id,
       target_label: payload.title,
       action_detail: `Menambahkan agenda baru: ${payload.title} (${payload.category}) di ${payload.location}`,
     });
+    if (auditError) throw auditError;
 
     return {
       success: true,
@@ -616,7 +624,8 @@ export async function updateAnnouncementAction(
       updated_at: new Date().toISOString(),
     }).eq("id", announcementId);
     if (error) throw error;
-    await supabase.from("audit_logs").insert({ event_name: "announcement.updated", actor_id: admin.id, actor_name: admin.full_name, target_id: announcementId, target_label: payload.title.trim(), action_detail: "Pengumuman diperbarui; snapshot versi sebelumnya disimpan." });
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "announcement.updated", actor_id: admin.id, actor_name: admin.full_name, target_id: announcementId, target_label: payload.title.trim(), action_detail: "Pengumuman diperbarui; snapshot versi sebelumnya disimpan." });
+    if (auditError) throw auditError;
     return { success: true, message: "Pengumuman berhasil diperbarui dan revisi sebelumnya disimpan.", announcementId };
   } catch (err) {
     console.error("Failed to update announcement:", err);

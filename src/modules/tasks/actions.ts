@@ -110,7 +110,7 @@ export async function getTasksAction(): Promise<TaskItem[]> {
  * Server Action: Query projects from Supabase
  */
 export async function getProjectsAction(): Promise<ProjectItem[]> {
-  await requireAuthUser();
+  const user = await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: projects, error } = await supabase
@@ -120,6 +120,22 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
 
     if (!error && projects) {
       if (projects.length === 0) return [];
+      const elevated = (user.roles || [user.role]).some((role) => ["super_admin", "yayasan", "pengurus"].includes(role));
+      let visibleProjects = projects as any[];
+      if (!elevated) {
+        const { data: memberships, error: membershipError } = await supabase
+          .from("team_members")
+          .select("team_id, teams(id, name, slug)")
+          .eq("user_id", user.id)
+          .is("valid_to", null);
+        if (membershipError) throw membershipError;
+        const teamKeys = new Set((memberships || []).flatMap((item: any) => [item.team_id, item.teams?.id, item.teams?.name, item.teams?.slug]).filter(Boolean));
+        visibleProjects = visibleProjects.filter((project) =>
+          project.owner_id === user.id || project.created_by === user.id || (project.team_id && teamKeys.has(project.team_id))
+        );
+      }
+      if (visibleProjects.length === 0) return [];
+      const visibleProjectIds = new Set(visibleProjects.map((project) => project.id));
       const { data: tasks, error: taskError } = await supabase
         .from("tasks")
         .select("project_id, status")
@@ -127,12 +143,13 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
       if (taskError) throw taskError;
       const byProject = new Map<string, any[]>();
       for (const task of tasks || []) {
+        if (task.project_id && !visibleProjectIds.has(task.project_id)) continue;
         const list = byProject.get(task.project_id) || [];
         list.push(task);
         byProject.set(task.project_id, list);
       }
 
-      return projects.map((p: any) => ({
+      return visibleProjects.map((p: any) => ({
         id: p.id,
         name: p.name,
         description: p.description || "",
@@ -285,7 +302,7 @@ export async function createTaskAction(
     };
   }
 
-  const user = await requireAuthUser();
+  await requireAuthUser();
   if (process.env.VITEST) {
     return {
       success: true,
@@ -295,35 +312,23 @@ export async function createTaskAction(
   }
   let newId = `tsk-${Date.now()}`;
   try {
-    const supabase = createAdminClient();
-
-    const { data: inserted, error } = await supabase
-      .from("tasks")
-      .insert({
-        title: payload.title,
-        description: payload.description || "",
-        priority: payload.priority,
-        status: "todo",
-        requires_review: payload.requiresReview,
-        project_id: payload.projectId && payload.projectId.length > 30 ? payload.projectId : null,
-        due_date: payload.dueDateIso || (payload.dueDateStr && /^\d{4}-\d{2}-\d{2}$/.test(payload.dueDateStr) ? payload.dueDateStr : null),
-        visibility: payload.visibility || "team",
-        created_by: user.id,
-      })
-      .select("id")
-      .single();
-
-    if (error || !inserted) throw error || new Error("Tugas tidak tersimpan.");
-    newId = inserted.id;
+    const supabase = await createClient();
     const assigneeIds = Array.from(new Set((payload.assigneeIds || []).filter(Boolean)));
+    const dueDate = payload.dueDateIso || (payload.dueDateStr && /^\d{4}-\d{2}-\d{2}$/.test(payload.dueDateStr) ? payload.dueDateStr : null);
+    const { data: created, error } = await supabase.rpc("create_task", {
+      p_title: payload.title,
+      p_description: payload.description || "",
+      p_priority: payload.priority,
+      p_requires_review: payload.requiresReview,
+      p_project_id: payload.projectId && payload.projectId.length > 30 ? payload.projectId : null,
+      p_due_date: dueDate,
+      p_visibility: payload.visibility || "team",
+      p_assignee_ids: assigneeIds,
+    });
+    if (error) throw error;
+    if (!created?.success || !created.task_id) throw new Error(created?.message || "Tugas tidak tersimpan.");
+    newId = created.task_id;
     if (assigneeIds.length > 0) {
-      const { error: assigneeError } = await supabase.from("task_assignees").insert(
-        assigneeIds.map((assigneeId) => ({ task_id: newId, user_id: assigneeId, assigned_by: user.id }))
-      );
-      if (assigneeError) {
-        await supabase.from("tasks").delete().eq("id", newId);
-        throw assigneeError;
-      }
       try {
         await sendPushToUsers(assigneeIds, {
           type: "TASK_ASSIGNED",

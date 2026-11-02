@@ -187,34 +187,40 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
     const reviewer = await requireRole(["super_admin", "yayasan", "pengurus", "koordinator"]);
 
     const supabase = createAdminClient();
-    const { data: reports, error } = await supabase
+    let scopedAuthorIds: string[] | undefined;
+    if (reviewer.role === "koordinator") {
+      const { data: memberships, error: membershipError } = await supabase
+        .from("team_members")
+        .select("team_id")
+        .eq("user_id", reviewer.id)
+        .is("valid_to", null);
+      if (membershipError) throw membershipError;
+      const teamIds = Array.from(new Set((memberships || []).map((item: any) => item.team_id).filter(Boolean)));
+      if (teamIds.length === 0) return [];
+      const { data: scopedAuthors, error: scopedAuthorError } = await supabase
+        .from("team_members")
+        .select("user_id")
+        .in("team_id", teamIds)
+        .is("valid_to", null);
+      if (scopedAuthorError) throw scopedAuthorError;
+      scopedAuthorIds = Array.from(new Set((scopedAuthors || []).map((item: any) => item.user_id).filter(Boolean)));
+      if (scopedAuthorIds.length === 0) return [];
+    }
+
+    let reportsQuery = supabase
       .from("daily_reports")
       .select("*, report_items(*, report_categories(name))")
       .order("created_at", { ascending: false })
       .limit(50);
+    if (scopedAuthorIds) reportsQuery = reportsQuery.in("user_id", scopedAuthorIds);
+    const { data: reports, error } = await reportsQuery;
 
     if (error) throw error;
 
     if (reports) {
       if (reports.length === 0) return [];
 
-      let visibleReports = reports as any[];
-      if (reviewer.role === "koordinator") {
-        const { data: memberships, error: membershipError } = await supabase
-          .from("team_members")
-          .select("team_id")
-          .eq("user_id", reviewer.id)
-          .is("valid_to", null);
-        if (membershipError) throw membershipError;
-        const teamIds = new Set((memberships || []).map((item: any) => item.team_id));
-        const authorIds = Array.from(new Set(visibleReports.map((report) => report.user_id).filter(Boolean)));
-        const { data: authorMemberships, error: authorMembershipError } = authorIds.length
-          ? await supabase.from("team_members").select("user_id, team_id").in("user_id", authorIds).is("valid_to", null)
-          : { data: [], error: null };
-        if (authorMembershipError) throw authorMembershipError;
-        const allowedAuthors = new Set((authorMemberships || []).filter((item: any) => teamIds.has(item.team_id)).map((item: any) => item.user_id));
-        visibleReports = visibleReports.filter((report) => allowedAuthors.has(report.user_id));
-      }
+      const visibleReports = reports as any[];
       if (visibleReports.length === 0) return [];
 
       // Optimasi: Hanya ambil profil dari user_id yang ada di reports (bukan seluruh tabel profil)
