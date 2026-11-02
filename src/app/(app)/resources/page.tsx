@@ -103,15 +103,18 @@ export default function ResourceLibraryPage() {
     }));
   };
 
-  const handleCopyLink = (_slug: string, id: string) => {
-    const url = `${window.location.origin}/resources?resource=${encodeURIComponent(id)}`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).catch(() => {});
-    }
-    setCopyFeedback((prev) => ({ ...prev, [id]: true }));
-    setTimeout(() => {
+  const handleCopyLink = async (slug: string, id: string) => {
+    const url = `${window.location.origin}/resources/${encodeURIComponent(slug)}`;
+    if (!navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyFeedback((prev) => ({ ...prev, [id]: true }));
+      setTimeout(() => {
+        setCopyFeedback((prev) => ({ ...prev, [id]: false }));
+      }, 2000);
+    } catch {
       setCopyFeedback((prev) => ({ ...prev, [id]: false }));
-    }, 2000);
+    }
   };
 
   const allTags: string[] = Array.from(new Set(resources.flatMap((r) => r.tags)));

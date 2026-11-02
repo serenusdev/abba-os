@@ -23,6 +23,23 @@ export async function initPushNotifications(userId: string): Promise<void> {
 
   if (listenersRegistered && listenersUserId === userId) return;
   if (listenersRegistered) await cleanupPushNotifications();
+
+  // Resolve permission before installing listeners. A denied permission must
+  // not leave a global "registered" flag that blocks a later account switch
+  // or a permission grant after returning from Android settings.
+  const permResult = await PushNotifications.checkPermissions();
+  let receivePermission = permResult.receive;
+  if (receivePermission === 'prompt') {
+    const reqResult = await PushNotifications.requestPermissions();
+    receivePermission = reqResult.receive;
+  }
+  if (receivePermission !== 'granted') {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[FCM] Notification permission denied');
+    }
+    return;
+  }
+
   listenersRegistered = true;
   listenersUserId = userId;
 
@@ -72,21 +89,6 @@ export async function initPushNotifications(userId: string): Promise<void> {
       }
     }
   );
-
-  const permResult = await PushNotifications.checkPermissions();
-  if (permResult.receive === 'prompt') {
-    const reqResult = await PushNotifications.requestPermissions();
-    if (reqResult.receive !== 'granted') {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[FCM] Notification permission denied');
-      }
-      await cleanupPushNotifications();
-      return;
-    }
-  } else if (permResult.receive !== 'granted') {
-    await cleanupPushNotifications();
-    return;
-  }
 
   await PushNotifications.register();
 }
