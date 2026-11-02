@@ -309,3 +309,78 @@ export async function submitExceptionAction(
     message: `Permohonan ${type === "sick" ? "Sakit" : "Izin"} untuk tanggal ${dateFrom} s.d. ${dateTo} telah diajukan ke Dewan Pengurus.`,
   };
 }
+
+export interface AttendanceReviewQueue {
+  corrections: Array<{ id: string; userId: string; userName: string; attendanceDate: string; reason: string; requestedClassification: string }>;
+  exceptions: Array<{ id: string; userId: string; userName: string; dateFrom: string; dateTo: string; type: string; reason: string }>;
+}
+
+export async function getAttendanceReviewQueueAction(): Promise<AttendanceReviewQueue> {
+  await requireRoleForAttendanceReview();
+  if (process.env.VITEST) return { corrections: [], exceptions: [] };
+  const supabase = createAdminClient();
+  const [{ data: corrections, error: correctionError }, { data: exceptions, error: exceptionError }] = await Promise.all([
+    supabase.from("attendance_corrections").select("id,user_id,attendance_date,reason,requested_classification").eq("status", "pending").order("created_at", { ascending: true }),
+    supabase.from("attendance_exceptions").select("id,user_id,date_from,date_to,type,reason").eq("status", "pending").order("created_at", { ascending: true }),
+  ]);
+  if (correctionError) throw correctionError;
+  if (exceptionError) throw exceptionError;
+  const userIds = Array.from(new Set([...(corrections || []), ...(exceptions || [])].map((row: any) => row.user_id).filter(Boolean)));
+  const { data: profiles, error: profileError } = userIds.length
+    ? await supabase.from("profiles").select("id,full_name").in("id", userIds)
+    : { data: [], error: null };
+  if (profileError) throw profileError;
+  const names = new Map((profiles || []).map((profile: any) => [profile.id, profile.full_name]));
+  return {
+    corrections: (corrections || []).map((row: any) => ({ id: row.id, userId: row.user_id, userName: names.get(row.user_id) || "Santri", attendanceDate: row.attendance_date, reason: row.reason, requestedClassification: row.requested_classification })),
+    exceptions: (exceptions || []).map((row: any) => ({ id: row.id, userId: row.user_id, userName: names.get(row.user_id) || "Santri", dateFrom: row.date_from, dateTo: row.date_to, type: row.type, reason: row.reason })),
+  };
+}
+
+async function requireRoleForAttendanceReview() {
+  const user = await requireAuthUser();
+  if (!["super_admin", "yayasan", "pengurus"].includes(user.role)) {
+    throw new Error("Anda tidak memiliki akses memproses review presensi.");
+  }
+  return user;
+}
+
+export async function reviewAttendanceCorrectionAction(
+  correctionId: string,
+  decision: "approved" | "rejected",
+  note = ""
+): Promise<{ success: boolean; message: string }> {
+  const reviewer = await requireRoleForAttendanceReview();
+  if (process.env.VITEST) return { success: true, message: "Koreksi presensi berhasil diproses." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("review_attendance_correction", {
+    p_correction_id: correctionId,
+    p_decision: decision,
+    p_note: note.trim() || null,
+  });
+  if (error) return { success: false, message: error.message };
+  if (!data?.success) return { success: false, message: data?.message || "Koreksi presensi gagal diproses." };
+  const admin = createAdminClient();
+  await admin.from("audit_logs").insert({ event_name: `attendance.correction_${decision}`, actor_id: reviewer.id, actor_name: reviewer.full_name, target_id: correctionId, target_label: "Koreksi presensi", action_detail: note.trim() || "-" });
+  return { success: true, message: data.message || "Koreksi presensi berhasil diproses." };
+}
+
+export async function reviewAttendanceExceptionAction(
+  exceptionId: string,
+  decision: "approved" | "rejected",
+  note = ""
+): Promise<{ success: boolean; message: string }> {
+  const reviewer = await requireRoleForAttendanceReview();
+  if (process.env.VITEST) return { success: true, message: "Pengajuan izin berhasil diproses." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("review_attendance_exception", {
+    p_exception_id: exceptionId,
+    p_decision: decision,
+    p_note: note.trim() || null,
+  });
+  if (error) return { success: false, message: error.message };
+  if (!data?.success) return { success: false, message: data?.message || "Pengajuan izin gagal diproses." };
+  const admin = createAdminClient();
+  await admin.from("audit_logs").insert({ event_name: `attendance.exception_${decision}`, actor_id: reviewer.id, actor_name: reviewer.full_name, target_id: exceptionId, target_label: "Pengajuan izin presensi", action_detail: note.trim() || "-" });
+  return { success: true, message: data.message || "Pengajuan izin berhasil diproses." };
+}

@@ -31,6 +31,7 @@ export function MobileHeader({ user, title }: MobileHeaderProps) {
     if (pathname.startsWith("/admin/people")) return "Anggota & Reviewer";
     if (pathname.startsWith("/admin/analytics")) return "Analitik Operasional";
     if (pathname.startsWith("/admin/backup")) return "Backup & Pemulihan";
+    if (pathname.startsWith("/admin/kehadiran")) return "Review Presensi";
     if (pathname.startsWith("/admin/notifications")) return "Uji Notifikasi";
     if (pathname.startsWith("/admin/audit")) return "Analitik & Audit";
     return "Pondok OS";
