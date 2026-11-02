@@ -19,6 +19,8 @@ export type EventStatusBadge =
 
 export interface ScheduleEventItem {
   id: string;
+  startsAt?: string;
+  endsAt?: string;
   dateStr?: string;
   timeRangeStr: string;
   statusBadge: EventStatusBadge;

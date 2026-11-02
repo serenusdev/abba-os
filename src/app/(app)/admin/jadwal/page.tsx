@@ -11,8 +11,10 @@ import {
   getEventsAction,
   getAnnouncementsAction,
   createEventAction,
+  updateEventAction,
   deleteEventAction,
   publishAnnouncementAction,
+  updateAnnouncementAction,
   deleteAnnouncementAction,
 } from "@/modules/schedules/actions";
 import type { ScheduleEventItem, AnnouncementItem, AudienceConfig } from "@/modules/schedules/types";
@@ -34,6 +36,8 @@ export default function AdminJadwalPage() {
   // Modal states
   const [isEventModalOpen, setIsEventModalOpen] = React.useState(false);
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = React.useState(false);
+  const [editingEventId, setEditingEventId] = React.useState<string | null>(null);
+  const [editingAnnouncementId, setEditingAnnouncementId] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Event form
@@ -111,7 +115,7 @@ export default function AdminJadwalPage() {
     setIsSubmitting(true);
     setFeedbackNotice(null);
 
-    const res = await createEventAction({
+    const payload = {
       title: eventForm.title,
       category: eventForm.category,
       startsAt: eventForm.startsAt,
@@ -119,12 +123,14 @@ export default function AdminJadwalPage() {
       location: eventForm.location,
       description: eventForm.description,
       audienceConfig: audienceFromScope(eventForm.audienceScope),
-    });
+    };
+    const res = editingEventId ? await updateEventAction(editingEventId, payload) : await createEventAction(payload);
 
     setIsSubmitting(false);
     if (res.success) {
       setFeedbackNotice({ type: "success", message: res.message });
       setIsEventModalOpen(false);
+      setEditingEventId(null);
       setEventForm({
         title: "",
         category: "teknologi",
@@ -152,24 +158,40 @@ export default function AdminJadwalPage() {
     }
   };
 
+  const handleEditEvent = (evt: ScheduleEventItem) => {
+    setEditingEventId(evt.id);
+    setEventForm({
+      title: evt.title,
+      category: evt.category,
+      startsAt: evt.startsAt ? new Date(evt.startsAt).toISOString().slice(0, 16) : "",
+      endsAt: evt.endsAt ? new Date(evt.endsAt).toISOString().slice(0, 16) : "",
+      location: evt.location,
+      description: evt.subNote || "",
+      audienceScope: evt.audienceConfig?.scope === "member_type" ? ((evt.audienceConfig.memberTypes?.[0] || "all") as typeof eventForm.audienceScope) : "all",
+    });
+    setIsEventModalOpen(true);
+  };
+
   // Handle Announcement Submit
   const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setFeedbackNotice(null);
 
-    const res = await publishAnnouncementAction({
+    const payload = {
       title: announcementForm.title,
       bodyMarkdown: announcementForm.bodyMarkdown,
       priority: announcementForm.priority,
       targetAudienceLabel: announcementForm.targetAudienceLabel,
       audienceConfig: audienceFromScope(announcementForm.audienceScope),
-    });
+    };
+    const res = editingAnnouncementId ? await updateAnnouncementAction(editingAnnouncementId, payload) : await publishAnnouncementAction(payload);
 
     setIsSubmitting(false);
     if (res.success) {
       setFeedbackNotice({ type: "success", message: res.message });
       setIsAnnouncementModalOpen(false);
+      setEditingAnnouncementId(null);
       setAnnouncementForm({
         title: "",
         bodyMarkdown: "",
@@ -181,6 +203,18 @@ export default function AdminJadwalPage() {
     } else {
       setFeedbackNotice({ type: "error", message: res.message });
     }
+  };
+
+  const handleEditAnnouncement = (ann: AnnouncementItem) => {
+    setEditingAnnouncementId(ann.id);
+    setAnnouncementForm({
+      title: ann.title,
+      bodyMarkdown: ann.bodyMarkdown,
+      priority: ann.priority,
+      targetAudienceLabel: ann.targetAudienceLabel,
+      audienceScope: ann.audienceConfig?.scope === "member_type" ? ((ann.audienceConfig.memberTypes?.[0] || "all") as typeof announcementForm.audienceScope) : "all",
+    });
+    setIsAnnouncementModalOpen(true);
   };
 
   // Handle Announcement Delete
@@ -360,6 +394,13 @@ export default function AdminJadwalPage() {
                       <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                     </Link>
                     <button
+                      onClick={() => handleEditEvent(evt)}
+                      className="h-8 px-2.5 rounded-lg text-primary hover:bg-primary/10 font-label-sm text-xs flex items-center gap-1 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                      <span>Edit</span>
+                    </button>
+                    <button
                       onClick={() => handleDeleteEvent(evt.id, evt.title)}
                       className="h-8 px-2.5 rounded-lg text-error hover:bg-error/10 font-label-sm text-xs flex items-center gap-1 transition-colors"
                     >
@@ -427,6 +468,14 @@ export default function AdminJadwalPage() {
                       </h3>
                     </div>
 
+                    <button
+                      onClick={() => handleEditAnnouncement(ann)}
+                      className="h-8 px-2.5 rounded-lg text-primary hover:bg-primary/10 font-label-sm text-xs flex items-center gap-1 shrink-0 transition-colors"
+                      title="Edit Pengumuman"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                      <span className="hidden sm:inline">Edit</span>
+                    </button>
                     <button
                       onClick={() => handleDeleteAnnouncement(ann.id, ann.title)}
                       className="h-8 px-2.5 rounded-lg text-error hover:bg-error/10 font-label-sm text-xs flex items-center gap-1 shrink-0 transition-colors"
