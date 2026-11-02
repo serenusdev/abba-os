@@ -82,7 +82,15 @@ export default function ResourceLibraryPage() {
         const matchesDesc = item.description.toLowerCase().includes(q);
         const matchesSlug = item.slug.toLowerCase().includes(q);
         const matchesTag = item.tags.some((t) => t.toLowerCase().includes(q));
-        if (!matchesName && !matchesDesc && !matchesSlug && !matchesTag) {
+        const matchesDocumentation = [
+          item.accessSetup,
+          item.howToUse,
+          item.workflowExamples,
+          item.limitationsCautions,
+          item.officialSources,
+          item.documentationStatus,
+        ].some((field) => field?.toLowerCase().includes(q));
+        if (!matchesName && !matchesDesc && !matchesSlug && !matchesTag && !matchesDocumentation) {
           return false;
         }
       }

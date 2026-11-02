@@ -189,6 +189,18 @@ export function MoreSheet({ isOpen, onClose, user }: MoreSheetProps) {
               </Link>
 
               <Link
+                href="/admin/resources"
+                onClick={onClose}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-on-surface hover:bg-accent/40 active:bg-accent transition-colors"
+              >
+                <span className="material-symbols-outlined text-primary text-[22px]">library_books</span>
+                <div className="flex-1">
+                  <span className="font-label-md text-label-md block">Kelola Resource Library</span>
+                  <span className="font-body-sm text-[11px] text-muted-foreground block">CRUD, archive, dan riwayat revisi</span>
+                </div>
+              </Link>
+
+              <Link
                 href="/admin/audit"
                 onClick={onClose}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-on-surface hover:bg-accent/40 active:bg-accent transition-colors"

@@ -2,9 +2,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAuthUser } from "@/lib/auth/guards";
+import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { INITIAL_RESOURCES } from "./data";
-import { CategorySummary, ResourceItem } from "./types";
+import { CategorySummary, ResourceAdminInput, ResourceItem, ResourceRevisionItem } from "./types";
+
+const RESOURCE_ADMIN_ROLES = ["super_admin", "yayasan", "pengurus"] as const;
 
 export async function getCategoriesAction(): Promise<CategorySummary[]> {
   await requireAuthUser();
@@ -123,9 +125,10 @@ export async function getResourcesAction(
 
     const sanitizedQuery = query.replace(/[,()]/g, "").trim();
     if (sanitizedQuery) {
-      dbQuery = dbQuery.or(
-        `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%,slug.ilike.%${sanitizedQuery}%,access_setup.ilike.%${sanitizedQuery}%,how_to_use.ilike.%${sanitizedQuery}%,workflow_examples.ilike.%${sanitizedQuery}%,limitations_cautions.ilike.%${sanitizedQuery}%,official_sources.ilike.%${sanitizedQuery}%`
-      );
+      const searchTerms = sanitizedQuery.replace(/[^\p{L}\p{N}\s-]/gu, " ").trim();
+      if (searchTerms) {
+        dbQuery = dbQuery.textSearch("search_vector", searchTerms, { config: "simple", type: "websearch" });
+      }
     }
     if (categorySlug && categorySlug !== "all") {
       const { data: category } = await supabase.from("resource_categories").select("id").eq("slug", categorySlug).maybeSingle();
@@ -246,4 +249,163 @@ export async function toggleFavoriteAction(
     console.error("Failed to toggle resource favorite:", err);
     return { success: false, isFavorited: Boolean(false) };
   }
+}
+
+function normalizeResourceInput(payload: ResourceAdminInput): ResourceAdminInput {
+  const slug = payload.slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+  const tags = Array.from(new Set(payload.tags.map((tag) => tag.trim()).filter(Boolean))).slice(0, 20);
+  return {
+    name: payload.name.trim(),
+    slug,
+    description: payload.description.trim(),
+    categoryId: payload.categoryId || null,
+    officialUrl: payload.officialUrl?.trim() || null,
+    visibility: payload.visibility,
+    status: payload.status,
+    tags,
+    accessSetup: payload.accessSetup?.trim() || null,
+    howToUse: payload.howToUse?.trim() || null,
+    workflowExamples: payload.workflowExamples?.trim() || null,
+    limitationsCautions: payload.limitationsCautions?.trim() || null,
+    officialSources: payload.officialSources?.trim() || null,
+    documentationStatus: payload.documentationStatus?.trim() || null,
+  };
+}
+
+function resourceRow(input: ResourceAdminInput, userId: string) {
+  return {
+    name: input.name,
+    slug: input.slug,
+    description: input.description,
+    category_id: input.categoryId,
+    official_url: input.officialUrl,
+    visibility: input.visibility,
+    status: input.status,
+    access_setup: input.accessSetup,
+    how_to_use: input.howToUse,
+    workflow_examples: input.workflowExamples,
+    limitations_cautions: input.limitationsCautions,
+    official_sources: input.officialSources,
+    documentation_status: input.documentationStatus,
+    updated_by: userId,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+async function syncResourceTags(supabase: ReturnType<typeof createAdminClient>, resourceId: string, names: string[]) {
+  const normalized = names.map((name) => ({
+    name,
+    slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+  })).filter((tag) => tag.slug);
+  const { error: deleteError } = await supabase.from("resource_tags").delete().eq("resource_id", resourceId);
+  if (deleteError) throw deleteError;
+  if (!normalized.length) return;
+  const { error: upsertError } = await supabase.from("tags").upsert(normalized, { onConflict: "slug" });
+  if (upsertError) throw upsertError;
+  const { data: tags, error: tagsError } = await supabase.from("tags").select("id, slug").in("slug", normalized.map((tag) => tag.slug));
+  if (tagsError) throw tagsError;
+  const { error: linkError } = await supabase.from("resource_tags").insert((tags || []).map((tag: { id: string }) => ({ resource_id: resourceId, tag_id: tag.id })));
+  if (linkError) throw linkError;
+}
+
+function toResourceAdminInput(row: any, tags: string[] = []): ResourceAdminInput {
+  return {
+    name: row.name,
+    slug: row.slug,
+    description: row.description || "",
+    categoryId: row.category_id || null,
+    officialUrl: row.official_url || null,
+    visibility: row.visibility,
+    status: row.status,
+    tags,
+    accessSetup: row.access_setup || null,
+    howToUse: row.how_to_use || null,
+    workflowExamples: row.workflow_examples || null,
+    limitationsCautions: row.limitations_cautions || null,
+    officialSources: row.official_sources || null,
+    documentationStatus: row.documentation_status || null,
+  };
+}
+
+export async function getResourceAdminListAction(): Promise<Array<ResourceAdminInput & { id: string; updatedAt: string }>> {
+  await requireRole([...RESOURCE_ADMIN_ROLES]);
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("resources").select("*, resource_tags(tags(name))").order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    updatedAt: row.updated_at,
+    ...toResourceAdminInput(row, (row.resource_tags || []).map((item: any) => item.tags?.name).filter(Boolean)),
+  }));
+}
+
+export async function getResourceCategoryOptionsAction(): Promise<Array<{ id: string; name: string; slug: string }>> {
+  await requireRole([...RESOURCE_ADMIN_ROLES]);
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("resource_categories").select("id, name, slug").order("sort_order", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveResourceAction(
+  resourceId: string | null,
+  payload: ResourceAdminInput,
+  changeNote = "Pembaruan Resource Library"
+): Promise<{ success: boolean; message: string; id?: string }> {
+  const user = await requireRole([...RESOURCE_ADMIN_ROLES]);
+  const input = normalizeResourceInput(payload);
+  if (!input.name || !input.slug || !input.description) return { success: false, message: "Nama, slug, dan deskripsi wajib diisi." };
+  const supabase = createAdminClient();
+  try {
+    let id = resourceId;
+    if (resourceId) {
+      const { error } = await supabase.from("resources").update(resourceRow(input, user.id)).eq("id", resourceId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await supabase.from("resources").insert({ ...resourceRow(input, user.id), created_by: user.id }).select("id").single();
+      if (error) throw error;
+      id = data.id;
+    }
+    await syncResourceTags(supabase, id!, input.tags);
+    const { data: saved, error: savedError } = await supabase.from("resources").select("*").eq("id", id!).single();
+    if (savedError) throw savedError;
+    const { data: latest } = await supabase.from("resource_revisions").select("revision_no").eq("resource_id", id!).order("revision_no", { ascending: false }).limit(1).maybeSingle();
+    const { error: revisionError } = await supabase.from("resource_revisions").insert({
+      resource_id: id,
+      revision_no: Number(latest?.revision_no || 0) + 1,
+      snapshot: saved,
+      changed_by: user.id,
+      change_note: changeNote.trim() || "Pembaruan Resource Library",
+    });
+    if (revisionError) throw revisionError;
+    return { success: true, message: resourceId ? "Resource berhasil diperbarui." : "Resource berhasil dibuat.", id: id! };
+  } catch (error: any) {
+    console.error("Failed to save resource:", error);
+    return { success: false, message: error?.message || "Gagal menyimpan resource." };
+  }
+}
+
+export async function setResourceArchiveAction(resourceId: string, archived: boolean): Promise<{ success: boolean; message: string }> {
+  const user = await requireRole([...RESOURCE_ADMIN_ROLES]);
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("resources").update({ status: archived ? "archived" : "draft", archived_at: archived ? new Date().toISOString() : null, updated_by: user.id, updated_at: new Date().toISOString() }).eq("id", resourceId);
+  if (error) return { success: false, message: "Gagal mengubah status resource." };
+  return { success: true, message: archived ? "Resource diarsipkan tanpa menghapus riwayat." : "Resource dikembalikan sebagai draft." };
+}
+
+export async function getResourceRevisionsAction(resourceId: string): Promise<ResourceRevisionItem[]> {
+  await requireRole([...RESOURCE_ADMIN_ROLES]);
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("resource_revisions").select("id, revision_no, snapshot, change_note, changed_at, changed_by").eq("resource_id", resourceId).order("revision_no", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((row: any) => ({ id: row.id, revisionNo: row.revision_no, snapshot: toResourceAdminInput(row.snapshot), changeNote: row.change_note, changedAt: row.changed_at, changedBy: row.changed_by }));
+}
+
+export async function restoreResourceRevisionAction(resourceId: string, revisionId: string): Promise<{ success: boolean; message: string }> {
+  const user = await requireRole([...RESOURCE_ADMIN_ROLES]);
+  const supabase = createAdminClient();
+  const { data: revision, error: revisionError } = await supabase.from("resource_revisions").select("snapshot").eq("id", revisionId).eq("resource_id", resourceId).maybeSingle();
+  if (revisionError || !revision) return { success: false, message: "Revisi tidak ditemukan." };
+  const result = await saveResourceAction(resourceId, toResourceAdminInput(revision.snapshot), `Restore revisi ${revisionId} oleh ${user.full_name}`);
+  return result.success ? { success: true, message: "Revisi berhasil dipulihkan sebagai revisi baru." } : result;
 }

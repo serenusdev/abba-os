@@ -32,3 +32,23 @@ export interface CategorySummary {
   icon?: string;
 }
 
+export interface ResourceAdminInput extends DocumentationFields {
+  name: string;
+  slug: string;
+  description: string;
+  categoryId?: string | null;
+  officialUrl?: string | null;
+  visibility: "internal" | "restricted";
+  status: "draft" | "published" | "archived";
+  tags: string[];
+}
+
+export interface ResourceRevisionItem {
+  id: string;
+  revisionNo: number;
+  snapshot: ResourceAdminInput;
+  changeNote?: string | null;
+  changedAt: string;
+  changedBy?: string | null;
+}
+
