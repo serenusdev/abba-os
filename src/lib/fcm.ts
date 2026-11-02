@@ -74,6 +74,27 @@ export async function sendPushToUsers(
   userIds: string[],
   message: PushMessage
 ): Promise<{ sent: number; removed: number; skipped: boolean }> {
+  if (userIds.length > 0) {
+    // Persist the event before attempting FCM delivery. This gives users an
+    // in-app inbox even when a device is offline or Firebase is unavailable.
+    try {
+      const inbox = createAdminClient();
+      const { error: inboxError } = await inbox.from("notifications").upsert(
+        Array.from(new Set(userIds)).map((userId) => ({
+          user_id: userId,
+          notification_type: message.type,
+          title: message.title,
+          body: message.body,
+          url: message.url || "/",
+          reference_id: message.referenceId || "",
+        })),
+        { onConflict: "user_id,notification_type,reference_id", ignoreDuplicates: true }
+      );
+      if (inboxError) console.error("[FCM] In-app notification persistence failed:", inboxError.message);
+    } catch (error) {
+      console.error("[FCM] In-app notification persistence failed:", error);
+    }
+  }
   const credentials = readCredentials();
   if (!credentials) {
     if (process.env.NODE_ENV !== "test") {

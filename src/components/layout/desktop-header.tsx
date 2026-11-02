@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { formatOperationalDateTime } from "@/lib/utils";
 import { UserProfile } from "@/lib/auth/types";
 import { Avatar } from "@/components/ui/avatar";
-import { getUnreadAnnouncementsCountAction } from "@/modules/schedules/actions";
+import { getUnreadNotificationCountAction } from "@/modules/notifications/actions";
 
 interface DesktopHeaderProps {
   user: UserProfile;
@@ -30,7 +30,7 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
 
   React.useEffect(() => {
     let mounted = true;
-    getUnreadAnnouncementsCountAction().then((count) => {
+    getUnreadNotificationCountAction().then((count) => {
       if (mounted) setUnreadCount(count);
     }).catch(() => {
       if (mounted) setUnreadCount(0);

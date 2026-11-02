@@ -17,6 +17,7 @@ import {
   getPendingPolicySettingsAction,
   approvePolicySettingsAction,
   activatePolicySettingsAction,
+  getAuditChainStatusAction,
   type PolicySettingItem,
 } from "@/modules/analytics/actions";
 
@@ -31,6 +32,7 @@ export default function AdminAuditPage() {
   const [pendingPolicies, setPendingPolicies] = React.useState<PolicySettingItem[]>([]);
   const [searchLogQuery, setSearchLogQuery] = React.useState("");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [auditChain, setAuditChain] = React.useState<{ valid: boolean; checked: number; message: string } | null>(null);
 
   // Modals state
   const [isExportDialogOpen, setIsExportDialogOpen] = React.useState(false);
@@ -54,6 +56,7 @@ export default function AdminAuditPage() {
     try {
       const p = await getActivePolicyAction();
       setPolicy(p);
+      setAuditChain(await getAuditChainStatusAction());
       if (p) {
         setPolicyForm({
           name: p.name,
@@ -191,7 +194,7 @@ export default function AdminAuditPage() {
           </span>
           <span className="inline-flex items-center gap-1.5 font-label-sm text-xs text-success bg-surface-container-low px-2.5 py-0.5 rounded-full font-medium">
             <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-            Audit Hash Valid
+            {auditChain ? (auditChain.valid ? `Audit Chain Valid · ${auditChain.checked}` : "Audit Chain Perlu Pemeriksaan") : "Memeriksa Audit Chain…"}
           </span>
         </div>
         <h1 className="font-headline-sm text-xl sm:text-2xl text-on-surface font-bold tracking-tight">

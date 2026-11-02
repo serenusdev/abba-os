@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Avatar } from "@/components/ui/avatar";
 import { UserProfile } from "@/lib/auth/types";
-import { getUnreadAnnouncementsCountAction } from "@/modules/schedules/actions";
+import { getUnreadNotificationCountAction } from "@/modules/notifications/actions";
 
 interface MobileHeaderProps {
   user: UserProfile;
@@ -20,7 +20,7 @@ export function MobileHeader({ user, title }: MobileHeaderProps) {
 
   React.useEffect(() => {
     let mounted = true;
-    getUnreadAnnouncementsCountAction().then((count) => {
+    getUnreadNotificationCountAction().then((count) => {
       if (mounted) setUnreadCount(count);
     }).catch(() => {
       if (mounted) setUnreadCount(0);

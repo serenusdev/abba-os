@@ -149,6 +149,24 @@ export async function queryAuditLogsAction(
   return { success: false, logs: [], hasMore: false, page: Math.max(1, Math.floor(page)) };
 }
 
+export async function getAuditChainStatusAction(): Promise<{ valid: boolean; checked: number; message: string }> {
+  await requireRole(["super_admin", "yayasan", "pengurus"]);
+  if (process.env.VITEST) return { valid: true, checked: 0, message: "Audit chain test fixture valid." };
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("verify_audit_chain");
+    if (error) throw error;
+    return {
+      valid: data?.valid === true,
+      checked: Number(data?.checked || 0),
+      message: data?.message || "Status audit chain tidak tersedia.",
+    };
+  } catch (error) {
+    console.error("Failed to verify audit chain:", error);
+    return { valid: false, checked: 0, message: "Audit chain belum dapat diverifikasi." };
+  }
+}
+
 export interface PolicySettingItem {
   id: string;
   code: string;
@@ -337,29 +355,25 @@ export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetr
     if (santriError) throw santriError;
     result.totalSantri = santriCount || 0;
 
-    // 2. Attendance today
-    const { data: attendances, error: attendanceError } = await supabase
-      .from("attendance_records")
-      .select("classification")
-      .eq("attendance_date", today);
+    // 2. Attendance today — exact counts avoid the default REST row limit.
+    const [{ count: checkedInCount, error: attendanceError }, { count: lateCount, error: lateError }] = await Promise.all([
+      supabase.from("attendance_records").select("id", { count: "exact", head: true }).eq("attendance_date", today),
+      supabase.from("attendance_records").select("id", { count: "exact", head: true }).eq("attendance_date", today).eq("classification", "late"),
+    ]);
     if (attendanceError) throw attendanceError;
-    if (attendances) {
-      result.todayCheckedIn = attendances.length;
-      result.todayLate = (attendances as Array<{ classification: string }>).filter(
-        (a) => a.classification === "late"
-      ).length;
-    }
+    if (lateError) throw lateError;
+    result.todayCheckedIn = checkedInCount || 0;
+    result.todayLate = lateCount || 0;
 
-    // 3. Reports
-    const { data: reports, error: reportsError } = await supabase
-      .from("daily_reports")
-      .select("review_status");
-    if (reportsError) throw reportsError;
-    if (reports) {
-      const typedReports = reports as Array<{ review_status?: string | null }>;
-      result.pendingReports = typedReports.filter((r) => r.review_status === "not_reviewed" || r.review_status === "under_review").length;
-      result.approvedReports = typedReports.filter((r) => r.review_status === "approved").length;
-    }
+    // 3. Reports — only submitted reports belong in the review/approval KPIs.
+    const [{ count: pendingReportCount, error: pendingReportsError }, { count: approvedReportCount, error: approvedReportsError }] = await Promise.all([
+      supabase.from("daily_reports").select("id", { count: "exact", head: true }).eq("submission_status", "submitted").in("review_status", ["not_reviewed", "under_review"]),
+      supabase.from("daily_reports").select("id", { count: "exact", head: true }).eq("submission_status", "submitted").eq("review_status", "approved"),
+    ]);
+    if (pendingReportsError) throw pendingReportsError;
+    if (approvedReportsError) throw approvedReportsError;
+    result.pendingReports = pendingReportCount || 0;
+    result.approvedReports = approvedReportCount || 0;
 
     // 4. Pending account requests
     const { count: reqCount, error: reqError } = await supabase
@@ -372,7 +386,7 @@ export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetr
     // 5. Active tasks
     const { count: taskCount, error: taskError } = await supabase
       .from("tasks")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .in("status", ["todo", "in_progress", "in_review"])
       .is("deleted_at", null);
     if (taskError) throw taskError;

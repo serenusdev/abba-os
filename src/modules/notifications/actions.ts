@@ -2,7 +2,99 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { requireRole } from '@/lib/auth/guards';
+import { requireAuthUser, requireRole } from '@/lib/auth/guards';
+
+export interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  url: string;
+  referenceId?: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+interface NotificationRow {
+  id: string;
+  notification_type: string;
+  title: string;
+  body: string;
+  url: string | null;
+  reference_id: string | null;
+  created_at: string;
+  read_at: string | null;
+}
+
+function mapNotification(row: NotificationRow): NotificationItem {
+  return {
+    id: row.id,
+    type: row.notification_type,
+    title: row.title,
+    body: row.body,
+    url: row.url || '/',
+    referenceId: row.reference_id || undefined,
+    createdAt: row.created_at,
+    isRead: Boolean(row.read_at),
+  };
+}
+
+export async function getNotificationsAction(limit = 50): Promise<NotificationItem[]> {
+  const user = await requireAuthUser();
+  if (process.env.VITEST) return [];
+  const admin = createAdminClient();
+  const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+  const { data, error } = await admin
+    .from('notifications')
+    .select('id, notification_type, title, body, url, reference_id, created_at, read_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+  if (error) throw error;
+  return (data || []).map(mapNotification);
+}
+
+export async function getUnreadNotificationCountAction(): Promise<number> {
+  const user = await requireAuthUser();
+  if (process.env.VITEST) return 0;
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .is('read_at', null);
+  if (error) throw error;
+  return count || 0;
+}
+
+export async function markNotificationReadAction(notificationId: string): Promise<{ success: boolean; message: string }> {
+  const user = await requireAuthUser();
+  if (!notificationId) return { success: false, message: 'Notifikasi tidak valid.' };
+  if (process.env.VITEST) return { success: true, message: 'Notifikasi ditandai sudah dibaca.' };
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', notificationId)
+    .eq('user_id', user.id)
+    .is('read_at', null)
+    .select('id');
+  if (error) throw error;
+  return data?.length ? { success: true, message: 'Notifikasi ditandai sudah dibaca.' } : { success: false, message: 'Notifikasi tidak ditemukan.' };
+}
+
+export async function markAllNotificationsReadAction(): Promise<{ success: boolean; message: string }> {
+  const user = await requireAuthUser();
+  if (process.env.VITEST) return { success: true, message: 'Semua notifikasi ditandai sudah dibaca.' };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .is('read_at', null);
+  if (error) throw error;
+  return { success: true, message: 'Semua notifikasi ditandai sudah dibaca.' };
+}
 
 /**
  * Upserts an FCM device token for the current authenticated user.
