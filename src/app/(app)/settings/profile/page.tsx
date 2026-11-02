@@ -8,6 +8,11 @@ import {
   uploadAvatarAction,
   deleteAvatarAction,
   changePasswordAction,
+  listMfaFactorsAction,
+  enrollMfaAction,
+  verifyMfaAction,
+  unenrollMfaAction,
+  type MfaFactorItem,
 } from "@/modules/iam/actions";
 import { UserProfile } from "@/lib/auth/types";
 
@@ -30,6 +35,10 @@ export default function ProfileSettingsPage() {
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [isChangingPassword, setIsChangingPassword] = React.useState(false);
   const [passwordMsg, setPasswordMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [mfaFactors, setMfaFactors] = React.useState<MfaFactorItem[]>([]);
+  const [mfaSetup, setMfaSetup] = React.useState<{ factorId: string; qrCode: string; secret: string } | null>(null);
+  const [mfaCode, setMfaCode] = React.useState("");
+  const [mfaMsg, setMfaMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
   React.useEffect(() => {
     getCurrentUserAction()
@@ -42,7 +51,32 @@ export default function ProfileSettingsPage() {
         }
       })
       .finally(() => setIsLoadingAuth(false));
+    listMfaFactorsAction().then(setMfaFactors).catch(() => setMfaFactors([]));
   }, []);
+
+  const handleEnrollMfa = async () => {
+    setMfaMsg(null);
+    const result = await enrollMfaAction();
+    if (result.success && result.data) setMfaSetup(result.data);
+    setMfaMsg({ type: result.success ? "success" : "error", text: result.message });
+  };
+
+  const handleVerifyMfa = async () => {
+    if (!mfaSetup) return;
+    const result = await verifyMfaAction(mfaSetup.factorId, mfaCode);
+    setMfaMsg({ type: result.success ? "success" : "error", text: result.message });
+    if (result.success) {
+      setMfaSetup(null);
+      setMfaCode("");
+      setMfaFactors(await listMfaFactorsAction());
+    }
+  };
+
+  const handleUnenrollMfa = async (factorId: string) => {
+    const result = await unenrollMfaAction(factorId);
+    setMfaMsg({ type: result.success ? "success" : "error", text: result.message });
+    if (result.success) setMfaFactors(await listMfaFactorsAction());
+  };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -338,6 +372,40 @@ export default function ProfileSettingsPage() {
             )}
           </button>
         </form>
+      </div>
+
+      <div className="bg-card rounded-2xl border border-border p-5 sm:p-6 shadow-xs space-y-5">
+        <div>
+          <h2 className="font-label-md text-[15px] font-semibold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[18px]">phonelink_lock</span>
+            Verifikasi Dua Langkah (MFA)
+          </h2>
+          <p className="text-[12px] text-muted-foreground mt-1">Lindungi akun dengan aplikasi authenticator berbasis TOTP.</p>
+        </div>
+        {mfaFactors.filter((factor) => factor.status === "verified").length > 0 ? (
+          <div className="space-y-2">
+            {mfaFactors.filter((factor) => factor.status === "verified").map((factor) => (
+              <div key={factor.id} className="flex items-center justify-between rounded-xl bg-success/10 border border-success/30 p-3">
+                <span className="text-sm font-semibold text-success">{factor.friendlyName} aktif</span>
+                <button type="button" onClick={() => handleUnenrollMfa(factor.id)} className="text-xs font-semibold text-error hover:underline">Cabut</button>
+              </div>
+            ))}
+          </div>
+        ) : !mfaSetup ? (
+          <button type="button" onClick={handleEnrollMfa} className="h-10 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold">Aktifkan MFA</button>
+        ) : (
+          <div className="space-y-3 rounded-xl bg-surface-container-low p-4">
+            {mfaSetup.qrCode && (
+              // Supabase returns the QR as an inline SVG data URL; next/image cannot optimize it.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={mfaSetup.qrCode} alt="QR code MFA" className="w-44 h-44 mx-auto bg-white p-2 rounded-lg" />
+            )}
+            <p className="text-xs text-muted-foreground">Secret manual: <code className="font-mono text-on-surface">{mfaSetup.secret}</code></p>
+            <input value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} inputMode="numeric" maxLength={6} placeholder="Kode 6 angka" className="w-full h-10 px-3 rounded-lg bg-card border border-border text-sm" />
+            <button type="button" onClick={handleVerifyMfa} className="h-10 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold">Verifikasi MFA</button>
+          </div>
+        )}
+        {mfaMsg && <p className={`text-xs ${mfaMsg.type === "success" ? "text-success" : "text-error"}`}>{mfaMsg.text}</p>}
       </div>
     </div>
   );

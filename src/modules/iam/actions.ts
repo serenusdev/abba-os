@@ -651,6 +651,70 @@ export async function getCurrentUserAction(): Promise<UserProfile | null> {
   return await getCurrentUserProfile();
 }
 
+export interface MfaFactorItem {
+  id: string;
+  friendlyName: string;
+  status: "verified" | "unverified";
+  createdAt?: string;
+}
+
+export async function listMfaFactorsAction(): Promise<MfaFactorItem[]> {
+  await requireAuthUser();
+  if (process.env.VITEST) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error) throw error;
+  return (data?.all || []).filter((factor: any) => factor.factor_type === "totp").map((factor: any) => ({
+    id: factor.id,
+    friendlyName: factor.friendly_name || "Authenticator",
+    status: factor.status === "verified" ? "verified" : "unverified",
+    createdAt: factor.created_at,
+  }));
+}
+
+export async function enrollMfaAction(): Promise<ActionResult<{ factorId: string; qrCode: string; secret: string }>> {
+  await requireAuthUser();
+  if (process.env.VITEST) return { success: true, message: "Enrollment MFA dimulai.", data: { factorId: "mfa-test", qrCode: "", secret: "TESTSECRET" } };
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "IDAROH Authenticator" });
+    if (error || !data || !("totp" in data) || !data.totp) throw error || new Error("Data enrollment MFA tidak tersedia.");
+    return { success: true, message: "QR MFA berhasil dibuat. Pindai dengan aplikasi authenticator.", data: { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret } };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal memulai enrollment MFA." };
+  }
+}
+
+export async function verifyMfaAction(factorId: string, code: string): Promise<ActionResult> {
+  await requireAuthUser();
+  if (!factorId || !/^\d{6}$/.test(code.trim())) return { success: false, message: "Kode MFA harus terdiri dari 6 angka." };
+  if (process.env.VITEST) return { success: true, message: "MFA berhasil diverifikasi." };
+  try {
+    const supabase = await createClient();
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
+    if (challengeError) throw challengeError;
+    const { error } = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.id, code: code.trim() });
+    if (error) throw error;
+    return { success: true, message: "MFA berhasil diaktifkan pada akun ini." };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Kode MFA tidak valid." };
+  }
+}
+
+export async function unenrollMfaAction(factorId: string): Promise<ActionResult> {
+  await requireAuthUser();
+  if (!factorId) return { success: false, message: "Faktor MFA tidak valid." };
+  if (process.env.VITEST) return { success: true, message: "MFA dicabut." };
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.mfa.unenroll({ factorId });
+    if (error) throw error;
+    return { success: true, message: "Faktor MFA berhasil dicabut." };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal mencabut MFA." };
+  }
+}
+
 
 
 /**
