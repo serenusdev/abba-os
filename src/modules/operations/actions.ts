@@ -200,7 +200,7 @@ export async function getAnalyticsDrilldownAction(
     .select("id, title, due_date, status, task_assignees(user_id)")
     .is("deleted_at", null)
     .in("status", ["todo", "in_progress", "in_review"])
-    .lt("due_date", new Date().toISOString().slice(0, 10))
+    .lt("due_date", new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date()))
     .order("due_date", { ascending: true })
     .limit(100);
   if (error) throw error;

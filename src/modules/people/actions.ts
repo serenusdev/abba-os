@@ -17,7 +17,7 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
 
     const { data: profiles, error } = await supabase
       .from("profiles")
-      .select("id, email, full_name, phone_number, avatar_url, status, member_type, team_name, notes, created_at, updated_at")
+      .select("id, email, full_name, phone_number, avatar_url, status, member_type, team_name, notes, created_at, updated_at, last_seen_at")
       .eq("status", "active")
       .order("created_at", { ascending: true });
 
@@ -87,7 +87,7 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
         const isCurrentUser = currentUser ? p.id === currentUser.id : false;
         const userMemberships = membershipsByUser.get(p.id) || [];
         const membershipTeamId = userMemberships[0]?.team_id || "";
-        const lastSeenAgeMinutes = p.updated_at ? (Date.now() - new Date(p.updated_at).getTime()) / 60000 : Number.POSITIVE_INFINITY;
+        const lastSeenAgeMinutes = p.last_seen_at ? (Date.now() - new Date(p.last_seen_at).getTime()) / 60000 : Number.POSITIVE_INFINITY;
         const onlineStatus = lastSeenAgeMinutes <= 10 ? "active" : lastSeenAgeMinutes <= 60 ? "away" : "offline";
         const isSantri = String(p.member_type || "santri").toLowerCase() === "santri";
 
@@ -129,6 +129,19 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
   }
 
   return [];
+}
+
+export async function touchPresenceAction(): Promise<boolean> {
+  if (process.env.VITEST) return true;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("touch_presence");
+    if (error) throw error;
+    return data === true;
+  } catch (error) {
+    console.error("Failed to update presence heartbeat:", error);
+    return false;
+  }
 }
 
 /**
@@ -231,6 +244,9 @@ export async function addTeamMemberAction(payload: {
 }): Promise<{ success: boolean; message: string }> {
   const admin = await requireRole(["super_admin", "pengurus"]);
   if (!payload.teamId || !payload.userId) return { success: false, message: "Tim dan anggota wajib dipilih." };
+  if (payload.teamRole === "coordinator") {
+    return setTeamCoordinatorAction(payload.teamId, payload.userId, "Anggota");
+  }
   if (process.env.VITEST) return { success: true, message: "Anggota berhasil ditambahkan ke tim." };
   const supabase = createAdminClient();
   const existing = await supabase.from("team_members").select("id").eq("team_id", payload.teamId).eq("user_id", payload.userId).is("valid_to", null).maybeSingle();
