@@ -50,12 +50,17 @@ export default function BerandaPage() {
 
   const loadData = React.useCallback(async () => {
     try {
-      const [p, ev, an, stats, user] = await Promise.all([
+      const user = await getCurrentUserAction();
+      setCurrentUser(user);
+
+      const isSupervisor = user?.role && ["super_admin", "yayasan", "pengurus"].includes(user.role);
+
+      // Hanya panggil query data yang relevan dengan izin pengguna
+      const [p, ev, an, stats] = await Promise.all([
         getActivePolicyAction(),
         getEventsAction(),
         getAnnouncementsAction(),
-        getAdminDashboardStatsAction(),
-        getCurrentUserAction(),
+        isSupervisor ? getAdminDashboardStatsAction() : Promise.resolve(null),
       ]);
 
       setPolicy(p);
@@ -70,7 +75,6 @@ export default function BerandaPage() {
       setEvents(ev || []);
       setAnnouncements(an || []);
       setAdminStats(stats);
-      setCurrentUser(user);
     } catch (err) {
       console.error("Gagal memuat data beranda:", err);
     } finally {

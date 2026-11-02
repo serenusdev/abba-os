@@ -148,8 +148,16 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
     if (reports) {
       if (reports.length === 0) return [];
 
-      const { data: profiles } = await supabase.from("profiles").select("id, full_name, team_name");
-      const profileMap = new Map(((profiles as any[]) || []).map((p: any) => [p.id, p]));
+      // Optimasi: Hanya ambil profil dari user_id yang ada di reports (bukan seluruh tabel profil)
+      const userIds = Array.from(new Set(reports.map((r: any) => r.user_id).filter(Boolean)));
+      let profileMap = new Map();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, team_name")
+          .in("id", userIds);
+        profileMap = new Map(((profiles as any[]) || []).map((p: any) => [p.id, p]));
+      }
 
       return reports.map((r: any) => {
         const author = profileMap.get(r.user_id);
