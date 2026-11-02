@@ -287,6 +287,7 @@ function resourceRow(input: ResourceAdminInput, userId: string) {
     limitations_cautions: input.limitationsCautions,
     official_sources: input.officialSources,
     documentation_status: input.documentationStatus,
+    archived_at: input.status === "archived" ? new Date().toISOString() : null,
     updated_by: userId,
     updated_at: new Date().toISOString(),
   };
