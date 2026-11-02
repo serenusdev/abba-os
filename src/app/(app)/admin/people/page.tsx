@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { getCurrentUserAction } from "@/modules/iam/actions";
-import { getPeopleAction, getTeamsAction, addTeamMemberAction, removeTeamMemberAction, assignReviewerAction } from "@/modules/people/actions";
+import { getPeopleAction, getTeamsAction, addTeamMemberAction, removeTeamMemberAction, assignReviewerAction, setTeamCoordinatorAction } from "@/modules/people/actions";
 import type { PersonProfile, TeamStructureItem } from "@/modules/people/types";
 import { UserProfile } from "@/lib/auth/types";
 import { UnauthorizedState } from "@/components/ui/unauthorized-state";
@@ -27,7 +27,15 @@ export default function AdminPeoplePage() {
   if (loading && !user) return <div className="min-h-[360px] grid place-items-center"><LoadingSpinner size="lg" /></div>;
   if (!user || !["super_admin", "pengurus"].includes(user.role)) return <UnauthorizedState requiredRole="Super Admin / Pengurus" />;
 
-  const submitMember = async (event: React.FormEvent) => { event.preventDefault(); const result = await addTeamMemberAction(memberForm); setNotice(result.message); if (result.success) await load(); };
+  const submitMember = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const selectedPerson = people.find((person) => person.id === memberForm.userId);
+    const result = memberForm.teamRole === "coordinator"
+      ? await setTeamCoordinatorAction(memberForm.teamId, memberForm.userId, selectedPerson?.name || "Anggota")
+      : await addTeamMemberAction(memberForm);
+    setNotice(result.message);
+    if (result.success) await load();
+  };
   const removeMember = async () => { const result = await removeTeamMemberAction(memberForm.teamId, memberForm.userId); setNotice(result.message); if (result.success) await load(); };
   const submitReviewer = async (event: React.FormEvent) => { event.preventDefault(); const result = await assignReviewerAction(reviewerForm); setNotice(result.message); if (result.success) await load(); };
 

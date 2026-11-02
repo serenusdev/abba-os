@@ -48,7 +48,7 @@ export async function exportAuditedDataAction(
       target_id: exportId,
       target_label: `Ekspor ${category.toUpperCase()} (${exportType.toUpperCase()})`,
       action_detail: `Unduhan rekap data operasional diotorisasi dan dicatat untuk kepatuhan ISO/IEC 27001.`,
-      hash: `sha256-hash-chain-${hash}`,
+      hash: `sha256:${hash}`,
     });
     if (auditError) throw auditError;
   } catch (err) {
@@ -100,7 +100,7 @@ export async function queryAuditLogsAction(
           actorName: l.actor_name || "Sistem",
           targetLabel: l.target_label || "-",
           actionDetail: l.action_detail || "-",
-          hash: l.hash || "sha256-hash-chain-verified",
+          hash: l.hash || "sha256:unavailable",
           createdIso: l.created_at,
         })),
       };
