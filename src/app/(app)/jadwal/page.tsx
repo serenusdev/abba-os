@@ -18,6 +18,24 @@ import {
 
 type ScheduleTab = "agenda" | "announcements";
 
+function buildWeekDays(dateStr: string, activeDate = dateStr): WeekDayPickerItem[] {
+  const base = new Date(`${dateStr}T12:00:00+07:00`);
+  const mondayOffset = (base.getUTCDay() + 6) % 7;
+  base.setUTCDate(base.getUTCDate() - mondayOffset);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(base);
+    date.setUTCDate(base.getUTCDate() + index);
+    const iso = date.toISOString().slice(0, 10);
+    return {
+      dayName: new Intl.DateTimeFormat("id-ID", { weekday: "short", timeZone: "Asia/Jakarta" }).format(date),
+      dateNum: Number(iso.slice(-2)),
+      fullDate: iso,
+      isActive: iso === activeDate,
+      hasEvent: false,
+    };
+  });
+}
+
 export default function JadwalPage() {
   const [activeTab, setActiveTab] = React.useState<ScheduleTab>("agenda");
   const [weekDays, setWeekDays] = React.useState<WeekDayPickerItem[]>(WEEK_DAYS_AGENDA);
@@ -28,23 +46,7 @@ export default function JadwalPage() {
   React.useEffect(() => {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
     setSelectedDate(today);
-    setWeekDays(() => {
-      const base = new Date(`${today}T12:00:00+07:00`);
-      const mondayOffset = (base.getUTCDay() + 6) % 7;
-      base.setUTCDate(base.getUTCDate() - mondayOffset);
-      return Array.from({ length: 7 }, (_, index) => {
-        const date = new Date(base);
-        date.setUTCDate(base.getUTCDate() + index);
-        const iso = date.toISOString().slice(0, 10);
-        return {
-          dayName: new Intl.DateTimeFormat("id-ID", { weekday: "short", timeZone: "Asia/Jakarta" }).format(date),
-          dateNum: Number(iso.slice(-2)),
-          fullDate: iso,
-          isActive: iso === today,
-          hasEvent: false,
-        };
-      });
-    });
+    setWeekDays(buildWeekDays(today));
     Promise.all([getEventsAction(), getAnnouncementsAction()]).then(([evData, anData]) => {
       setEvents(evData || []);
       setAnnouncements(anData || []);
@@ -73,6 +75,12 @@ export default function JadwalPage() {
         isActive: d.fullDate === day.fullDate,
       }))
     );
+  };
+
+  const handleDateJump = (dateStr: string) => {
+    if (!dateStr) return;
+    setSelectedDate(dateStr);
+    setWeekDays(buildWeekDays(dateStr, dateStr));
   };
 
   const handleMarkRead = async (annId: string) => {
@@ -143,13 +151,17 @@ export default function JadwalPage() {
 
         {/* Date Quick Jump & Action Buttons */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button
-            type="button"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-accent text-accent-foreground font-label-sm text-xs shadow-xs hover:bg-accent/80 transition-all"
-          >
-            <span className="font-medium">{selectedDate || "Ketik tanggal"}</span>
-            <span className="material-symbols-outlined text-[16px]">expand_more</span>
-          </button>
+          <label className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-accent text-accent-foreground font-label-sm text-xs shadow-xs hover:bg-accent/80 transition-all cursor-pointer">
+            <span className="material-symbols-outlined text-[16px]">event</span>
+            <span className="font-medium">{selectedDate || "Pilih tanggal"}</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(event) => handleDateJump(event.target.value)}
+              className="sr-only"
+              aria-label="Lompat ke tanggal"
+            />
+          </label>
 
           <button
             type="button"
@@ -236,7 +248,9 @@ export default function JadwalPage() {
           <div className="rounded-xl bg-card p-4 shadow-sm border border-border flex flex-col gap-3">
             <div className="flex items-center justify-between text-muted-foreground font-label-sm text-xs px-1">
               <span className="font-body-md text-on-surface text-xs font-semibold">
-                November 2026
+                {selectedDate
+                  ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(`${selectedDate}T12:00:00+07:00`))
+                  : "Kalender operasional"}
               </span>
               <div className="flex items-center gap-1 text-[11px] text-primary">
                 <span className="material-symbols-outlined text-[14px]">tune</span>
@@ -375,7 +389,7 @@ export default function JadwalPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="font-headline-sm text-sm font-semibold text-on-surface">
-                    Jadwal Hari Ini
+                    Jadwal {selectedDate ? new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" }).format(new Date(`${selectedDate}T12:00:00+07:00`)) : "Terpilih"}
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-code-md text-xs font-semibold">
                     {filteredEvents.length} Sesi

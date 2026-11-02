@@ -11,36 +11,49 @@ function csvCell(value: unknown): string {
 }
 
 function buildPdf(title: string, lines: string[]): Uint8Array {
-  const safe = [title, ...lines].slice(0, 60).map((line) =>
-    String(line).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)")
+  const wrapLine = (line: string) => {
+    const text = String(line);
+    const chunks: string[] = [];
+    for (let index = 0; index < text.length; index += 100) chunks.push(text.slice(index, index + 100));
+    return chunks.length ? chunks : [""];
+  };
+  const safeLines = [title, ...lines].flatMap(wrapLine).map((line) =>
+    line.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)")
   );
-  const commands = ["BT", "/F1 12 Tf", "40 780 Td"];
-  safe.forEach((line, index) => {
-    if (index > 0) commands.push("0 -16 Td");
-    commands.push(`(${line.slice(0, 110)}) Tj`);
-  });
-  commands.push("ET");
-  const stream = commands.join("\n");
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
-    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  const linesPerPage = 44;
+  const pageLines = Array.from({ length: Math.max(1, Math.ceil(safeLines.length / linesPerPage)) }, (_, pageIndex) =>
+    safeLines.slice(pageIndex * linesPerPage, (pageIndex + 1) * linesPerPage)
+  );
+  const pageIds = pageLines.map((_, index) => 3 + index * 2);
+  const fontId = 3 + pageLines.length * 2;
+  const objects: string[] = [
+    `<< /Type /Catalog /Pages 2 0 R >>`,
+    `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageLines.length} >>`,
   ];
-  let pdf = "%PDF-1.4\n";
+  for (let index = 0; index < pageLines.length; index += 1) {
+    const content = ["BT", "/F1 10 Tf", "40 760 Td", ...pageLines[index].flatMap((line, lineIndex) => [
+      lineIndex > 0 ? "0 -16 Td" : "",
+      `(${line}) Tj`,
+    ]), "ET"].filter(Boolean).join("\n");
+    const contentId = 4 + index * 2;
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    objects.push(`<< /Length ${Buffer.byteLength(content, "utf8")} >>\nstream\n${content}\nendstream`);
+  }
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+
+  const chunks: Buffer[] = [Buffer.from("%PDF-1.4\n", "utf8")];
   const offsets = [0];
+  let byteOffset = chunks[0].length;
   objects.forEach((object, index) => {
-    offsets.push(pdf.length);
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    const chunk = Buffer.from(`${index + 1} 0 obj\n${object}\nendobj\n`, "utf8");
+    offsets.push(byteOffset);
+    chunks.push(chunk);
+    byteOffset += chunk.length;
   });
-  const xref = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
-  });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-  return new TextEncoder().encode(pdf);
+  const xrefOffset = byteOffset;
+  const xref = [`xref`, `0 ${objects.length + 1}`, "0000000000 65535 f ", ...offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n `), `trailer`, `<< /Size ${objects.length + 1} /Root 1 0 R >>`, `startxref`, String(xrefOffset), "%%EOF"].join("\n");
+  chunks.push(Buffer.from(xref, "utf8"));
+  return Buffer.concat(chunks);
 }
 
 export async function GET(

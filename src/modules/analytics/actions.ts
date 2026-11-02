@@ -69,16 +69,32 @@ export async function exportAuditedDataAction(
  */
 export async function queryAuditLogsAction(
   query: string,
-  scope: string = "Semua Tim (Organisasi)"
-): Promise<{ success: boolean; logs: AuditLogItem[] }> {
+  scope: string = "Semua Tim (Organisasi)",
+  page = 1
+): Promise<{ success: boolean; logs: AuditLogItem[]; hasMore: boolean; page: number }> {
   await requireRole(["super_admin", "yayasan", "pengurus"]);
   try {
     const supabase = createAdminClient();
+    const pageSize = 50;
+    const safePage = Math.max(1, Math.floor(page));
     let dbQuery = supabase
       .from("audit_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200);
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
+    dbQuery = typeof (dbQuery as any).range === "function"
+      ? dbQuery.range((safePage - 1) * pageSize, safePage * pageSize - 1)
+      : dbQuery.limit(pageSize);
+
+    if (scope !== "Semua Tim (Organisasi)") {
+      const { data: scopedActors, error: scopedActorsError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("team_name", scope);
+      if (scopedActorsError) throw scopedActorsError;
+      const actorIds = (scopedActors || []).map((actor: any) => actor.id);
+      if (actorIds.length === 0) return { success: true, logs: [], hasMore: false, page: safePage };
+      dbQuery = dbQuery.in("actor_id", actorIds);
+    }
 
     const sanitizedQuery = query.replace(/[,()]/g, "").trim();
     if (sanitizedQuery) {
@@ -87,23 +103,16 @@ export async function queryAuditLogsAction(
       );
     }
 
-    const { data: logs, error } = await dbQuery;
+    const { data: logs, error, count } = await dbQuery;
 
     if (!error && logs) {
-      if (logs.length === 0) return { success: true, logs: [] };
-
-      const actorIds = Array.from(new Set((logs as any[]).map((log) => log.actor_id).filter(Boolean)));
-      const { data: actors } = actorIds.length
-        ? await supabase.from("profiles").select("id, team_name").in("id", actorIds)
-        : { data: [] };
-      const actorTeamMap = new Map((actors || []).map((actor: any) => [actor.id, actor.team_name]));
-      const scopedLogs = scope === "Semua Tim (Organisasi)"
-        ? logs
-        : logs.filter((log: any) => actorTeamMap.get(log.actor_id) === scope);
+      if (logs.length === 0) return { success: true, logs: [], hasMore: false, page: safePage };
 
       return {
         success: true,
-        logs: scopedLogs.map((l: any) => ({
+        hasMore: typeof count === "number" ? safePage * pageSize < count : logs.length === pageSize,
+        page: safePage,
+        logs: logs.map((l: any) => ({
           id: l.id,
           timeAgo: formatRelativeTimeId(l.created_at),
           eventName: l.event_name,
@@ -122,7 +131,7 @@ export async function queryAuditLogsAction(
   // Fallback for tests runner only
   if (process.env.VITEST) {
     if (!query.trim()) {
-      return { success: true, logs: INITIAL_AUDIT_LOGS };
+      return { success: true, logs: INITIAL_AUDIT_LOGS, hasMore: false, page: 1 };
     }
 
     const q = query.toLowerCase();
@@ -134,10 +143,10 @@ export async function queryAuditLogsAction(
         log.actionDetail.toLowerCase().includes(q)
     );
 
-    return { success: true, logs: filtered };
+    return { success: true, logs: filtered, hasMore: false, page: 1 };
   }
 
-  return { success: false, logs: [] };
+  return { success: false, logs: [], hasMore: false, page: Math.max(1, Math.floor(page)) };
 }
 
 export interface PolicySettingItem {

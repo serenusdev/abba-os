@@ -25,6 +25,8 @@ export default function AdminAuditPage() {
   const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
   const [scope, setScope] = React.useState("Semua Tim (Organisasi)");
   const [auditLogs, setAuditLogs] = React.useState<AuditLogItem[]>([]);
+  const [auditPage, setAuditPage] = React.useState(1);
+  const [auditHasMore, setAuditHasMore] = React.useState(false);
   const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
   const [pendingPolicies, setPendingPolicies] = React.useState<PolicySettingItem[]>([]);
   const [searchLogQuery, setSearchLogQuery] = React.useState("");
@@ -67,14 +69,15 @@ export default function AdminAuditPage() {
       } catch {
         setPendingPolicies([]);
       }
-      const res = await queryAuditLogsAction("", scope);
+      const res = await queryAuditLogsAction(searchLogQuery, scope, auditPage);
       if (res.success && res.logs) {
         setAuditLogs(res.logs);
+        setAuditHasMore(res.hasMore);
       }
     } catch (err) {
       console.error("Failed to load audit or policy:", err);
     }
-  }, [scope]);
+  }, [scope, auditPage, searchLogQuery]);
 
   React.useEffect(() => {
     getCurrentUserAction()
@@ -105,9 +108,11 @@ export default function AdminAuditPage() {
   // Handle Log search
   const handleSearchLogs = async (q: string, nextScope = scope) => {
     setSearchLogQuery(q);
-    const res = await queryAuditLogsAction(q, nextScope);
+    setAuditPage(1);
+    const res = await queryAuditLogsAction(q, nextScope, 1);
     if (res.success) {
       setAuditLogs(res.logs);
+      setAuditHasMore(res.hasMore);
     }
   };
 
@@ -542,6 +547,27 @@ export default function AdminAuditPage() {
                   </div>
                 ))
               )}
+            </div>
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <span className="text-[11px] text-muted-foreground">Halaman {auditPage}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={auditPage <= 1}
+                  onClick={() => setAuditPage((page) => Math.max(1, page - 1))}
+                  className="h-7 rounded-lg border border-border px-2.5 text-[11px] font-semibold text-on-surface disabled:opacity-40"
+                >
+                  Sebelumnya
+                </button>
+                <button
+                  type="button"
+                  disabled={!auditHasMore}
+                  onClick={() => setAuditPage((page) => page + 1)}
+                  className="h-7 rounded-lg border border-border px-2.5 text-[11px] font-semibold text-on-surface disabled:opacity-40"
+                >
+                  Berikutnya
+                </button>
+              </div>
             </div>
           </div>
 
