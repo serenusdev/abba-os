@@ -7,6 +7,7 @@ import {
   TaskItem,
   TaskPriority,
   TaskStatus,
+  TaskVisibility,
   TaskTimeFilter,
 } from "@/modules/tasks/types";
 import {
@@ -45,6 +46,7 @@ export default function TugasPage() {
   const [newPriority, setNewPriority] = React.useState<TaskPriority>("normal");
   const [newDueDate, setNewDueDate] = React.useState("");
   const [newRequiresReview, setNewRequiresReview] = React.useState(false);
+  const [newVisibility, setNewVisibility] = React.useState<TaskVisibility>("team");
   const [newDescription, setNewDescription] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
 
@@ -136,6 +138,7 @@ export default function TugasPage() {
         dueDateStr: newDueDate,
         dueDateIso: newDueDate || undefined,
         description: newDescription,
+        visibility: newVisibility,
       });
 
       if (res.success) {
@@ -149,6 +152,7 @@ export default function TugasPage() {
           priority: newPriority,
           status: "todo",
           requiresReview: newRequiresReview,
+          visibility: newVisibility,
           dueDateStr: newDueDate,
           isDueToday: Boolean(newDueDate && newDueDate === new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())),
           checklist: [],
@@ -160,6 +164,7 @@ export default function TugasPage() {
         setIsDialogOpen(false);
         setNewTitle("");
         setNewDescription("");
+        setNewVisibility("team");
       } else {
         setToastMessage({ type: "error", text: res.message });
       }
@@ -861,6 +866,21 @@ export default function TugasPage() {
                   placeholder="Uraikan detail atau instruksi tugas..."
                   className="w-full p-2.5 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-on-surface block">
+                  Cakupan Tugas
+                </label>
+                <select
+                  value={newVisibility}
+                  onChange={(e) => setNewVisibility(e.target.value as TaskVisibility)}
+                  className="w-full h-10 px-2.5 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="private">Pribadi — hanya saya dan penanggung jawab</option>
+                  <option value="team">Tim — anggota tim terkait</option>
+                  <option value="organization">Organisasi — seluruh anggota aktif</option>
+                </select>
               </div>
 
               <div className="flex items-center gap-2 pt-1">

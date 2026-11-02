@@ -7,6 +7,8 @@ export type TaskStatus =
   | "done"
   | "cancelled";
 
+export type TaskVisibility = "private" | "team" | "organization";
+
 export type ProjectStatus =
   | "planned"
   | "active"
@@ -46,6 +48,7 @@ export interface TaskItem {
   checklist: TaskChecklistItem[];
   assignees: TaskAssignee[];
   locationNote?: string;
+  visibility?: TaskVisibility;
 }
 
 export interface ProjectItem {

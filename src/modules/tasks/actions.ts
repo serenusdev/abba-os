@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasMinimumRole, requireAuthUser } from "@/lib/auth/guards";
 import { sendPushToUsers } from "@/lib/fcm";
 import { INITIAL_PROJECTS, INITIAL_TASKS } from "./data";
-import { ProjectItem, TaskItem, TaskPriority, TaskStatus } from "./types";
+import { ProjectItem, TaskItem, TaskPriority, TaskStatus, TaskVisibility } from "./types";
 
 export interface CreateTaskPayload {
   title: string;
@@ -18,6 +18,7 @@ export interface CreateTaskPayload {
   dueDateIso?: string;
   description?: string;
   assigneeIds?: string[];
+  visibility?: TaskVisibility;
 }
 
 /**
@@ -43,7 +44,8 @@ export async function getTasksAction(): Promise<TaskItem[]> {
         visibleTasks = visibleTasks.filter((task: any) =>
           task.created_by === user.id ||
           (task.task_assignees || []).some((assignment: any) => assignment.user_id === user.id && !assignment.unassigned_at) ||
-          (task.team_id && teamIds.has(task.team_id))
+          (task.visibility === "organization") ||
+          (task.visibility !== "private" && task.team_id && teamIds.has(task.team_id))
         );
       }
       if (visibleTasks.length === 0) return [];
@@ -90,6 +92,7 @@ export async function getTasksAction(): Promise<TaskItem[]> {
         isDueToday: t.due_date === today,
         checklist: (t.task_checklist_items || []).map((item: any) => ({ id: item.id, text: item.text, done: item.done })),
         assignees: assignmentsByTask.get(t.id) || [],
+        visibility: (t.visibility || "team") as TaskVisibility,
       }));
     }
   } catch (err) {
@@ -304,6 +307,7 @@ export async function createTaskAction(
         requires_review: payload.requiresReview,
         project_id: payload.projectId && payload.projectId.length > 30 ? payload.projectId : null,
         due_date: payload.dueDateIso || (payload.dueDateStr && /^\d{4}-\d{2}-\d{2}$/.test(payload.dueDateStr) ? payload.dueDateStr : null),
+        visibility: payload.visibility || "team",
         created_by: user.id,
       })
       .select("id")
