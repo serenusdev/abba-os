@@ -17,7 +17,7 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
 
     const { data: profiles, error } = await supabase
       .from("profiles")
-      .select("id, email, full_name, phone_number, avatar_url, status, member_type, team_name, notes, created_at")
+      .select("id, email, full_name, phone_number, avatar_url, status, member_type, team_name, notes, created_at, updated_at")
       .eq("status", "active")
       .order("created_at", { ascending: true });
 
@@ -70,6 +70,9 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
         const isCurrentUser = currentUser ? p.id === currentUser.id : false;
         const userMemberships = membershipsByUser.get(p.id) || [];
         const membershipTeamId = userMemberships[0]?.team_id || "";
+        const lastSeenAgeMinutes = p.updated_at ? (Date.now() - new Date(p.updated_at).getTime()) / 60000 : Number.POSITIVE_INFINITY;
+        const onlineStatus = lastSeenAgeMinutes <= 10 ? "active" : lastSeenAgeMinutes <= 60 ? "away" : "offline";
+        const isSantri = String(p.member_type || "santri").toLowerCase() === "santri";
 
         return {
           id: p.id,
@@ -90,10 +93,10 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
           })),
           phoneMasked,
           phoneUnmasked: "",
-          onlineStatus: "offline" as const,
+          onlineStatus: onlineStatus as "active" | "away" | "offline",
           dutyFlags: {
-            attendanceRequired: true,
-            reportRequired: true,
+            attendanceRequired: isSantri,
+            reportRequired: isSantri,
           },
           bio: p.notes || "",
           primaryReviewerName: reviewer ? reviewerMap.get(reviewer.reviewer_id) || "" : "",

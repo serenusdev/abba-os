@@ -77,17 +77,17 @@ export async function getOperationalAnalyticsAction(
   }
 
   const admin = createAdminClient();
-  let effectiveTeamId = teamId || null;
+  const effectiveTeamId = teamId || null;
+  let coordinatorTeamIds: string[] = [];
   if (user.role === "koordinator") {
     const { data: memberships, error: membershipError } = await admin
       .from("team_members")
       .select("team_id")
       .eq("user_id", user.id)
-      .is("valid_to", null)
-      .limit(1);
+      .is("valid_to", null);
     if (membershipError) throw membershipError;
-    effectiveTeamId = memberships?.[0]?.team_id || null;
-    if (!effectiveTeamId) {
+    coordinatorTeamIds = Array.from(new Set((memberships || []).map((membership: any) => membership.team_id)));
+    if (coordinatorTeamIds.length === 0) {
       return {
         period,
         attendance: { population: 0, checkedIn: 0, onTime: 0, grace: 0, late: 0 },
@@ -97,13 +97,21 @@ export async function getOperationalAnalyticsAction(
     }
   }
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("analytics_operational_summary", {
+  const rpcTeamIds = user.role === "koordinator" ? coordinatorTeamIds : [effectiveTeamId];
+  const results = await Promise.all(rpcTeamIds.map((scopeTeamId) => supabase.rpc("analytics_operational_summary", {
     p_from: period.from,
     p_to: period.to,
-    p_team_id: effectiveTeamId,
-  });
-  if (error) throw error;
-  const value = (data || {}) as any;
+    p_team_id: scopeTeamId,
+  })));
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw failed.error;
+  const value = results.reduce((total: any, result: any) => {
+    const current = result.data || {};
+    for (const key of ["attendance", "reports", "tasks"]) {
+      for (const metric of Object.keys(current[key] || {})) total[key][metric] = Number(total[key][metric] || 0) + Number(current[key][metric] || 0);
+    }
+    return total;
+  }, { attendance: {}, reports: {}, tasks: {} });
   return {
     period,
     attendance: {
@@ -132,24 +140,35 @@ export async function getAnalyticsDrilldownAction(
   from?: string,
   to?: string
 ): Promise<AnalyticsDrilldownRow[]> {
-  await requireRole(["super_admin", "yayasan", "pengurus", "koordinator"]);
+  const user = await requireRole(["super_admin", "yayasan", "pengurus", "koordinator"]);
   const period = periodDefaults(from, to);
   if (process.env.VITEST) {
     return [{ id: "sample-1", label: "Contoh data operasional", detail: "Data drill-down siap ditampilkan", date: period.to, status: metric }];
   }
 
   const supabase = createAdminClient();
+  let allowedUserIds: Set<string> | null = null;
+  if (user.role === "koordinator") {
+    const { data: memberships, error: membershipError } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).is("valid_to", null);
+    if (membershipError) throw membershipError;
+    const teamIds = (memberships || []).map((membership: any) => membership.team_id);
+    const { data: teamMembers, error: teamMemberError } = teamIds.length
+      ? await supabase.from("team_members").select("user_id").in("team_id", teamIds).is("valid_to", null)
+      : { data: [], error: null };
+    if (teamMemberError) throw teamMemberError;
+    allowedUserIds = new Set((teamMembers || []).map((member: any) => member.user_id));
+  }
   if (metric === "attendance_late") {
     const { data, error } = await supabase
       .from("attendance_records")
-      .select("id, attendance_date, classification, profiles(full_name)")
+      .select("id, user_id, attendance_date, classification, profiles(full_name)")
       .eq("classification", "late")
       .gte("attendance_date", period.from)
       .lte("attendance_date", period.to)
       .order("attendance_date", { ascending: false })
       .limit(100);
     if (error) throw error;
-    return (data || []).map((row: any) => ({
+    return (data || []).filter((row: any) => !allowedUserIds || allowedUserIds.has(row.user_id)).map((row: any) => ({
       id: row.id,
       label: row.profiles?.full_name || "Anggota",
       detail: "Presensi melewati batas toleransi",
@@ -160,7 +179,7 @@ export async function getAnalyticsDrilldownAction(
   if (metric === "reports_backlog") {
     const { data, error } = await supabase
       .from("daily_reports")
-      .select("id, report_date, review_status, profiles(full_name)")
+      .select("id, user_id, report_date, review_status, profiles(full_name)")
       .eq("submission_status", "submitted")
       .in("review_status", ["not_reviewed", "under_review"])
       .gte("report_date", period.from)
@@ -168,7 +187,7 @@ export async function getAnalyticsDrilldownAction(
       .order("report_date", { ascending: false })
       .limit(100);
     if (error) throw error;
-    return (data || []).map((row: any) => ({
+    return (data || []).filter((row: any) => !allowedUserIds || allowedUserIds.has(row.user_id)).map((row: any) => ({
       id: row.id,
       label: row.profiles?.full_name || "Anggota",
       detail: "Laporan menunggu review",
@@ -178,14 +197,14 @@ export async function getAnalyticsDrilldownAction(
   }
   const { data, error } = await supabase
     .from("tasks")
-    .select("id, title, due_date, status")
+    .select("id, title, due_date, status, task_assignees(user_id)")
     .is("deleted_at", null)
     .in("status", ["todo", "in_progress", "in_review"])
     .lt("due_date", new Date().toISOString().slice(0, 10))
     .order("due_date", { ascending: true })
     .limit(100);
   if (error) throw error;
-  return (data || []).map((row: any) => ({
+  return (data || []).filter((row: any) => !allowedUserIds || (row.task_assignees || []).some((assignment: any) => allowedUserIds?.has(assignment.user_id))).map((row: any) => ({
     id: row.id,
     label: row.title,
     detail: "Tugas terbuka melewati tenggat",
