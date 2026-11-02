@@ -19,6 +19,21 @@ import {
 } from "@/modules/schedules/actions";
 import type { ScheduleEventItem, AnnouncementItem, AudienceConfig } from "@/modules/schedules/types";
 
+function toJakartaDateTimeLocal(value?: string) {
+  if (!value) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+
 export default function AdminJadwalPage() {
   const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
@@ -163,8 +178,8 @@ export default function AdminJadwalPage() {
     setEventForm({
       title: evt.title,
       category: evt.category,
-      startsAt: evt.startsAt ? new Date(evt.startsAt).toISOString().slice(0, 16) : "",
-      endsAt: evt.endsAt ? new Date(evt.endsAt).toISOString().slice(0, 16) : "",
+      startsAt: toJakartaDateTimeLocal(evt.startsAt),
+      endsAt: toJakartaDateTimeLocal(evt.endsAt),
       location: evt.location,
       description: evt.subNote || "",
       audienceScope: evt.audienceConfig?.scope === "member_type" ? ((evt.audienceConfig.memberTypes?.[0] || "all") as typeof eventForm.audienceScope) : "all",
