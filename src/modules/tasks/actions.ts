@@ -348,6 +348,40 @@ export async function createTaskAction(
   };
 }
 
+export async function updateTaskAction(
+  taskId: string,
+  payload: CreateTaskPayload
+): Promise<{ success: boolean; message: string; taskId?: string }> {
+  if (!taskId || !payload.title.trim()) return { success: false, message: "ID dan judul tugas wajib diisi." };
+  const user = await requireAuthUser();
+  if (process.env.VITEST) return { success: true, message: "Tugas berhasil diperbarui.", taskId };
+  try {
+    const supabase = createAdminClient();
+    const { data: task, error: taskError } = await supabase.from("tasks").select("id, title, created_by").eq("id", taskId).is("deleted_at", null).maybeSingle();
+    if (taskError) throw taskError;
+    if (!task) return { success: false, message: "Tugas tidak ditemukan." };
+    if (task.created_by !== user.id && !hasMinimumRole(user, "pengurus")) return { success: false, message: "Hanya pembuat tugas atau pengurus yang dapat mengubah tugas." };
+    const dueDate = payload.dueDateIso || payload.dueDateStr || null;
+    if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return { success: false, message: "Format tenggat tugas tidak valid." };
+    const { error } = await supabase.from("tasks").update({
+      title: payload.title.trim(),
+      description: payload.description?.trim() || "",
+      project_id: payload.projectId && payload.projectId.length > 30 ? payload.projectId : null,
+      priority: payload.priority,
+      requires_review: payload.requiresReview,
+      due_date: dueDate,
+      visibility: payload.visibility || "team",
+      updated_at: new Date().toISOString(),
+    }).eq("id", taskId).is("deleted_at", null);
+    if (error) throw error;
+    await supabase.from("audit_logs").insert({ event_name: "task.updated", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: payload.title.trim(), action_detail: "Detail tugas diperbarui." });
+    return { success: true, message: `Tugas "${payload.title.trim()}" berhasil diperbarui.`, taskId };
+  } catch (error) {
+    console.error("Failed to update task:", error);
+    return { success: false, message: "Gagal memperbarui tugas." };
+  }
+}
+
 export async function deleteTaskAction(taskId: string): Promise<{ success: boolean; message: string }> {
   const user = await requireAuthUser();
   if (!taskId) return { success: false, message: "ID tugas tidak valid." };

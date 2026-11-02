@@ -12,6 +12,7 @@ import {
 } from "@/modules/tasks/types";
 import {
   createTaskAction,
+  updateTaskAction,
   toggleChecklistItemAction,
   updateTaskStatusAction,
   getTasksAction,
@@ -48,6 +49,7 @@ export default function TugasPage() {
   const [newRequiresReview, setNewRequiresReview] = React.useState(false);
   const [newVisibility, setNewVisibility] = React.useState<TaskVisibility>("team");
   const [newDescription, setNewDescription] = React.useState("");
+  const [editingTaskId, setEditingTaskId] = React.useState<string | null>(null);
   const [isCreating, setIsCreating] = React.useState(false);
 
   // Filter tasks based on timeFilter
@@ -129,7 +131,7 @@ export default function TugasPage() {
     setIsCreating(true);
     try {
       const proj = projects.find((p) => p.id === newProjectId);
-      const res = await createTaskAction({
+      const taskPayload = {
         title: newTitle,
         projectId: newProjectId,
         projectName: proj?.name || "Tugas Mandiri",
@@ -139,11 +141,14 @@ export default function TugasPage() {
         dueDateIso: newDueDate || undefined,
         description: newDescription,
         visibility: newVisibility,
-      });
+      };
+      const res = editingTaskId
+        ? await updateTaskAction(editingTaskId, taskPayload)
+        : await createTaskAction(taskPayload);
 
       if (res.success) {
-        const newTask: TaskItem = {
-          id: res.taskId || `tsk-${Date.now()}`,
+        const nextTask: TaskItem = {
+          id: editingTaskId || res.taskId || `tsk-${Date.now()}`,
           projectId: newProjectId,
           projectName: proj?.name || "Tugas Mandiri",
           projectTeam: proj?.teamName || "Santri",
@@ -159,12 +164,15 @@ export default function TugasPage() {
           assignees: [],
         };
 
-        setTasks((prev) => [newTask, ...prev]);
+        setTasks((prev) => editingTaskId
+          ? prev.map((task) => task.id === editingTaskId ? { ...task, ...nextTask, status: task.status, checklist: task.checklist, assignees: task.assignees } : task)
+          : [nextTask, ...prev]);
         setToastMessage({ type: "success", text: res.message });
         setIsDialogOpen(false);
         setNewTitle("");
         setNewDescription("");
         setNewVisibility("team");
+        setEditingTaskId(null);
       } else {
         setToastMessage({ type: "error", text: res.message });
       }
@@ -183,6 +191,18 @@ export default function TugasPage() {
     const result = await deleteTaskAction(task.id);
     setToastMessage({ type: result.success ? "success" : "error", text: result.message });
     if (result.success) setTasks((current) => current.filter((item) => item.id !== task.id));
+  };
+
+  const handleEditTask = (task: TaskItem) => {
+    setEditingTaskId(task.id);
+    setNewTitle(task.title);
+    setNewProjectId(task.projectId || "proj-general");
+    setNewPriority(task.priority);
+    setNewDueDate(task.dueDateIso || "");
+    setNewRequiresReview(task.requiresReview);
+    setNewVisibility(task.visibility || "team");
+    setNewDescription(task.description || "");
+    setIsDialogOpen(true);
   };
 
   const overdueCount = tasks.filter((t) => t.isOverdue).length;
@@ -391,7 +411,7 @@ export default function TugasPage() {
           {/* Button Tambah Tugas (Desktop) */}
           <button
             type="button"
-            onClick={() => setIsDialogOpen(true)}
+            onClick={() => { setEditingTaskId(null); setIsDialogOpen(true); }}
             className="w-full h-12 rounded-xl bg-primary text-on-primary font-label-md flex items-center justify-center gap-2 shadow-sm hover:bg-primary-container transition-all"
           >
             <span className="material-symbols-outlined text-[20px]">add_task</span>
@@ -521,6 +541,7 @@ export default function TugasPage() {
                         onStatusChange={handleStatusChange}
                         onToggleChecklist={handleToggleChecklist}
                         onDelete={handleDeleteTask}
+                        onEdit={handleEditTask}
                       />
                     ))}
                   </div>
@@ -550,6 +571,7 @@ export default function TugasPage() {
                         onStatusChange={handleStatusChange}
                         onToggleChecklist={handleToggleChecklist}
                         onDelete={handleDeleteTask}
+                        onEdit={handleEditTask}
                       />
                     ))}
                   </div>
@@ -579,6 +601,7 @@ export default function TugasPage() {
                         onStatusChange={handleStatusChange}
                         onToggleChecklist={handleToggleChecklist}
                         onDelete={handleDeleteTask}
+                        onEdit={handleEditTask}
                       />
                     ))}
                   </div>
@@ -608,6 +631,7 @@ export default function TugasPage() {
                         onStatusChange={handleStatusChange}
                         onToggleChecklist={handleToggleChecklist}
                         onDelete={handleDeleteTask}
+                        onEdit={handleEditTask}
                       />
                     ))}
                   </div>
@@ -757,7 +781,7 @@ export default function TugasPage() {
       <div className="pt-2 sticky bottom-2 lg:hidden">
         <button
           type="button"
-          onClick={() => setIsDialogOpen(true)}
+          onClick={() => { setEditingTaskId(null); setIsDialogOpen(true); }}
           className="w-full h-12 rounded-xl bg-secondary-container hover:bg-accent text-on-secondary-fixed font-label-md text-label-md flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-all"
         >
           <span className="material-symbols-outlined text-[20px] text-primary">
@@ -777,7 +801,7 @@ export default function TugasPage() {
                   add_task
                 </span>
                 <h3 className="font-headline-sm text-base text-on-surface font-semibold">
-                  Buat Tugas Baru
+                  {editingTaskId ? "Edit Tugas" : "Buat Tugas Baru"}
                 </h3>
               </div>
               <button
@@ -912,7 +936,7 @@ export default function TugasPage() {
                   disabled={isCreating}
                   className="h-10 px-5 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow-xs hover:bg-primary-container disabled:opacity-50"
                 >
-                  {isCreating ? "Menyimpan..." : "Buat Tugas"}
+                  {isCreating ? "Menyimpan..." : editingTaskId ? "Simpan Perubahan" : "Buat Tugas"}
                 </button>
               </div>
             </form>
@@ -931,11 +955,13 @@ function TaskCard({
   onStatusChange,
   onToggleChecklist,
   onDelete,
+  onEdit,
 }: {
   task: TaskItem;
   onStatusChange: (task: TaskItem, status: TaskStatus) => void;
   onToggleChecklist: (taskId: string, checklistId: string, currentDone: boolean) => void;
   onDelete: (task: TaskItem) => void;
+  onEdit: (task: TaskItem) => void;
 }) {
   const [showDiscussion, setShowDiscussion] = React.useState(false);
   const isDone = task.status === "done";
@@ -1089,9 +1115,14 @@ function TaskCard({
         </button>
       </div>
 
-      <button type="button" onClick={() => onDelete(task)} className="h-8 rounded-lg border border-border text-[11px] font-semibold text-muted-foreground hover:text-error hover:border-error/40">
-        Arsipkan tugas
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={() => onEdit(task)} className="h-8 rounded-lg border border-border text-[11px] font-semibold text-primary hover:bg-accent">
+          Edit tugas
+        </button>
+        <button type="button" onClick={() => onDelete(task)} className="h-8 rounded-lg border border-border text-[11px] font-semibold text-muted-foreground hover:text-error hover:border-error/40">
+          Arsipkan tugas
+        </button>
+      </div>
 
       <button
         type="button"
