@@ -193,6 +193,23 @@ export function MoreSheet({ isOpen, onClose, user }: MoreSheetProps) {
                   </span>
                 </div>
               </Link>
+
+              <Link href="/admin/analytics" onClick={onClose} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-on-surface hover:bg-accent/40 active:bg-accent transition-colors">
+                <span className="material-symbols-outlined text-primary text-[22px]">monitoring</span>
+                <div className="flex-1"><span className="font-label-md text-label-md block">Analitik Operasional</span><span className="font-body-sm text-[11px] text-muted-foreground block">Grafik, periode, dan drill-down record</span></div>
+              </Link>
+              <Link href="/admin/people" onClick={onClose} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-on-surface hover:bg-accent/40 active:bg-accent transition-colors">
+                <span className="material-symbols-outlined text-primary text-[22px]">groups</span>
+                <div className="flex-1"><span className="font-label-md text-label-md block">Anggota &amp; Reviewer</span><span className="font-body-sm text-[11px] text-muted-foreground block">Struktur tim dan penugasan review</span></div>
+              </Link>
+              {(user.role === "super_admin" || user.role === "yayasan" || user.role === "pengurus") && <Link href="/admin/notifications" onClick={onClose} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-on-surface hover:bg-accent/40 active:bg-accent transition-colors">
+                <span className="material-symbols-outlined text-primary text-[22px]">notifications_active</span>
+                <div className="flex-1"><span className="font-label-md text-label-md block">Uji Notifikasi</span><span className="font-body-sm text-[11px] text-muted-foreground block">Kirim push ke perangkat sendiri</span></div>
+              </Link>}
+              {user.role === "super_admin" && <Link href="/admin/backup" onClick={onClose} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-on-surface hover:bg-accent/40 active:bg-accent transition-colors">
+                <span className="material-symbols-outlined text-primary text-[22px]">backup</span>
+                <div className="flex-1"><span className="font-label-md text-label-md block">Backup &amp; Pemulihan</span><span className="font-body-sm text-[11px] text-muted-foreground block">Manifest dan uji restore</span></div>
+              </Link>}
             </>
           )}
         </div>

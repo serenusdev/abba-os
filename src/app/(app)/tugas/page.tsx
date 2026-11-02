@@ -16,6 +16,7 @@ import {
   getTasksAction,
   getProjectsAction,
 } from "@/modules/tasks/actions";
+import { TaskDiscussion } from "@/components/tasks/task-discussion";
 
 type ViewTab = "my_tasks" | "kanban" | "projects";
 
@@ -909,6 +910,7 @@ function TaskCard({
   onStatusChange: (task: TaskItem, status: TaskStatus) => void;
   onToggleChecklist: (taskId: string, checklistId: string, currentDone: boolean) => void;
 }) {
+  const [showDiscussion, setShowDiscussion] = React.useState(false);
   const isDone = task.status === "done";
   const isInReview = task.status === "in_review";
   const completedChecklist = task.checklist.filter((c) => c.done).length;
@@ -1059,6 +1061,16 @@ function TaskCard({
           <span>{isDone ? "Selesai (Dibuka Kembali?)" : "Tandai Selesai"}</span>
         </button>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setShowDiscussion((open) => !open)}
+        className="h-9 rounded-lg border border-border text-xs font-semibold text-on-surface-variant hover:bg-surface-container flex items-center justify-center gap-1.5"
+      >
+        <span className="material-symbols-outlined text-[16px]">forum</span>
+        {showDiscussion ? "Tutup diskusi" : "Komentar & lampiran"}
+      </button>
+      {showDiscussion && <TaskDiscussion taskId={task.id} />}
     </div>
   );
 }

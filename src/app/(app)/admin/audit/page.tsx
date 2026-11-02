@@ -14,6 +14,9 @@ import {
   queryAuditLogsAction,
   getActivePolicyAction,
   updatePolicySettingsAction,
+  getPendingPolicySettingsAction,
+  approvePolicySettingsAction,
+  activatePolicySettingsAction,
   type PolicySettingItem,
 } from "@/modules/analytics/actions";
 
@@ -23,6 +26,7 @@ export default function AdminAuditPage() {
   const [scope, setScope] = React.useState("Semua Tim (Organisasi)");
   const [auditLogs, setAuditLogs] = React.useState<AuditLogItem[]>([]);
   const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
+  const [pendingPolicies, setPendingPolicies] = React.useState<PolicySettingItem[]>([]);
   const [searchLogQuery, setSearchLogQuery] = React.useState("");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
@@ -40,6 +44,8 @@ export default function AdminAuditPage() {
     attendanceCutoffTime: "08:00",
     attendanceGraceCutoffTime: "08:15",
     reportDeadlineTime: "21:00",
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    changeReason: "",
   });
 
   const loadPolicyAndLogs = React.useCallback(async () => {
@@ -52,7 +58,14 @@ export default function AdminAuditPage() {
           attendanceCutoffTime: p.attendanceCutoffTime,
           attendanceGraceCutoffTime: p.attendanceGraceCutoffTime,
           reportDeadlineTime: p.reportDeadlineTime,
+          effectiveFrom: p.effectiveFrom,
+          changeReason: "",
         });
+      }
+      try {
+        setPendingPolicies(await getPendingPolicySettingsAction());
+      } catch {
+        setPendingPolicies([]);
       }
       const res = await queryAuditLogsAction("");
       if (res.success && res.logs) {
@@ -132,6 +145,18 @@ export default function AdminAuditPage() {
     } else {
       setToastMessage(res.message);
     }
+  };
+
+  const handleApprovePolicy = async (id: string) => {
+    const result = await approvePolicySettingsAction(id, "Disetujui setelah meninjau dampak operasional.");
+    setToastMessage(result.message);
+    if (result.success) await loadPolicyAndLogs();
+  };
+
+  const handleActivatePolicy = async (id: string) => {
+    const result = await activatePolicySettingsAction(id);
+    setToastMessage(result.message);
+    if (result.success) await loadPolicyAndLogs();
   };
 
   return (
@@ -340,6 +365,12 @@ export default function AdminAuditPage() {
         {/* Right Column: Policy Settings & Audit Trail Explorer (col-span-5) */}
         <div className="lg:col-span-5 space-y-4">
           {/* Policy Settings Card (PRD-08 §5) */}
+          {pendingPolicies.length > 0 && (
+            <div className="bg-accent/30 rounded-xl p-4 sm:p-5 border border-primary/20 space-y-3">
+              <div className="flex items-center gap-2"><span className="material-symbols-outlined text-primary">pending_actions</span><div><p className="font-semibold text-sm text-on-surface">Alur persetujuan dua tahap</p><p className="text-[11px] text-muted-foreground">Usulan tidak mengubah kebijakan aktif sebelum Yayasan menyetujui dan Super Admin mengaktifkannya.</p></div></div>
+              {pendingPolicies.map((item) => <div key={item.id} className="rounded-lg bg-card border border-border p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"><div><p className="text-xs font-semibold text-on-surface">{item.code} · {item.name}</p><p className="text-[11px] text-muted-foreground">Berlaku {item.effectiveFrom} · Tepat ≤ {item.attendanceCutoffTime} · Laporan {item.reportDeadlineTime}</p></div>{currentUser?.role === "yayasan" && item.status === "proposed" ? <button type="button" onClick={() => handleApprovePolicy(item.id)} className="h-8 px-3 rounded-lg bg-primary text-on-primary text-[11px] font-semibold">Setujui</button> : currentUser?.role === "super_admin" && item.status === "approved" ? <button type="button" onClick={() => handleActivatePolicy(item.id)} className="h-8 px-3 rounded-lg bg-primary text-on-primary text-[11px] font-semibold">Aktifkan</button> : <span className="text-[11px] text-muted-foreground">{item.status === "proposed" ? "Menunggu Yayasan" : "Menunggu aktivasi"}</span>}</div>)}
+            </div>
+          )}
           <div className="bg-card rounded-xl p-4 sm:p-5 shadow-xs border border-border flex flex-col gap-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -394,14 +425,14 @@ export default function AdminAuditPage() {
                   </span>
                 </div>
 
-                <button
+                {currentUser?.role === "super_admin" && <button
                   type="button"
                   onClick={() => setIsPolicyModalOpen(true)}
                   className="w-full mt-1 py-2 px-3 rounded-lg bg-surface-container hover:bg-surface-dim text-primary font-label-sm text-xs flex items-center justify-center gap-1.5 transition-all font-semibold"
                 >
                   <span className="material-symbols-outlined text-[16px]">tune</span>
                   <span>Ubah Jam Operasional (Super Admin)</span>
-                </button>
+                </button>}
               </>
             ) : (
               <div className="p-4 rounded-xl bg-surface-container-low border border-dashed border-border text-center space-y-2">
@@ -414,14 +445,14 @@ export default function AdminAuditPage() {
                 <p className="text-[11px] text-muted-foreground">
                   Atur jam masuk, batas toleransi, dan deadline laporan agar sistem memiliki jadwal yang pasti dan dapat diisi mandiri.
                 </p>
-                <button
+                {currentUser?.role === "super_admin" && <button
                   type="button"
                   onClick={() => setIsPolicyModalOpen(true)}
                   className="h-9 px-4 rounded-lg bg-primary text-on-primary font-label-md text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
                 >
                   <span className="material-symbols-outlined text-[16px]">edit_calendar</span>
                   <span>+ Atur Jam Operasional Sekarang</span>
-                </button>
+                </button>}
               </div>
             )}
           </div>
@@ -625,6 +656,11 @@ export default function AdminAuditPage() {
                 </span>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div><label className="text-xs font-semibold text-on-surface block mb-1">Mulai berlaku</label><input type="date" required value={policyForm.effectiveFrom} onChange={(e) => setPolicyForm({ ...policyForm, effectiveFrom: e.target.value })} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></div>
+                <div><label className="text-xs font-semibold text-on-surface block mb-1">Alasan perubahan</label><input type="text" required value={policyForm.changeReason} onChange={(e) => setPolicyForm({ ...policyForm, changeReason: e.target.value })} placeholder="Contoh: Perubahan jadwal semester" className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></div>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
                 <button
                   type="button"
@@ -637,7 +673,7 @@ export default function AdminAuditPage() {
                   type="submit"
                   className="h-10 px-5 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow-xs hover:bg-primary-container"
                 >
-                  Simpan &amp; Terapkan Kebijakan
+                  Ajukan untuk Persetujuan Yayasan
                 </button>
               </div>
             </form>

@@ -18,6 +18,7 @@ import {
   type AccountRequestItem,
   type ActiveUserItem,
 } from "@/modules/iam/actions";
+import { importMembersCsvAction } from "@/modules/operations/actions";
 
 export default function AdminUsersPage() {
   const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
@@ -63,6 +64,11 @@ export default function AdminUsersPage() {
     notes: "",
   });
   const [manualSuccessMsg, setManualSuccessMsg] = React.useState("");
+  const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
+  const [importFileName, setImportFileName] = React.useState("members.csv");
+  const [importCsv, setImportCsv] = React.useState("");
+  const [importFeedback, setImportFeedback] = React.useState<string | null>(null);
+  const [isImporting, setIsImporting] = React.useState(false);
 
   // Role select per applicant
   const [applicantRoles, setApplicantRoles] = React.useState<Record<string, string>>({});
@@ -200,6 +206,24 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleImportMembers = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsImporting(true);
+    setImportFeedback(null);
+    try {
+      const result = await importMembersCsvAction(importFileName, importCsv);
+      setImportFeedback(`${result.message}${result.errors.length ? ` ${result.errors.slice(0, 3).join(" ")}` : ""}`);
+      if (result.success) {
+        await loadData();
+        setImportCsv("");
+      }
+    } catch {
+      setImportFeedback("Impor gagal diproses. Periksa format CSV lalu coba lagi.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const pendingRequests = accountRequests.filter((r) => r.status === "pending" || !r.status);
   const activeUsersList = activeUsers.filter((u) => u.status === "active");
   const suspendedUsersList = activeUsers.filter(
@@ -275,6 +299,15 @@ export default function AdminUsersPage() {
               {pendingRequests.length}
             </span>
           )}
+        </button>
+
+        <button
+          className="w-full h-11 rounded-xl bg-secondary-container text-on-secondary-container font-label-md text-sm flex items-center justify-center gap-2 transition-all hover:bg-secondary-fixed"
+          type="button"
+          onClick={() => { setImportFeedback(null); setIsImportModalOpen(true); }}
+        >
+          <span className="material-symbols-outlined text-[19px]">upload_file</span>
+          <span>Impor Anggota dari CSV</span>
         </button>
         <button
           className={`flex-1 py-2 px-2.5 rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1.5 transition-all ${
@@ -734,6 +767,24 @@ export default function AdminUsersPage() {
       </div>
 
       {/* MODAL 1: Jalur B Manual Account Creation */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-card w-full max-w-xl rounded-2xl border border-border shadow-2xl p-5 sm:p-6 space-y-4">
+            <div className="flex items-start justify-between pb-3 border-b border-border">
+              <div><h3 className="font-headline-sm text-headline-sm text-on-surface">Impor anggota dari CSV</h3><p className="text-xs text-muted-foreground mt-1">Baris yang lolos validasi masuk ke antrean persetujuan akun; tidak langsung aktif.</p></div>
+              <button type="button" onClick={() => setIsImportModalOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted"><span className="material-symbols-outlined text-[18px]">close</span></button>
+            </div>
+            <form onSubmit={handleImportMembers} className="space-y-3">
+              <input type="file" accept=".csv,text/csv" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; setImportFileName(file.name); const reader = new FileReader(); reader.onload = () => setImportCsv(String(reader.result || "")); reader.readAsText(file); }} className="w-full text-xs text-muted-foreground" />
+              <textarea value={importCsv} onChange={(e) => setImportCsv(e.target.value)} rows={8} placeholder={'full_name,email,phone_number,member_type,team_name\nAhmad,ahmad@example.com,0812...,santri,Sentra Digitalpreneur'} className="w-full rounded-xl border border-border bg-surface-container-low p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary" required />
+              <p className="text-[11px] text-muted-foreground">Kolom wajib: <code>full_name</code>, <code>email</code>. Kolom tambahan: <code>phone_number</code>, <code>member_type</code>, <code>team_name</code>, <code>attendance_required</code>, <code>report_required</code>.</p>
+              {importFeedback && <div className="rounded-lg bg-surface-container-low p-3 text-xs text-on-surface" aria-live="polite">{importFeedback}</div>}
+              <div className="flex justify-end gap-2 pt-2 border-t border-border"><button type="button" onClick={() => setIsImportModalOpen(false)} className="px-4 py-2 rounded-lg text-xs text-muted-foreground hover:bg-muted">Batal</button><button type="submit" disabled={isImporting} className="px-4 py-2 rounded-lg bg-primary text-on-primary text-xs font-semibold disabled:opacity-50">{isImporting ? "Memproses…" : "Validasi & Impor"}</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isManualModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl p-5 sm:p-6 space-y-4">

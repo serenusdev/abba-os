@@ -3,10 +3,39 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthUser, requireRole } from "@/lib/auth/guards";
-import { hashCalendarToken, sendBroadcastPush } from "@/lib/fcm";
+import { hashCalendarToken, sendPushToUsers } from "@/lib/fcm";
 import { INITIAL_ANNOUNCEMENTS, INITIAL_EVENTS } from "./data";
-import { AnnouncementItem, ScheduleEventItem } from "./types";
+import { AnnouncementItem, AudienceConfig, ScheduleEventItem } from "./types";
 import { randomBytes } from "node:crypto";
+
+async function filterByAudience(supabase: ReturnType<typeof createAdminClient>, rows: any[], user: any): Promise<any[]> {
+  const teamTargets = Array.from(new Set(rows.flatMap((row) => row.audience_config?.teamIds || [])));
+  const memberships = teamTargets.length
+    ? await supabase.from("team_members").select("team_id").eq("user_id", user.id).is("valid_to", null).in("team_id", teamTargets)
+    : { data: [] as any[] };
+  const userTeams = new Set((memberships.data || []).map((item: any) => item.team_id));
+  return rows.filter((row) => {
+    const config = row.audience_config as AudienceConfig | null | undefined;
+    if (!config || config.scope === "all") return !row.team_id || row.team_id === user.team_name;
+    if (config.scope === "users") return (config.userIds || []).includes(user.id);
+    if (config.scope === "member_type") return (config.memberTypes || []).includes(user.member_type || "santri");
+    return (config.teamIds || []).some((teamId) => userTeams.has(teamId));
+  });
+}
+
+async function getAudienceUserIds(supabase: ReturnType<typeof createAdminClient>, config?: AudienceConfig): Promise<string[]> {
+  if (!config || config.scope === "all") {
+    const { data } = await supabase.from("profiles").select("id").eq("status", "active");
+    return (data || []).map((row: any) => row.id);
+  }
+  if (config.scope === "users") return config.userIds || [];
+  if (config.scope === "member_type") {
+    const { data } = await supabase.from("profiles").select("id").eq("status", "active").in("member_type", config.memberTypes || []);
+    return (data || []).map((row: any) => row.id);
+  }
+  const { data } = await supabase.from("team_members").select("user_id").is("valid_to", null).in("team_id", config.teamIds || []);
+  return Array.from(new Set((data || []).map((row: any) => row.user_id)));
+}
 
 /**
  * Server Action: Query Events for Schedules
@@ -24,9 +53,7 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
     if (!error && events) {
       if (events.length === 0) return [];
 
-      const visibleEvents = events.filter(
-        (e: any) => !e.team_id || e.team_id === user.team_name
-      );
+      const visibleEvents = await filterByAudience(supabase, events as any[], user);
       const organizerIds = Array.from(
         new Set(visibleEvents.map((e: any) => e.organizer_id).filter(Boolean))
       );
@@ -64,6 +91,7 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
           actionType: "detail",
           actionLabel: "Lihat Detail",
           subNote: e.description,
+          audienceConfig: e.audience_config || undefined,
         };
       });
     }
@@ -92,9 +120,7 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
       .order("published_at", { ascending: false });
 
     if (!error && announcements) {
-      const visibleAnnouncements = announcements.filter(
-        (a: any) => !a.team_id || a.team_id === user.team_name
-      );
+      const visibleAnnouncements = await filterByAudience(supabase, announcements as any[], user);
       if (visibleAnnouncements.length === 0) return [];
       const { data: reads } = await supabase
         .from("announcement_reads")
@@ -116,6 +142,7 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
           year: "numeric",
         }),
         isRead: readIds.has(a.id),
+        audienceConfig: a.audience_config || undefined,
       }));
     }
   } catch (err) {
@@ -144,12 +171,13 @@ export async function markAnnouncementReadAction(
     const supabase = createAdminClient();
     const { data: announcement, error: announcementError } = await supabase
       .from("announcements")
-      .select("id, team_id, status")
+      .select("id, team_id, status, audience_config")
       .eq("id", announcementId)
       .eq("status", "published")
       .maybeSingle();
     if (announcementError) throw announcementError;
-    if (!announcement || (announcement.team_id && announcement.team_id !== user.team_name)) {
+    const visible = announcement ? (await filterByAudience(supabase, [announcement], user)).length > 0 : false;
+    if (!announcement || !visible) {
       return { success: false, message: "Pengumuman tidak tersedia untuk akun ini." };
     }
     if (user.id && announcementId.length > 30) {
@@ -227,6 +255,7 @@ export async function publishAnnouncementAction(payload: {
   bodyMarkdown: string;
   priority: "normal" | "important";
   targetAudienceLabel: string;
+  audienceConfig?: AudienceConfig;
 }): Promise<{ success: boolean; message: string; announcement?: AnnouncementItem }> {
   const admin = await requireRole(["super_admin", "yayasan", "pengurus"]);
   if (!payload.title.trim()) {
@@ -253,6 +282,7 @@ export async function publishAnnouncementAction(payload: {
       targetAudienceLabel: payload.targetAudienceLabel,
       publishedAtStr: "Baru Saja",
       isRead: false,
+      audienceConfig: payload.audienceConfig,
     };
     return {
       success: true,
@@ -275,6 +305,7 @@ export async function publishAnnouncementAction(payload: {
         status: "published",
         published_at: new Date().toISOString(),
         author_id: admin.id,
+        audience_config: payload.audienceConfig || { scope: "all" },
       })
       .select("id")
       .single();
@@ -294,7 +325,8 @@ export async function publishAnnouncementAction(payload: {
     });
     if (!process.env.VITEST) {
       try {
-        await sendBroadcastPush({
+        const recipientIds = await getAudienceUserIds(supabase, payload.audienceConfig);
+        await sendPushToUsers(recipientIds, {
           type: "ANNOUNCEMENT_PUBLISHED",
           title: `Pengumuman Baru: ${payload.title}`,
           body: "Tap untuk membaca instruksi lengkap.",
@@ -319,6 +351,7 @@ export async function publishAnnouncementAction(payload: {
     targetAudienceLabel: payload.targetAudienceLabel,
     publishedAtStr: "Baru Saja",
     isRead: false,
+    audienceConfig: payload.audienceConfig,
   };
 
   return {
@@ -359,6 +392,7 @@ export interface CreateEventPayload {
   endsAt: string;
   location: string;
   category: "teknologi" | "keagamaan" | "operasional" | "umum";
+  audienceConfig?: AudienceConfig;
 }
 
 /**
@@ -388,6 +422,7 @@ export async function createEventAction(
         location: payload.location || "Lab Utama Pondok",
         category: payload.category || "umum",
         status: "scheduled",
+        audience_config: payload.audienceConfig || { scope: "all" },
       })
       .select("id")
       .single();

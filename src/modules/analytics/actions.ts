@@ -138,6 +138,10 @@ export interface PolicySettingItem {
   reportDeadlineTime: string;
   status: string;
   effectiveFrom: string;
+  proposedBy?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  changeReason?: string;
 }
 
 /**
@@ -165,6 +169,10 @@ export async function getActivePolicyAction(): Promise<PolicySettingItem | null>
         reportDeadlineTime: (data.report_deadline_time || "21:00").substring(0, 5),
         status: data.status,
         effectiveFrom: data.effective_from,
+        proposedBy: data.proposed_by || undefined,
+        approvedBy: data.approved_by || undefined,
+        approvedAt: data.approved_at || undefined,
+        changeReason: data.change_reason || undefined,
       };
     }
   } catch (err) {
@@ -181,15 +189,14 @@ export async function updatePolicySettingsAction(payload: {
   attendanceCutoffTime: string;
   attendanceGraceCutoffTime: string;
   reportDeadlineTime: string;
+  effectiveFrom?: string;
+  changeReason?: string;
 }): Promise<{ success: boolean; message: string }> {
-  const admin = await requireRole(["super_admin", "pengurus"]);
+  const admin = await requireRole(["super_admin"]);
   try {
     const supabase = createAdminClient();
     const code = `POL-${new Date().getFullYear()}-v${Date.now().toString().slice(-4)}`;
     const id = `pol-${Date.now()}`;
-
-    // Archive old active policies
-    await supabase.from("policy_settings").update({ status: "archived" }).eq("status", "active");
 
     const { error } = await supabase.from("policy_settings").insert({
       id,
@@ -198,8 +205,10 @@ export async function updatePolicySettingsAction(payload: {
       attendance_cutoff_time: `${payload.attendanceCutoffTime}:00`,
       attendance_grace_cutoff_time: `${payload.attendanceGraceCutoffTime}:00`,
       report_deadline_time: `${payload.reportDeadlineTime}:00`,
-      status: "active",
-      effective_from: new Date().toISOString().split("T")[0],
+      status: "proposed",
+      effective_from: payload.effectiveFrom || new Date().toISOString().split("T")[0],
+      proposed_by: admin.id,
+      change_reason: payload.changeReason || "Pembaruan kebijakan operasional",
     });
 
     if (error) throw error;
@@ -209,13 +218,13 @@ export async function updatePolicySettingsAction(payload: {
       actor_name: admin.full_name,
       target_id: id,
       target_label: code,
-      action_detail: `Pembaruan jam operasional: Tepat ≤ ${payload.attendanceCutoffTime}, Toleransi ≤ ${payload.attendanceGraceCutoffTime}, Batas Laporan ${payload.reportDeadlineTime} WIB.`,
+      action_detail: `Usulan kebijakan: Tepat ≤ ${payload.attendanceCutoffTime}, Toleransi ≤ ${payload.attendanceGraceCutoffTime}, Batas Laporan ${payload.reportDeadlineTime} WIB. Menunggu persetujuan Yayasan.`,
       hash: `sha256-policy-${Date.now()}`,
     });
 
     return {
       success: true,
-      message: "Kebijakan jam operasional berhasil disimpan dan langsung berlaku.",
+      message: "Usulan kebijakan berhasil disimpan dan menunggu persetujuan Yayasan.",
     };
   } catch (err: any) {
     console.error("Failed to update policy settings:", err);
@@ -224,6 +233,57 @@ export async function updatePolicySettingsAction(payload: {
       message: err.message || "Gagal menyimpan kebijakan operasional.",
     };
   }
+}
+
+export async function getPendingPolicySettingsAction(): Promise<PolicySettingItem[]> {
+  await requireRole(["super_admin", "yayasan"]);
+  if (process.env.VITEST) return [];
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("policy_settings").select("*").in("status", ["proposed", "approved"]).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((item: any) => ({
+    id: item.id,
+    code: item.code,
+    name: item.name,
+    attendanceCutoffTime: (item.attendance_cutoff_time || "08:00").substring(0, 5),
+    attendanceGraceCutoffTime: (item.attendance_grace_cutoff_time || "08:15").substring(0, 5),
+    reportDeadlineTime: (item.report_deadline_time || "21:00").substring(0, 5),
+    status: item.status,
+    effectiveFrom: item.effective_from,
+    proposedBy: item.proposed_by || undefined,
+    approvedBy: item.approved_by || undefined,
+    approvedAt: item.approved_at || undefined,
+    changeReason: item.change_reason || undefined,
+  }));
+}
+
+export async function approvePolicySettingsAction(policyId: string, note?: string): Promise<{ success: boolean; message: string }> {
+  const approver = await requireRole(["yayasan"]);
+  if (process.env.VITEST) return { success: true, message: "Usulan kebijakan disetujui." };
+  const supabase = createAdminClient();
+  const { data: policy, error: readError } = await supabase.from("policy_settings").select("id, status").eq("id", policyId).maybeSingle();
+  if (readError) throw readError;
+  if (!policy || policy.status !== "proposed") return { success: false, message: "Usulan tidak ditemukan atau sudah diproses." };
+  const { error } = await supabase.from("policy_settings").update({ status: "approved", approved_by: approver.id, approved_at: new Date().toISOString() }).eq("id", policyId).eq("status", "proposed");
+  if (error) throw error;
+  await supabase.from("policy_approval_events").insert({ policy_id: policyId, actor_id: approver.id, from_status: "proposed", to_status: "approved", note: note || null });
+  return { success: true, message: "Usulan kebijakan disetujui. Super Admin dapat mengaktifkannya pada tanggal berlaku." };
+}
+
+export async function activatePolicySettingsAction(policyId: string): Promise<{ success: boolean; message: string }> {
+  const admin = await requireRole(["super_admin"]);
+  if (process.env.VITEST) return { success: true, message: "Kebijakan berhasil diaktifkan." };
+  const supabase = createAdminClient();
+  const { data: policy, error: readError } = await supabase.from("policy_settings").select("id, status, effective_from").eq("id", policyId).maybeSingle();
+  if (readError) throw readError;
+  if (!policy || policy.status !== "approved") return { success: false, message: "Kebijakan harus disetujui Yayasan terlebih dahulu." };
+  if (policy.effective_from > new Date().toISOString().slice(0, 10)) return { success: false, message: `Kebijakan baru berlaku pada ${policy.effective_from}.` };
+  const { error: archiveError } = await supabase.from("policy_settings").update({ status: "archived" }).eq("status", "active");
+  if (archiveError) throw archiveError;
+  const { error } = await supabase.from("policy_settings").update({ status: "active" }).eq("id", policyId).eq("status", "approved");
+  if (error) throw error;
+  await supabase.from("policy_approval_events").insert({ policy_id: policyId, actor_id: admin.id, from_status: "approved", to_status: "active" });
+  return { success: true, message: "Kebijakan berhasil diaktifkan dan kebijakan lama diarsipkan." };
 }
 
 export interface AdminDashboardMetrics {

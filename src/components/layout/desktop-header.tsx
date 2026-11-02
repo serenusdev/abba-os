@@ -36,6 +36,10 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
     if (pathname.startsWith("/resources")) return "Resource Library";
     if (pathname.startsWith("/tim")) return "Direktori Tim & Orang";
     if (pathname.startsWith("/admin/users")) return "Kelola Pengguna IAM";
+    if (pathname.startsWith("/admin/people")) return "Anggota & Reviewer";
+    if (pathname.startsWith("/admin/analytics")) return "Analitik Operasional";
+    if (pathname.startsWith("/admin/backup")) return "Backup & Pemulihan";
+    if (pathname.startsWith("/admin/notifications")) return "Uji Notifikasi";
     if (pathname.startsWith("/admin/audit")) return "Dasbor Analitik & Audit";
     return "Pondok OS";
   };

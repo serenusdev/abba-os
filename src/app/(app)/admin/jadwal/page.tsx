@@ -15,7 +15,7 @@ import {
   publishAnnouncementAction,
   deleteAnnouncementAction,
 } from "@/modules/schedules/actions";
-import type { ScheduleEventItem, AnnouncementItem } from "@/modules/schedules/types";
+import type { ScheduleEventItem, AnnouncementItem, AudienceConfig } from "@/modules/schedules/types";
 
 export default function AdminJadwalPage() {
   const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
@@ -44,6 +44,7 @@ export default function AdminJadwalPage() {
     endsAt: "",
     location: "Lab Utama Pesantren",
     description: "",
+    audienceScope: "all" as "all" | "santri" | "pengurus" | "koordinator",
   });
 
   // Announcement form
@@ -52,6 +53,7 @@ export default function AdminJadwalPage() {
     bodyMarkdown: "",
     priority: "normal" as "normal" | "important",
     targetAudienceLabel: "Semua Santri & Tim",
+    audienceScope: "all" as "all" | "santri" | "pengurus" | "koordinator",
   });
 
   const loadData = React.useCallback(async () => {
@@ -101,6 +103,9 @@ export default function AdminJadwalPage() {
   }
 
   // Handle Event Submit
+  const audienceFromScope = (scope: "all" | "santri" | "pengurus" | "koordinator"): AudienceConfig =>
+    scope === "all" ? { scope: "all" } : { scope: "member_type", memberTypes: [scope] };
+
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -113,6 +118,7 @@ export default function AdminJadwalPage() {
       endsAt: eventForm.endsAt,
       location: eventForm.location,
       description: eventForm.description,
+      audienceConfig: audienceFromScope(eventForm.audienceScope),
     });
 
     setIsSubmitting(false);
@@ -126,6 +132,7 @@ export default function AdminJadwalPage() {
         endsAt: "",
         location: "Lab Utama Pesantren",
         description: "",
+        audienceScope: "all",
       });
       loadData();
     } else {
@@ -156,6 +163,7 @@ export default function AdminJadwalPage() {
       bodyMarkdown: announcementForm.bodyMarkdown,
       priority: announcementForm.priority,
       targetAudienceLabel: announcementForm.targetAudienceLabel,
+      audienceConfig: audienceFromScope(announcementForm.audienceScope),
     });
 
     setIsSubmitting(false);
@@ -167,6 +175,7 @@ export default function AdminJadwalPage() {
         bodyMarkdown: "",
         priority: "normal",
         targetAudienceLabel: "Semua Santri & Tim",
+        audienceScope: "all",
       });
       loadData();
     } else {
@@ -550,6 +559,22 @@ export default function AdminJadwalPage() {
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="font-label-sm text-xs text-on-surface font-medium">
+                  Sasaran Peserta (granular)
+                </label>
+                <select
+                  value={eventForm.audienceScope}
+                  onChange={(e) => setEventForm({ ...eventForm, audienceScope: e.target.value as typeof eventForm.audienceScope })}
+                  className="w-full h-10 px-2 rounded-lg bg-surface-container-low text-on-surface text-sm border border-border focus:ring-2 focus:ring-primary focus:outline-none"
+                >
+                  <option value="all">Semua anggota aktif</option>
+                  <option value="santri">Santri saja</option>
+                  <option value="pengurus">Pengurus saja</option>
+                  <option value="koordinator">Koordinator saja</option>
+                </select>
+              </div>
+
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
                 <button
                   type="button"
@@ -645,6 +670,22 @@ export default function AdminJadwalPage() {
                     className="w-full h-10 px-3 rounded-lg bg-surface-container-low text-on-surface text-sm border border-border focus:ring-2 focus:ring-primary focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-label-sm text-xs text-on-surface font-medium">
+                  Target Audiens Granular
+                </label>
+                <select
+                  value={announcementForm.audienceScope}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, audienceScope: e.target.value as typeof announcementForm.audienceScope })}
+                  className="w-full h-10 px-2 rounded-lg bg-surface-container-low text-on-surface text-sm border border-border focus:ring-2 focus:ring-primary focus:outline-none"
+                >
+                  <option value="all">Semua anggota aktif</option>
+                  <option value="santri">Santri saja</option>
+                  <option value="pengurus">Pengurus saja</option>
+                  <option value="koordinator">Koordinator saja</option>
+                </select>
               </div>
 
               <div className="space-y-1">

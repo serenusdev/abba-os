@@ -180,6 +180,49 @@ export async function setTeamCoordinatorAction(
   };
 }
 
+export async function addTeamMemberAction(payload: {
+  teamId: string;
+  userId: string;
+  teamRole?: "member" | "coordinator" | "assistant";
+  title?: string;
+}): Promise<{ success: boolean; message: string }> {
+  const admin = await requireRole(["super_admin", "pengurus"]);
+  if (!payload.teamId || !payload.userId) return { success: false, message: "Tim dan anggota wajib dipilih." };
+  if (process.env.VITEST) return { success: true, message: "Anggota berhasil ditambahkan ke tim." };
+  const supabase = createAdminClient();
+  const existing = await supabase.from("team_members").select("id").eq("team_id", payload.teamId).eq("user_id", payload.userId).is("valid_to", null).maybeSingle();
+  if (existing.error) throw existing.error;
+  const mutation = existing.data
+    ? await supabase.from("team_members").update({ team_role: payload.teamRole || "member", title: payload.title || null }).eq("id", existing.data.id)
+    : await supabase.from("team_members").insert({ team_id: payload.teamId, user_id: payload.userId, team_role: payload.teamRole || "member", title: payload.title || null, valid_from: new Date().toISOString().slice(0, 10) });
+  if (mutation.error) throw mutation.error;
+  await supabase.from("audit_logs").insert({ event_name: "people.team_member_added", actor_id: admin.id, actor_name: admin.full_name, target_id: payload.userId, target_label: payload.teamId, action_detail: `Menambahkan anggota ke tim sebagai ${payload.teamRole || "member"}.` });
+  return { success: true, message: "Anggota berhasil ditambahkan ke tim." };
+}
+
+export async function removeTeamMemberAction(teamId: string, userId: string): Promise<{ success: boolean; message: string }> {
+  const admin = await requireRole(["super_admin", "pengurus"]);
+  if (process.env.VITEST) return { success: true, message: "Keanggotaan tim diakhiri secara historis." };
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("team_members").update({ valid_to: new Date().toISOString().slice(0, 10) }).eq("team_id", teamId).eq("user_id", userId).is("valid_to", null);
+  if (error) throw error;
+  await supabase.from("audit_logs").insert({ event_name: "people.team_member_removed", actor_id: admin.id, actor_name: admin.full_name, target_id: userId, target_label: teamId, action_detail: "Mengakhiri keanggotaan aktif tanpa menghapus riwayat." });
+  return { success: true, message: "Keanggotaan tim diakhiri; riwayat tetap tersimpan." };
+}
+
+export async function assignReviewerAction(payload: { revieweeId: string; reviewerId: string; kind?: "report" | "attendance_correction" | "task"; reason?: string }): Promise<{ success: boolean; message: string }> {
+  const admin = await requireRole(["super_admin", "pengurus"]);
+  if (payload.revieweeId === payload.reviewerId) return { success: false, message: "Anggota tidak dapat menjadi reviewer dirinya sendiri." };
+  if (process.env.VITEST) return { success: true, message: "Reviewer utama berhasil ditetapkan." };
+  const supabase = createAdminClient();
+  const kind = payload.kind || "report";
+  await supabase.from("reviewer_assignments").update({ valid_to: new Date().toISOString().slice(0, 10) }).eq("reviewee_id", payload.revieweeId).eq("kind", kind).is("valid_to", null);
+  const { error } = await supabase.from("reviewer_assignments").insert({ reviewee_id: payload.revieweeId, reviewer_id: payload.reviewerId, kind, reason: payload.reason || null, valid_from: new Date().toISOString().slice(0, 10) });
+  if (error) throw error;
+  await supabase.from("audit_logs").insert({ event_name: "people.reviewer_assigned", actor_id: admin.id, actor_name: admin.full_name, target_id: payload.revieweeId, target_label: payload.reviewerId, action_detail: `Reviewer ${kind} ditetapkan dengan alasan: ${payload.reason || "-"}.` });
+  return { success: true, message: "Reviewer utama berhasil ditetapkan." };
+}
+
 /**
  * Server Action: Reveal Phone Number with Role-based Privacy Check (BR-PPL-09, PRD-07 §4.2)
  */

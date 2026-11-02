@@ -4,6 +4,13 @@ export type EventCategory =
   | "operasional"
   | "umum";
 
+export type AudienceConfig = {
+  scope: "all" | "member_type" | "team" | "users";
+  memberTypes?: string[];
+  teamIds?: string[];
+  userIds?: string[];
+};
+
 export type EventStatusBadge =
   | "on_schedule"
   | "upcoming"
@@ -26,6 +33,7 @@ export interface ScheduleEventItem {
   actionType: "detail" | "target" | "map";
   actionLabel: string;
   subNote?: string;
+  audienceConfig?: AudienceConfig;
 }
 
 export interface AnnouncementItem {
@@ -38,6 +46,7 @@ export interface AnnouncementItem {
   targetAudienceLabel: string;
   publishedAtStr: string;
   isRead: boolean;
+  audienceConfig?: AudienceConfig;
 }
 
 export interface WeekDayPickerItem {

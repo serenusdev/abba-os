@@ -42,6 +42,10 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
   ];
 
   const adminNav = [
+    { label: "Analitik Operasional", href: "/admin/analytics", icon: "monitoring" },
+    { label: "Anggota & Reviewer", href: "/admin/people", icon: "groups" },
+    { label: "Backup & Pemulihan", href: "/admin/backup", icon: "backup" },
+    { label: "Uji Notifikasi", href: "/admin/notifications", icon: "notifications_active" },
     { label: "Kelola Pengguna IAM", href: "/admin/users", icon: "manage_accounts" },
     { label: "Kelola Jadwal & Siaran", href: "/admin/jadwal", icon: "edit_calendar" },
     { label: "Analitik & Audit Log", href: "/admin/audit", icon: "monitoring" },
