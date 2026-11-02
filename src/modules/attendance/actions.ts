@@ -109,6 +109,48 @@ export async function getAttendanceHistoryAction(): Promise<AttendanceRecordItem
     const { data, error } = await query;
 
     if (!error && data) {
+      const effectiveQuery = supabase
+        .from("attendance_effective")
+        .select("user_id, attendance_date, status, source_id")
+        .order("attendance_date", { ascending: false })
+        .limit(30);
+      const scopedEffectiveQuery = ["santri", "koordinator"].includes(user.role)
+        ? effectiveQuery.eq("user_id", user.id)
+        : effectiveQuery;
+      const { data: effectiveRows } = await scopedEffectiveQuery;
+      if (effectiveRows?.length) {
+        const rawByDate = new Map((data as any[]).map((row) => [row.attendance_date, row]));
+        const labels: Record<string, string> = {
+          on_time: "Tepat Waktu",
+          grace: "Masa Toleransi",
+          late: "Terlambat",
+          excused: "Izin Resmi",
+          sick: "Sakit",
+          duty: "Tugas Luar",
+          no_checkin: "Belum Presensi",
+        };
+        return (effectiveRows as any[])
+          .filter((row) => row.status in labels)
+          .map((row) => {
+            const raw = rawByDate.get(row.attendance_date);
+            const classification = row.status as AttendanceClassification;
+            return {
+              id: row.source_id || `effective-${row.user_id}-${row.attendance_date}`,
+              dateStr: row.attendance_date,
+              dateFormatted: new Date(`${row.attendance_date}T12:00:00+07:00`).toLocaleDateString("id-ID", {
+                weekday: "long", day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta",
+              }),
+              timeStr: raw?.checked_in_at
+                ? `${new Date(raw.checked_in_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} WIB`
+                : "—",
+              classification,
+              label: labels[classification],
+              sessionTitle: "Operasional Santri Pagi",
+              canCorrect: classification === "late" || classification === "grace" || classification === "no_checkin",
+            };
+          });
+      }
+
       if (data.length === 0) return [];
 
       return data.map((r: any) => {

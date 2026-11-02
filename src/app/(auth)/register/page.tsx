@@ -128,7 +128,7 @@ export default function RegisterPage() {
                   Pengajuan Berhasil Dikirim
                 </h3>
                 <p className="font-body-sm text-body-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-                  Permohonan akun Anda telah masuk ke antrean verifikasi IAM. Administrator pondok akan meninjau dan mengaktifkan akun Anda.
+                  Permohonan akun Anda telah masuk ke antrean verifikasi IAM. Periksa email dan buka tautan konfirmasi terlebih dahulu; setelah itu administrator pondok akan meninjau dan mengaktifkan akun Anda.
                 </p>
               </div>
               <Link href="/login" className="w-full pt-2">

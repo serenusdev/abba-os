@@ -25,6 +25,8 @@ export async function GET(request: Request) {
     const today = jakarta.dateStr;
     const sendAttendanceReminder = jakarta.hours === 7 && jakarta.minutes >= 25 && jakarta.minutes <= 35;
     const sendReportReminder = jakarta.hours === 21 && jakarta.minutes <= 5;
+    const { error: snapshotError } = await admin.rpc("refresh_attendance_effective", { p_date: today });
+    if (snapshotError) console.error("Attendance effective snapshot failed:", snapshotError);
     if (!sendAttendanceReminder && !sendReportReminder) {
       return NextResponse.json({ success: true, today, skipped: true });
     }
@@ -54,13 +56,25 @@ export async function GET(request: Request) {
     if (santriError) throw santriError;
     const ids: string[] = (santri || []).map((profile: { id: string }) => profile.id);
 
-    const { data: attendance, error: attendanceError } = await admin
-      .from("attendance_records")
-      .select("user_id")
-      .eq("attendance_date", today);
-    if (attendanceError) throw attendanceError;
-    const checkedIn = new Set((attendance || []).map((row: { user_id: string }) => row.user_id));
-    const attendanceTargets = ids.filter((id) => !checkedIn.has(id));
+    let attendanceTargets: string[];
+    if (!snapshotError) {
+      const { data: missingAttendance, error: effectiveError } = await admin
+        .from("attendance_effective")
+        .select("user_id")
+        .eq("attendance_date", today)
+        .eq("status", "no_checkin");
+      if (effectiveError) throw effectiveError;
+      const missingIds = new Set((missingAttendance || []).map((row: { user_id: string }) => row.user_id));
+      attendanceTargets = ids.filter((id) => missingIds.has(id));
+    } else {
+      const { data: attendance, error: attendanceError } = await admin
+        .from("attendance_records")
+        .select("user_id")
+        .eq("attendance_date", today);
+      if (attendanceError) throw attendanceError;
+      const checkedIn = new Set((attendance || []).map((row: { user_id: string }) => row.user_id));
+      attendanceTargets = ids.filter((id) => !checkedIn.has(id));
+    }
 
     const { data: reports, error: reportError } = await admin
       .from("daily_reports")

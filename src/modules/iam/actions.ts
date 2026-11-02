@@ -185,12 +185,16 @@ export async function submitAccountApplicationAction(payload: {
       };
     }
 
-    // Create Auth user first (unconfirmed — cannot log in until approved)
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    // Use Supabase's confirmation flow so ownership of the email is proven
+    // before an administrator can approve and activate the account.
+    const authClient = await createClient();
+    const { data: authData, error: authError } = await authClient.auth.signUp({
       email: payload.email.trim().toLowerCase(),
       password: payload.password,
-      email_confirm: false,
-      user_metadata: { full_name: payload.fullName.trim() },
+      options: {
+        data: { full_name: payload.fullName.trim() },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`,
+      },
     });
 
     if (authError) {
@@ -201,6 +205,7 @@ export async function submitAccountApplicationAction(payload: {
     }
 
     authUserId = authData.user?.id;
+    if (authData.session) await authClient.auth.signOut();
 
     const { error } = await supabase.from("account_requests").insert({
       id: authUserId ?? undefined,
@@ -387,11 +392,10 @@ export async function approveAccountApplicationAction(
       return { success: false, message: "Pengajuan belum memiliki akun Auth yang valid dan tidak dapat disetujui." };
     }
     if (authUserId) {
-      const { error: authErr } = await supabase.auth.admin.updateUserById(authUserId, {
-        email_confirm: true,
-      });
-      if (authErr) {
-        throw authErr;
+      const { data: authLookup, error: authLookupError } = await supabase.auth.admin.getUserById(authUserId);
+      if (authLookupError) throw authLookupError;
+      if (!authLookup.user?.email_confirmed_at) {
+        return { success: false, message: "Email pemohon belum dikonfirmasi. Minta pemohon membuka tautan verifikasi dari Supabase terlebih dahulu." };
       }
 
       // Upsert profile row with the role assigned by the admin

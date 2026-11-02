@@ -46,6 +46,7 @@ export function createAdminClient() {
           createUser: () => Promise.resolve({ data: { user: { id: "mock-user-id" } }, error: null }),
           deleteUser: () => Promise.resolve({ error: null }),
           updateUserById: () => Promise.resolve({ data: { user: { id: "mock-user-id" } }, error: null }),
+          getUserById: () => Promise.resolve({ data: { user: { id: "mock-user-id", email_confirmed_at: "2026-01-01T00:00:00.000Z" } }, error: null }),
           inviteUserByEmail: () => Promise.resolve({ data: { user: { id: "mock-user-id" } }, error: null }),
           signOut: () => Promise.resolve({ error: null }),
         },
