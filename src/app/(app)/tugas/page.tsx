@@ -15,6 +15,7 @@ import {
   updateTaskStatusAction,
   getTasksAction,
   getProjectsAction,
+  deleteTaskAction,
 } from "@/modules/tasks/actions";
 import { TaskDiscussion } from "@/components/tasks/task-discussion";
 
@@ -170,6 +171,13 @@ export default function TugasPage() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleDeleteTask = async (task: TaskItem) => {
+    if (!window.confirm(`Arsipkan tugas "${task.title}"?`)) return;
+    const result = await deleteTaskAction(task.id);
+    setToastMessage({ type: result.success ? "success" : "error", text: result.message });
+    if (result.success) setTasks((current) => current.filter((item) => item.id !== task.id));
   };
 
   const overdueCount = tasks.filter((t) => t.isOverdue).length;
@@ -507,6 +515,7 @@ export default function TugasPage() {
                         task={t}
                         onStatusChange={handleStatusChange}
                         onToggleChecklist={handleToggleChecklist}
+                        onDelete={handleDeleteTask}
                       />
                     ))}
                   </div>
@@ -535,6 +544,7 @@ export default function TugasPage() {
                         task={t}
                         onStatusChange={handleStatusChange}
                         onToggleChecklist={handleToggleChecklist}
+                        onDelete={handleDeleteTask}
                       />
                     ))}
                   </div>
@@ -563,6 +573,7 @@ export default function TugasPage() {
                         task={t}
                         onStatusChange={handleStatusChange}
                         onToggleChecklist={handleToggleChecklist}
+                        onDelete={handleDeleteTask}
                       />
                     ))}
                   </div>
@@ -591,6 +602,7 @@ export default function TugasPage() {
                         task={t}
                         onStatusChange={handleStatusChange}
                         onToggleChecklist={handleToggleChecklist}
+                        onDelete={handleDeleteTask}
                       />
                     ))}
                   </div>
@@ -778,7 +790,7 @@ export default function TugasPage() {
                   Judul Tugas <span className="text-error">*</span>
                 </label>
                 <input
-                  type="date"
+                  type="text"
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
@@ -831,7 +843,7 @@ export default function TugasPage() {
                   Tenggat Waktu
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   value={newDueDate}
                   onChange={(e) => setNewDueDate(e.target.value)}
                   className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -898,10 +910,12 @@ function TaskCard({
   task,
   onStatusChange,
   onToggleChecklist,
+  onDelete,
 }: {
   task: TaskItem;
   onStatusChange: (task: TaskItem, status: TaskStatus) => void;
   onToggleChecklist: (taskId: string, checklistId: string, currentDone: boolean) => void;
+  onDelete: (task: TaskItem) => void;
 }) {
   const [showDiscussion, setShowDiscussion] = React.useState(false);
   const isDone = task.status === "done";
@@ -1054,6 +1068,10 @@ function TaskCard({
           <span>{isDone ? "Selesai (Dibuka Kembali?)" : "Tandai Selesai"}</span>
         </button>
       </div>
+
+      <button type="button" onClick={() => onDelete(task)} className="h-8 rounded-lg border border-border text-[11px] font-semibold text-muted-foreground hover:text-error hover:border-error/40">
+        Arsipkan tugas
+      </button>
 
       <button
         type="button"

@@ -343,3 +343,23 @@ export async function createTaskAction(
     taskId: newId,
   };
 }
+
+export async function deleteTaskAction(taskId: string): Promise<{ success: boolean; message: string }> {
+  const user = await requireAuthUser();
+  if (!taskId) return { success: false, message: "ID tugas tidak valid." };
+  if (process.env.VITEST) return { success: true, message: "Tugas berhasil diarsipkan." };
+  try {
+    const supabase = createAdminClient();
+    const { data: task, error: taskError } = await supabase.from("tasks").select("id, title, created_by").eq("id", taskId).is("deleted_at", null).maybeSingle();
+    if (taskError) throw taskError;
+    if (!task) return { success: false, message: "Tugas tidak ditemukan." };
+    if (task.created_by !== user.id && !hasMinimumRole(user, "pengurus")) return { success: false, message: "Hanya pembuat tugas atau pengurus yang dapat mengarsipkan tugas." };
+    const { error } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", taskId).is("deleted_at", null);
+    if (error) throw error;
+    await supabase.from("audit_logs").insert({ event_name: "task.archived", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: task.title, action_detail: "Tugas diarsipkan secara soft-delete." });
+    return { success: true, message: "Tugas berhasil diarsipkan." };
+  } catch (error) {
+    console.error("Failed to archive task:", error);
+    return { success: false, message: "Gagal mengarsipkan tugas." };
+  }
+}

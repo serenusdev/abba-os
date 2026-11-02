@@ -276,6 +276,13 @@ export async function saveReportDraftAction(
 
   const user = await requireAuthUser();
 
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.reportDate)) {
+    return { success: false, message: "Tanggal laporan tidak valid." };
+  }
+  if (!process.env.VITEST && payload.reportDate !== getJakartaTime().dateStr) {
+    return { success: false, message: "Laporan harian hanya dapat dibuat untuk tanggal operasional hari ini." };
+  }
+
   if (process.env.VITEST) {
     return {
       success: true,
@@ -351,6 +358,12 @@ export async function submitReportAction(
 
   const user = await requireAuthUser();
   const jakarta = getJakartaTime();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.reportDate)) {
+    return { success: false, message: "Tanggal laporan tidak valid.", isLate: false, submittedAtTime: "" };
+  }
+  if (!process.env.VITEST && payload.reportDate !== jakarta.dateStr) {
+    return { success: false, message: "Laporan harian hanya dapat dikirim untuk tanggal operasional hari ini.", isLate: false, submittedAtTime: "" };
+  }
   const submittedAtTime = `${jakarta.timeFormatted} WIB`;
 
   if (process.env.VITEST) {
