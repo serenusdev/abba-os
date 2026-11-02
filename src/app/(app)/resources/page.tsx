@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Illustration } from "@/components/ui/illustration";
-import { CATEGORIES_DATA } from "@/modules/library/data";
 import { CategorySummary, ResourceItem } from "@/modules/library/types";
 import { getResourcesAction, getCategoriesAction, getResourceStatsAction } from "@/modules/library/actions";
 
@@ -14,7 +13,7 @@ export default function ResourceLibraryPage() {
   const [selectedTag, setSelectedTag] = React.useState<string | null>(null);
 
   const [resources, setResources] = React.useState<ResourceItem[]>([]);
-  const [categories, setCategories] = React.useState<CategorySummary[]>(CATEGORIES_DATA);
+  const [categories, setCategories] = React.useState<CategorySummary[]>([]);
   const [stats, setStats] = React.useState<{ totalCount: number; validCount: number; validPercent: number } | null>(null);
   const [statsError, setStatsError] = React.useState(false);
 

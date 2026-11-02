@@ -3,7 +3,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthUser } from "@/lib/auth/guards";
-import { INITIAL_RESOURCES, CATEGORIES_DATA } from "./data";
+import { INITIAL_RESOURCES } from "./data";
 import { CategorySummary, ResourceItem } from "./types";
 
 export async function getCategoriesAction(): Promise<CategorySummary[]> {
@@ -12,7 +12,7 @@ export async function getCategoriesAction(): Promise<CategorySummary[]> {
     const supabase = createAdminClient();
     const [categoriesResult, resourcesResult] = await Promise.all([
       supabase.from("resource_categories").select("id, name, slug, icon").order("sort_order", { ascending: true }),
-      supabase.from("resources").select("category_id"),
+      supabase.from("resources").select("category_id").eq("status", "published"),
     ]);
 
     if (!categoriesResult.error && categoriesResult.data && categoriesResult.data.length > 0) {
@@ -40,25 +40,28 @@ export async function getCategoriesAction(): Promise<CategorySummary[]> {
       // Prepend an "all" entry with total count
       return [{ name: "Semua", slug: "all", count: totalCount, icon: "apps" }, ...mapped];
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.error("Failed to query categories from Supabase:", err);
   }
-  return CATEGORIES_DATA;
+  return [];
 }
 
 export async function getResourceStatsAction(): Promise<{
   totalCount: number;
   validCount: number;
   validPercent: number;
-}> {
+} | null> {
   await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("resources")
-      .select("access_setup, how_to_use, workflow_examples, limitations_cautions, official_sources, documentation_status");
+      .select("access_setup, how_to_use, workflow_examples, limitations_cautions, official_sources, documentation_status")
+      .eq("status", "published");
 
-    if (!error && data) {
+    if (error) throw error;
+
+    if (data) {
       const totalCount = data.length;
       const validCount = (data as any[]).filter((r: any) =>
         r.access_setup &&
@@ -71,8 +74,9 @@ export async function getResourceStatsAction(): Promise<{
       const validPercent = totalCount > 0 ? Math.round((validCount / totalCount) * 100) : 0;
       return { totalCount, validCount, validPercent };
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.error("Failed to query resource stats from Supabase:", err);
+    return null;
   }
   return { totalCount: 0, validCount: 0, validPercent: 0 };
 }
