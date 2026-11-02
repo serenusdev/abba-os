@@ -8,9 +8,18 @@ export async function updateSession(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const pathname = request.nextUrl.pathname;
+  const isPublicRoute =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/api/calendar/feed');
 
   if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
-    return supabaseResponse;
+    if (isPublicRoute) return supabaseResponse;
+    return NextResponse.json(
+      { error: 'Server authentication is not configured.' },
+      { status: 503 }
+    );
   }
 
   const supabase = createServerClient(
@@ -37,12 +46,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-  const isPublicRoute =
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/register') ||
-    pathname.startsWith('/api/calendar/feed');
 
   // If unauthenticated and accessing protected app route
   if (!user && !isPublicRoute) {

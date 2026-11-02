@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hashCalendarToken } from "@/lib/fcm";
 
 export const dynamic = "force-dynamic";
 
@@ -25,13 +26,42 @@ function escapeIcalText(text: string): string {
  * GET /api/calendar/feed
  * Generates dynamic RFC 5545 iCalendar (.ics) subscription feed from Supabase events
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const token = new URL(request.url).searchParams.get("token");
+    if (!token || token.length < 32) {
+      return NextResponse.json({ error: "Calendar token wajib diisi." }, { status: 401 });
+    }
     const supabase = createAdminClient();
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from("calendar_subscriptions")
+      .select("id, user_id, expires_at, revoked_at")
+      .eq("token_hash", hashCalendarToken(token))
+      .maybeSingle();
+    if (subscriptionError) throw subscriptionError;
+    if (
+      !subscription ||
+      subscription.revoked_at ||
+      new Date(subscription.expires_at).getTime() <= Date.now()
+    ) {
+      return NextResponse.json({ error: "Calendar token tidak valid atau sudah kedaluwarsa." }, { status: 401 });
+    }
+
+    const { data: owner, error: ownerError } = await supabase
+      .from("profiles")
+      .select("id, team_name, status")
+      .eq("id", subscription.user_id)
+      .maybeSingle();
+    if (ownerError) throw ownerError;
+    if (!owner || owner.status !== "active") {
+      return NextResponse.json({ error: "Akun pemilik kalender tidak aktif." }, { status: 403 });
+    }
+
     const { data: events, error } = await supabase
       .from("events")
       .select("*")
       .neq("status", "cancelled")
+      .is("deleted_at", null)
       .order("starts_at", { ascending: true });
 
     if (error) {
@@ -51,7 +81,9 @@ export async function GET() {
     ];
 
     if (events && events.length > 0) {
-      for (const event of events) {
+      for (const event of events.filter(
+        (item: { team_id?: string | null }) => !item.team_id || item.team_id === owner.team_name
+      )) {
         const start = new Date(event.starts_at);
         const end = new Date(event.ends_at);
 

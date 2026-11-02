@@ -8,7 +8,9 @@ export type UserRole =
 export type AccountStatus =
   | 'pending'
   | 'active'
-  | 'inactive'
+  | 'approved'
+  | 'rejected'
+  | 'deactivated'
   | 'suspended';
 
 export interface UserProfile {

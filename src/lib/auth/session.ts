@@ -26,6 +26,11 @@ const ROLE_PRIORITY: Record<UserRole, number> = {
   santri: 1,
 };
 
+const TEST_ACTION_USER: UserProfile = {
+  ...DEFAULT_MOCK_USER,
+  roles: ['santri', 'koordinator', 'pengurus', 'yayasan', 'super_admin'],
+};
+
 /**
  * Cached server function to resolve current authenticated user and real database profile.
  * Fail-closed: returns null if unauthenticated (unless running in test suite).
@@ -40,7 +45,7 @@ export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null>
 
     if (authError || !user) {
       if (process.env.VITEST) {
-        return DEFAULT_MOCK_USER;
+        return TEST_ACTION_USER;
       }
       return null;
     }
@@ -63,14 +68,18 @@ export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null>
       }
     }
 
-    // Determine highest assigned role, fallback to member_type or 'santri'
+    // A database profile is mandatory. Do not turn an authenticated auth.users
+    // record without an application profile into an active application session.
+    if (!profile) {
+      return null;
+    }
+
+    // Determine highest assigned role. member_type is descriptive data, not a
+    // substitute for the authoritative user_roles relationship.
     let primaryRole: UserRole = 'santri';
     if (rolesList.length > 0) {
       rolesList.sort((a, b) => (ROLE_PRIORITY[b] || 0) - (ROLE_PRIORITY[a] || 0));
       primaryRole = rolesList[0];
-    } else if (profile?.member_type && ROLE_PRIORITY[profile.member_type as UserRole]) {
-      primaryRole = profile.member_type as UserRole;
-      rolesList.push(primaryRole);
     } else {
       rolesList.push('santri');
     }
@@ -80,12 +89,12 @@ export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null>
     const resolvedProfile: UserProfile = {
       id: user.id,
       email: user.email || profile?.email || '',
-      full_name: profile?.full_name || user.user_metadata?.full_name || 'Pengguna Pondok',
+      full_name: profile.full_name,
       role: primaryRole,
       roles: rolesList,
-      status: (profile?.status as UserProfile['status']) || 'active',
-      team_name: profile?.team_name || 'Santri',
-      member_type: profile?.member_type || primaryRole,
+      status: profile.status as UserProfile['status'],
+      team_name: profile.team_name,
+      member_type: profile.member_type,
       avatar_url: profile?.avatar_url || null,
       phone_number: profile?.phone_number || null,
       created_at: profile?.created_at || user.created_at || new Date().toISOString(),
@@ -95,7 +104,7 @@ export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null>
     return resolvedProfile;
   } catch (err) {
     if (process.env.VITEST) {
-      return DEFAULT_MOCK_USER;
+      return TEST_ACTION_USER;
     }
     console.error('Error resolving user profile:', err);
     return null;

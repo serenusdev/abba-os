@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { requireAuthUser, getJakartaTime } from "@/lib/auth/guards";
 import { ATTENDANCE_HISTORY } from "./data";
 import { AttendanceClassification, AttendanceRecordItem, CorrectionRequestPayload } from "./types";
@@ -18,16 +19,6 @@ export interface CheckinResult {
  * Helper: parse "HH:MM" policy time string into { hours, minutes }.
  * Returns null if the string is missing or malformed.
  */
-function parsePolicyTime(timeStr: string | null | undefined): { hours: number; minutes: number } | null {
-  if (!timeStr) return null;
-  const parts = timeStr.split(":");
-  if (parts.length < 2) return null;
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  if (isNaN(h) || isNaN(m)) return null;
-  return { hours: h, minutes: m };
-}
-
 /**
  * Server Action: Process 1-tap Attendance Check-in
  * Strictly enforces server Asia/Jakarta (WIB) time and reads classification
@@ -47,106 +38,53 @@ export async function checkInAttendanceAction(): Promise<CheckinResult> {
     };
   }
 
-  // Load active policy thresholds dynamically from Supabase
-  let cutoffH = 8, cutoffM = 0;   // default: 08:00 WIB
-  let graceH  = 8, graceM  = 15; // default: 08:15 WIB
   try {
-    const supabaseAdmin = createAdminClient();
-    const { data: policy } = await supabaseAdmin
-      .from("policy_settings")
-      .select("attendance_cutoff_time, attendance_grace_cutoff_time")
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (policy) {
-      const cutoff = parsePolicyTime(policy.attendance_cutoff_time);
-      const grace  = parsePolicyTime(policy.attendance_grace_cutoff_time);
-      if (cutoff) { cutoffH = cutoff.hours; cutoffM = cutoff.minutes; }
-      if (grace)  { graceH  = grace.hours;  graceM  = grace.minutes; }
-    }
-  } catch {
-    // non-fatal — fall back to defaults
-  }
-
-  const nowTotalMinutes = jakarta.hours * 60 + jakarta.minutes;
-  const cutoffTotal = cutoffH * 60 + cutoffM;
-  const graceTotal  = graceH  * 60 + graceM;
-
-  let classification: AttendanceClassification = "on_time";
-  if (nowTotalMinutes > graceTotal) {
-    classification = "late";
-  } else if (nowTotalMinutes > cutoffTotal) {
-    classification = "grace";
-  } else {
-    classification = "on_time";
-  }
-
-  const label =
-    classification === "on_time"
-      ? "Tepat Waktu"
-      : classification === "grace"
-      ? "Masa Toleransi"
-      : "Terlambat";
-
-  if (process.env.VITEST) {
-    return {
-      success: true,
-      message: `Presensi berhasil dicatat pada ${jakarta.timeFormatted} (Status: ${label}).`,
-      classification,
-      timeStr: jakarta.timeFormatted,
-      alreadyCheckedIn: false,
-    };
-  }
-
-  try {
-    const supabase = createAdminClient();
-    const today = jakarta.dateStr;
-
-    const { error: upsertErr } = await supabase.from("attendance_records").upsert(
-      {
-        user_id: user.id,
-        attendance_date: today,
-        checked_in_at: jakarta.now.toISOString(),
-        classification,
-        minutes_after_deadline: classification === "late" ? nowTotalMinutes - cutoffTotal : 0,
-        policy_version_id: "v2.0-dynamic",
-        client_meta: {
-          source: "web-live",
-          recorded_at: jakarta.now.toISOString(),
-          wib_time: jakarta.timeFormatted,
-        },
-      },
-      { onConflict: "user_id,attendance_date" }
-    );
-
-    if (upsertErr) {
-      console.error("Gagal mencatat presensi di Supabase:", upsertErr);
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("attendance_check_in", {
+      p_user_id: user.id,
+      p_client_meta: { source: "web-live", wib_time: jakarta.timeFormatted },
+    });
+    if (error) {
+      console.error("Gagal mencatat presensi di Supabase:", error);
       return {
         success: false,
-        message: "Gagal menyimpan presensi ke database: " + upsertErr.message,
-        classification,
+        message: "Gagal menyimpan presensi ke database: " + error.message,
+        classification: "on_time",
         timeStr: jakarta.timeFormatted,
       };
     }
+    const result = data as {
+      success?: boolean;
+      message?: string;
+      classification?: AttendanceClassification;
+      checked_in_at?: string;
+      already_checked_in?: boolean;
+    } | null;
+    const classification = result?.classification || "on_time";
+    const timeStr = result?.checked_in_at
+      ? `${new Date(result.checked_in_at).toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          timeZone: "Asia/Jakarta",
+        })} WIB`
+      : jakarta.timeFormatted;
+    return {
+      success: result?.success === true,
+      message: result?.message || "Gagal mencatat presensi.",
+      classification,
+      timeStr,
+      alreadyCheckedIn: result?.already_checked_in,
+    };
   } catch (err: any) {
     console.error("Supabase attendance checkin error:", err);
     return {
       success: false,
       message: err.message || "Gagal mencatat presensi.",
-      classification,
+      classification: "on_time",
       timeStr: jakarta.timeFormatted,
     };
   }
-
-  return {
-    success: true,
-    message: `Presensi berhasil dicatat pada ${jakarta.timeFormatted} (Status: ${label}).`,
-    classification,
-    timeStr: jakarta.timeFormatted,
-    alreadyCheckedIn: false,
-  };
 }
 
 /**

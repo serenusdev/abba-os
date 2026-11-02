@@ -1,14 +1,14 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
+const serverUrl = process.env.CAPACITOR_SERVER_URL || 'https://idaroh.pondokabdurrahmanbinauf.web.id';
+
 const config: CapacitorConfig = {
   appId: 'id.web.pondokabdurrahmanbinauf.app',
   appName: 'Pondok OS',
-  // webDir hanya dipakai sebagai fallback — app berjalan dari live server URL
+  // Web content is loaded from the deployed app; webDir remains a fallback.
   webDir: 'out',
   server: {
-    // Live URL mode: Capacitor membungkus web app yang sudah berjalan di Vercel.
-    // Tidak perlu static export, semua Server Action tetap berfungsi normal.
-    url: 'https://abba-os-eight.vercel.app',
+    url: serverUrl,
     cleartext: false,
     androidScheme: 'https',
   },

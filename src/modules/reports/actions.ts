@@ -2,7 +2,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAuthUser, requireRole, getJakartaTime } from "@/lib/auth/guards";
+import { createClient } from "@/lib/supabase/server";
+import { sendPushToUsers } from "@/lib/fcm";
+import { getHighestRole, requireAuthUser, requireRole, getJakartaTime } from "@/lib/auth/guards";
 import { INITIAL_USER_DAILY_REPORT, REVIEW_QUEUE_REPORTS } from "./data";
 import { DailyReport, ReportItem, ReviewDecision } from "./types";
 
@@ -25,6 +27,17 @@ export interface ReviewReportPayload {
   reviewerName?: string;
 }
 
+function serializeReportItems(items: ReportItem[]) {
+  return items.map((item) => ({
+    categoryId: item.categoryId,
+    title: item.title,
+    description: item.description,
+    resultProgress: item.resultProgress || "",
+    obstacles: item.obstacles || "",
+    durationMinutes: item.durationMinutes || 60,
+  }));
+}
+
 /**
  * Server Action: Query Today's Report
  */
@@ -45,6 +58,15 @@ export async function getTodayReportAction(): Promise<DailyReport> {
       .maybeSingle();
 
     if (report) {
+      let reviewerName: string | undefined;
+      if (report.reviewer_id) {
+        const { data: reviewer } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", report.reviewer_id)
+          .maybeSingle();
+        reviewerName = reviewer?.full_name;
+      }
       return {
         id: report.id,
         userId: report.user_id,
@@ -69,7 +91,7 @@ export async function getTodayReportAction(): Promise<DailyReport> {
             }) + " WIB"
           : undefined,
         reviewStatus: report.review_status,
-        reviewerName: report.reviewer_id ? "Ustadz Pembina" : undefined,
+        reviewerName,
         reviewedAt: report.reviewed_at || undefined,
         revisionNo: report.revision_no || 1,
         items: (report.report_items || []).map((it: any) => ({
@@ -87,6 +109,7 @@ export async function getTodayReportAction(): Promise<DailyReport> {
     }
   } catch (err) {
     console.error("Failed to query today report:", err);
+    if (!process.env.VITEST) throw err;
   }
 
   if (process.env.VITEST) {
@@ -158,6 +181,11 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
           .in("id", userIds);
         profileMap = new Map(((profiles as any[]) || []).map((p: any) => [p.id, p]));
       }
+      const reviewerIds = Array.from(new Set(reports.map((report: any) => report.reviewer_id).filter(Boolean)));
+      const { data: reviewers } = reviewerIds.length
+        ? await supabase.from("profiles").select("id, full_name").in("id", reviewerIds)
+        : { data: [] };
+      const reviewerMap = new Map((reviewers || []).map((profile: any) => [profile.id, profile.full_name]));
 
       return reports.map((r: any) => {
         const author = profileMap.get(r.user_id);
@@ -185,7 +213,7 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
               }) + " WIB"
             : undefined,
           reviewStatus: r.review_status,
-          reviewerName: r.reviewer_id ? "Ustadz Pembina" : undefined,
+          reviewerName: r.reviewer_id ? reviewerMap.get(r.reviewer_id) : undefined,
           reviewedAt: r.reviewed_at || undefined,
           revisionNo: r.revision_no || 1,
           items: (r.report_items || []).map((it: any) => ({
@@ -204,6 +232,7 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
     }
   } catch (err) {
     console.error("Failed to query review queue:", err);
+    if (!process.env.VITEST) throw err;
   }
 
   if (process.env.VITEST) {
@@ -236,37 +265,16 @@ export async function saveReportDraftAction(
   }
 
   try {
-    const supabase = createAdminClient();
-    const { data: rep, error: repError } = await supabase
-      .from("daily_reports")
-      .upsert(
-        {
-          user_id: user.id,
-          report_date: payload.reportDate,
-          submission_status: "draft",
-          review_status: "not_reviewed",
-        },
-        { onConflict: "user_id,report_date" }
-      )
-      .select("id")
-      .single();
-
-    if (repError) throw repError;
-
-    if (rep?.id && payload.items.length > 0) {
-      await supabase.from("report_items").delete().eq("report_id", rep.id);
-      await supabase.from("report_items").insert(
-        payload.items.map((it, idx) => ({
-          report_id: rep.id,
-          title: it.title,
-          description: it.description,
-          result_progress: it.resultProgress,
-          obstacles: it.obstacles,
-          duration_minutes: it.durationMinutes,
-          sort_order: idx + 1,
-        }))
-      );
-    }
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("save_report", {
+      p_user_id: user.id,
+      p_report_date: payload.reportDate,
+      p_submission_status: "draft",
+      p_is_late: false,
+      p_items: serializeReportItems(payload.items),
+    });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.message || "Draft laporan tidak tersimpan.");
   } catch (err: any) {
     console.error("Failed to save report draft in Supabase:", err);
     return {
@@ -353,7 +361,15 @@ export async function submitReportAction(
       .limit(1)
       .maybeSingle();
 
-    if (policy?.report_deadline_time) {
+    if (!policy) {
+      return {
+        success: false,
+        message: "Kebijakan batas laporan aktif belum tersedia.",
+        isLate: false,
+        submittedAtTime,
+      };
+    }
+    if (policy.report_deadline_time) {
       const parts = policy.report_deadline_time.split(":");
       if (parts.length >= 2) {
         const h = parseInt(parts[0], 10);
@@ -375,59 +391,17 @@ export async function submitReportAction(
   const statusLabel = isLate ? `Terlambat (melewati ${deadlineDisplay})` : "Tepat Waktu";
 
   try {
-    const supabase = createAdminClient();
-
-    // Pastikan laporan yang sudah di-approve tidak dapat di-overwrite / dikirim ulang
-    const { data: existingReport } = await supabase
-      .from("daily_reports")
-      .select("id, review_status, first_submitted_at")
-      .eq("user_id", user.id)
-      .eq("report_date", payload.reportDate)
-      .maybeSingle();
-
-    if (existingReport && existingReport.review_status === "approved") {
-      return {
-        success: false,
-        message: "Laporan untuk tanggal ini sudah disetujui ustadz dan tidak dapat diubah kembali.",
-        isLate,
-        submittedAtTime,
-      };
-    }
-
-    const firstSubmittedAt = existingReport?.first_submitted_at || jakarta.now.toISOString();
-
-    const { data: rep, error: repError } = await supabase
-      .from("daily_reports")
-      .upsert(
-        {
-          user_id: user.id,
-          report_date: payload.reportDate,
-          submission_status: "submitted",
-          is_late: isLate,
-          first_submitted_at: firstSubmittedAt,
-          last_submitted_at: jakarta.now.toISOString(),
-          review_status: "not_reviewed",
-        },
-        { onConflict: "user_id,report_date" }
-      )
-      .select("id")
-      .single();
-
-    if (repError) throw repError;
-
-    if (rep?.id) {
-      await supabase.from("report_items").delete().eq("report_id", rep.id);
-      await supabase.from("report_items").insert(
-        payload.items.map((it, idx) => ({
-          report_id: rep.id,
-          title: it.title,
-          description: it.description,
-          result_progress: it.resultProgress,
-          obstacles: it.obstacles,
-          duration_minutes: it.durationMinutes,
-          sort_order: idx + 1,
-        }))
-      );
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("save_report", {
+      p_user_id: user.id,
+      p_report_date: payload.reportDate,
+      p_submission_status: "submitted",
+      p_is_late: isLate,
+      p_items: serializeReportItems(payload.items),
+    });
+    if (error) throw error;
+    if (!data?.success) {
+      return { success: false, message: data?.message || "Laporan tidak tersimpan.", isLate, submittedAtTime };
     }
   } catch (err: any) {
     console.error("Failed to submit report to Supabase:", err);
@@ -480,7 +454,7 @@ export async function reviewReportAction(
     // 1. Ambil data laporan dan pastikan validasi status
     const { data: targetReport, error: fetchErr } = await supabase
       .from("daily_reports")
-      .select("id, user_id, review_status, submission_status")
+      .select("id, user_id, review_status, submission_status, revision_no")
       .eq("id", payload.reportId)
       .maybeSingle();
 
@@ -490,7 +464,7 @@ export async function reviewReportAction(
     }
 
     // Cegah self-review (peninjau tidak boleh menyetujui laporannya sendiri)
-    if (targetReport.user_id === reviewer.id && reviewer.role !== "super_admin") {
+    if (targetReport.user_id === reviewer.id && getHighestRole(reviewer) !== "super_admin") {
       return {
         success: false,
         message: "FORBIDDEN: Anda tidak dapat meninjau atau menyetujui laporan Anda sendiri.",
@@ -505,17 +479,36 @@ export async function reviewReportAction(
       };
     }
 
-    // 2. Simpan evaluasi ke tabel report_reviews agar catatan ustadz tersimpan permanen
-    await supabase.from("report_reviews").upsert(
+    const elevatedReviewer = ["super_admin", "yayasan", "pengurus"].includes(getHighestRole(reviewer));
+    const { data: assignment, error: assignmentError } = await supabase
+      .from("reviewer_assignments")
+      .select("id")
+      .eq("reviewee_id", targetReport.user_id)
+      .eq("reviewer_id", reviewer.id)
+      .eq("kind", "report")
+      .or(`valid_to.is.null,valid_to.gte.${new Date().toISOString().slice(0, 10)}`)
+      .limit(1)
+      .maybeSingle();
+    if (assignmentError) throw assignmentError;
+    if (!elevatedReviewer && !assignment) {
+      return { success: false, message: "Anda belum ditetapkan sebagai reviewer laporan ini." };
+    }
+    if (targetReport.submission_status !== "submitted" || targetReport.review_status === "approved") {
+      return { success: false, message: "Laporan tidak berada pada status yang dapat direview." };
+    }
+
+    // Review history is append-only; each decision is a separate record.
+    const { error: reviewError } = await supabase.from("report_reviews").insert(
       {
         report_id: payload.reportId,
+        revision_no: (targetReport as any).revision_no || 1,
         reviewer_id: reviewer.id,
         decision: payload.decision,
         notes: payload.notes || "",
-        reviewed_at: new Date().toISOString(),
-      },
-      { onConflict: "report_id" }
+        decided_at: new Date().toISOString(),
+      }
     );
+    if (reviewError) throw reviewError;
 
     const { error } = await supabase
       .from("daily_reports")
@@ -527,6 +520,19 @@ export async function reviewReportAction(
       .eq("id", payload.reportId);
 
     if (error) throw error;
+    if (!process.env.VITEST) {
+      try {
+        await sendPushToUsers([targetReport.user_id], {
+          type: payload.decision === "approved" ? "REPORT_APPROVED" : "REPORT_REVISION_REQUIRED",
+          title: "Status Laporan Diperbarui",
+          body: payload.decision === "approved" ? "Laporan harian Anda telah disetujui." : "Laporan harian Anda memerlukan revisi.",
+          url: "/laporan",
+          referenceId: payload.reportId,
+        });
+      } catch (pushError) {
+        console.error("Report review saved but push delivery failed:", pushError);
+      }
+    }
 
     await supabase.from("audit_logs").insert({
       event_name: `report.review_${payload.decision}`,

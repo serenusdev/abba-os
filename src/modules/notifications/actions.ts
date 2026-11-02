@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth/guards';
 
 /**
  * Upserts an FCM device token for the current authenticated user.
@@ -73,6 +74,7 @@ export async function unregisterDeviceToken(token: string): Promise<void> {
  * Call from a cron job or admin action — requires service role.
  */
 export async function cleanExpiredTokens(): Promise<{ deleted: number }> {
+  await requireRole(['super_admin']);
   const admin = createAdminClient();
   const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 

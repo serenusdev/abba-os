@@ -1,20 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-
-const hankenGrotesk = Hanken_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-hanken-grotesk",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  variable: "--font-ibm-plex-mono",
-  weight: ["400", "500", "600"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Pondok OS — Platform Operasional Terpadu",
@@ -40,10 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="id"
-      className={`${hankenGrotesk.variable} ${ibmPlexMono.variable}`}
-    >
+    <html lang="id">
       <head>
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link

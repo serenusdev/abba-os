@@ -24,6 +24,7 @@ export default function ProfileSettingsPage() {
   const [profileMsg, setProfileMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Password form
+  const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [isChangingPassword, setIsChangingPassword] = React.useState(false);
@@ -101,11 +102,12 @@ export default function ProfileSettingsPage() {
     }
 
     setIsChangingPassword(true);
-    const res = await changePasswordAction(newPassword);
+    const res = await changePasswordAction(currentPassword, newPassword);
     setPasswordMsg({ type: res.success ? "success" : "error", text: res.message });
     if (res.success) {
       setNewPassword("");
       setConfirmPassword("");
+      setCurrentPassword("");
     }
     setIsChangingPassword(false);
   };
@@ -259,6 +261,19 @@ export default function ProfileSettingsPage() {
         </h2>
 
         <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="font-label-sm text-label-sm text-on-surface block">Kata Sandi Lama</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Masukkan kata sandi saat ini"
+              autoComplete="current-password"
+              required
+              className="w-full h-11 px-3 rounded-xl bg-surface-container text-on-surface text-sm border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
           <div className="space-y-1.5">
             <label className="font-label-sm text-label-sm text-on-surface block">Kata Sandi Baru</label>
             <input

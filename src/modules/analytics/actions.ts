@@ -3,6 +3,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthUser, requireRole } from "@/lib/auth/guards";
+import { createHash, randomUUID } from "node:crypto";
 import { formatRelativeTimeId } from "@/lib/utils";
 import { INITIAL_AUDIT_LOGS } from "./data";
 import { AuditLogItem } from "./types";
@@ -16,32 +17,42 @@ export async function exportAuditedDataAction(
   category: string,
   requesterName?: string
 ): Promise<{ success: boolean; message: string; exportId: string; downloadUrl?: string }> {
+  void requesterName;
   const admin = await requireRole(["super_admin", "pengurus"]);
-  const effectiveRequester = requesterName || admin.full_name;
-  const exportId = `exp-${Date.now()}`;
+  const effectiveRequester = admin.full_name;
+  const exportId = randomUUID();
+  if (!category.trim()) {
+    return { success: false, message: "Kategori ekspor wajib dipilih.", exportId };
+  }
   try {
     const supabase = createAdminClient();
+    const exportPayload = { exportId, userId: admin.id, exportType, category: category.trim() };
+    const hash = createHash("sha256").update(JSON.stringify(exportPayload)).digest("hex");
     // 1. Record export log
-    await supabase.from("export_logs").insert({
+    const { error: exportError } = await supabase.from("export_logs").insert({
       id: exportId,
-      requester_name: effectiveRequester,
+      user_id: admin.id,
       export_type: exportType,
-      category,
-      record_count: 36,
-      checksum_hash: `sha256-export-${Date.now()}`,
+      category: category.trim(),
+      filter_criteria: { requested_by: effectiveRequester },
+      row_count: 0,
     });
+    if (exportError) throw exportError;
 
     // 2. Record immutable audit log
-    await supabase.from("audit_logs").insert({
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "admin.export_generated",
+      actor_id: admin.id,
       actor_name: effectiveRequester,
       target_id: exportId,
       target_label: `Ekspor ${category.toUpperCase()} (${exportType.toUpperCase()})`,
       action_detail: `Unduhan rekap data operasional diotorisasi dan dicatat untuk kepatuhan ISO/IEC 27001.`,
-      hash: `sha256-hash-chain-${Date.now()}`,
+      hash: `sha256-hash-chain-${hash}`,
     });
+    if (auditError) throw auditError;
   } catch (err) {
     console.error("Failed to record export in Supabase:", err);
+    return { success: false, message: "Gagal mencatat ekspor pada audit log.", exportId };
   }
 
   return {
@@ -115,7 +126,7 @@ export async function queryAuditLogsAction(
     return { success: true, logs: filtered };
   }
 
-  return { success: true, logs: [] };
+  return { success: false, logs: [] };
 }
 
 export interface PolicySettingItem {
@@ -242,13 +253,13 @@ export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetr
 
   try {
     const supabase = createAdminClient();
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
 
     // 1. Total santri
     const { count: santriCount } = await supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
-      .eq("role", "santri");
+      .eq("member_type", "santri");
     result.totalSantri = santriCount || 0;
 
     // 2. Attendance today

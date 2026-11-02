@@ -21,8 +21,12 @@ export function createAdminClient() {
         is: () => chain,
         or: () => chain,
         ilike: () => chain,
+        in: () => chain,
+        gte: () => chain,
+        lte: () => chain,
         order: () => chain,
         limit: () => chain,
+        rpc: () => Promise.resolve({ data: { success: true }, error: null }),
         single: () => Promise.resolve({ data: null, error: null }),
         maybeSingle: () => Promise.resolve({ data: null, error: null }),
         then: (resolve: any) => Promise.resolve({ data: null, error: null }).then(resolve),
@@ -32,10 +36,14 @@ export function createAdminClient() {
 
     return {
       from: () => createMockChain(),
+      rpc: () => Promise.resolve({ data: { success: true }, error: null }),
       auth: {
         admin: {
           createUser: () => Promise.resolve({ data: { user: { id: "mock-user-id" } }, error: null }),
           deleteUser: () => Promise.resolve({ error: null }),
+          updateUserById: () => Promise.resolve({ data: { user: { id: "mock-user-id" } }, error: null }),
+          inviteUserByEmail: () => Promise.resolve({ data: { user: { id: "mock-user-id" } }, error: null }),
+          signOut: () => Promise.resolve({ error: null }),
         },
       },
     } as any;

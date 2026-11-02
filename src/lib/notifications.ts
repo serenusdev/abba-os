@@ -64,8 +64,8 @@ export async function initPushNotifications(userId: string): Promise<void> {
         console.log('[FCM] Notification action performed');
       }
       const data = action.notification.data as Record<string, string> | undefined;
-      if (data?.route) {
-        window.location.href = data.route;
+      if (data?.url || data?.route) {
+        window.location.href = data.url || data.route || "/";
       }
     }
   );

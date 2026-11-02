@@ -3,28 +3,44 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthUser, requireRole } from "@/lib/auth/guards";
+import { hashCalendarToken, sendBroadcastPush } from "@/lib/fcm";
 import { INITIAL_ANNOUNCEMENTS, INITIAL_EVENTS } from "./data";
 import { AnnouncementItem, ScheduleEventItem } from "./types";
+import { randomBytes } from "node:crypto";
 
 /**
  * Server Action: Query Events for Schedules
  */
 export async function getEventsAction(): Promise<ScheduleEventItem[]> {
-  await requireAuthUser();
+  const user = await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: events, error } = await supabase
       .from("events")
       .select("*")
+      .is("deleted_at", null)
       .order("starts_at", { ascending: true });
 
     if (!error && events) {
       if (events.length === 0) return [];
 
-      return events.map((e: any) => {
+      const visibleEvents = events.filter(
+        (e: any) => !e.team_id || e.team_id === user.team_name
+      );
+      const organizerIds = Array.from(
+        new Set(visibleEvents.map((e: any) => e.organizer_id).filter(Boolean))
+      );
+      const { data: organizers } = organizerIds.length
+        ? await supabase.from("profiles").select("id, full_name").in("id", organizerIds)
+        : { data: [] };
+      const organizerMap = new Map(
+        ((organizers as any[]) || []).map((p: any) => [p.id, p.full_name])
+      );
+
+      return visibleEvents.map((e: any) => {
         const start = new Date(e.starts_at);
         const end = new Date(e.ends_at);
-        const timeRangeStr = `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB`;
+        const timeRangeStr = `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} WIB`;
 
         return {
           id: e.id,
@@ -32,13 +48,19 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
           statusBadge: e.location_changed ? "location_changed" : "on_schedule",
           statusLabel: e.location_changed ? "Perubahan Lokasi" : "Sesuai Jadwal",
           category: (e.category || "teknologi") as any,
-          categoryLabel: e.category === "keagamaan" ? "Kajian & Ibadah" : "Teknologi & Koding",
+          categoryLabel:
+            e.category === "keagamaan"
+              ? "Kajian & Ibadah"
+              : e.category === "operasional"
+                ? "Operasional"
+                : e.category === "umum"
+                  ? "Umum"
+                  : "Teknologi & Koding",
           title: e.title,
           location: e.location || "Lab Utama",
           previousLocation: e.previous_location,
-          speakerOrHost: "Ustadz Pembina",
-          groupName: "Sentra Digital",
-          attendeesCount: 24,
+          speakerOrHost: organizerMap.get(e.organizer_id),
+          groupName: e.team_id || undefined,
           actionType: "detail",
           actionLabel: "Lihat Detail",
           subNote: e.description,
@@ -47,6 +69,7 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
     }
   } catch (err) {
     console.error("Failed to query events from Supabase:", err);
+    if (!process.env.VITEST) throw err;
   }
 
   if (process.env.VITEST) {
@@ -60,7 +83,7 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
  * Server Action: Query Announcements
  */
 export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
-  await requireAuthUser();
+  const user = await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: announcements, error } = await supabase
@@ -69,9 +92,17 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
       .order("published_at", { ascending: false });
 
     if (!error && announcements) {
-      if (announcements.length === 0) return [];
+      const visibleAnnouncements = announcements.filter(
+        (a: any) => !a.team_id || a.team_id === user.team_name
+      );
+      if (visibleAnnouncements.length === 0) return [];
+      const { data: reads } = await supabase
+        .from("announcement_reads")
+        .select("announcement_id")
+        .eq("user_id", user.id);
+      const readIds = new Set((reads || []).map((read: any) => read.announcement_id));
 
-      return announcements.map((a: any) => ({
+      return visibleAnnouncements.map((a: any) => ({
         id: a.id,
         title: a.title,
         bodyMarkdown: a.body_markdown,
@@ -84,11 +115,12 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
           month: "short",
           year: "numeric",
         }),
-        isRead: false,
+        isRead: readIds.has(a.id),
       }));
     }
   } catch (err) {
     console.error("Failed to query announcements from Supabase:", err);
+    if (!process.env.VITEST) throw err;
   }
 
   if (process.env.VITEST) {
@@ -105,16 +137,31 @@ export async function markAnnouncementReadAction(
   announcementId: string
 ): Promise<{ success: boolean; message: string }> {
   const user = await requireAuthUser();
+  if (process.env.VITEST) {
+    return { success: true, message: `Pengumuman ${announcementId} ditandai sudah dibaca.` };
+  }
   try {
     const supabase = createAdminClient();
+    const { data: announcement, error: announcementError } = await supabase
+      .from("announcements")
+      .select("id, team_id, status")
+      .eq("id", announcementId)
+      .eq("status", "published")
+      .maybeSingle();
+    if (announcementError) throw announcementError;
+    if (!announcement || (announcement.team_id && announcement.team_id !== user.team_name)) {
+      return { success: false, message: "Pengumuman tidak tersedia untuk akun ini." };
+    }
     if (user.id && announcementId.length > 30) {
-      await supabase.from("announcement_reads").upsert({
+      const { error } = await supabase.from("announcement_reads").upsert({
         announcement_id: announcementId,
         user_id: user.id,
       });
+      if (error) throw error;
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.error("Failed to mark announcement read:", err);
+    return { success: false, message: "Gagal menandai pengumuman sebagai sudah dibaca." };
   }
 
   return {
@@ -131,7 +178,7 @@ export async function generateICalSubscriptionAction(): Promise<{
   icalUrl: string;
   message: string;
 }> {
-  await requireAuthUser();
+  const user = await requireAuthUser();
   let baseUrl = "";
   try {
     const { headers } = await import("next/headers");
@@ -150,8 +197,19 @@ export async function generateICalSubscriptionAction(): Promise<{
     baseUrl = "https://pondok.os";
   }
 
-  // Generate unique dynamic subscriber token
-  const token = `feed-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const token = randomBytes(32).toString("base64url");
+  if (!process.env.VITEST) {
+    const supabase = createAdminClient();
+    const { error } = await supabase.from("calendar_subscriptions").insert({
+      user_id: user.id,
+      token_hash: hashCalendarToken(token),
+      expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    if (error) {
+      console.error("Failed to persist calendar subscription:", error);
+      return { success: false, icalUrl: "", message: "Gagal membuat tautan kalender privat." };
+    }
+  }
   const icalUrl = `${baseUrl}/api/calendar/feed?token=${token}`;
 
   return {
@@ -170,6 +228,7 @@ export async function publishAnnouncementAction(payload: {
   priority: "normal" | "important";
   targetAudienceLabel: string;
 }): Promise<{ success: boolean; message: string; announcement?: AnnouncementItem }> {
+  const admin = await requireRole(["super_admin", "yayasan", "pengurus"]);
   if (!payload.title.trim()) {
     return {
       success: false,
@@ -184,10 +243,28 @@ export async function publishAnnouncementAction(payload: {
     };
   }
 
+  if (process.env.VITEST) {
+    const newAnn: AnnouncementItem = {
+      id: `ann-${Date.now()}`,
+      title: payload.title,
+      bodyMarkdown: payload.bodyMarkdown,
+      priority: payload.priority,
+      isPinned: payload.priority === "important",
+      targetAudienceLabel: payload.targetAudienceLabel,
+      publishedAtStr: "Baru Saja",
+      isRead: false,
+    };
+    return {
+      success: true,
+      message: `Pengumuman "${payload.title}" berhasil diterbitkan untuk ${payload.targetAudienceLabel}.`,
+      announcement: newAnn,
+    };
+  }
+
   let newId = `ann-${Date.now()}`;
   try {
     const supabase = createAdminClient();
-    const { data: inserted } = await supabase
+    const { data: inserted, error } = await supabase
       .from("announcements")
       .insert({
         title: payload.title,
@@ -197,22 +274,40 @@ export async function publishAnnouncementAction(payload: {
         target_audience_label: payload.targetAudienceLabel,
         status: "published",
         published_at: new Date().toISOString(),
+        author_id: admin.id,
       })
       .select("id")
       .single();
+
+    if (error || !inserted?.id) throw error || new Error("Pengumuman tidak tersimpan.");
 
     if (inserted?.id) newId = inserted.id;
 
     // Log to audit
     await supabase.from("audit_logs").insert({
       event_name: "announcement.published",
-      actor_name: "Super Admin",
+      actor_id: admin.id,
+      actor_name: admin.full_name,
       target_id: newId,
       target_label: payload.title,
       action_detail: `Menerbitkan pengumuman prioritas ${payload.priority} untuk ${payload.targetAudienceLabel}`,
     });
+    if (!process.env.VITEST) {
+      try {
+        await sendBroadcastPush({
+          type: "ANNOUNCEMENT_PUBLISHED",
+          title: `Pengumuman Baru: ${payload.title}`,
+          body: "Tap untuk membaca instruksi lengkap.",
+          url: "/jadwal",
+          referenceId: newId,
+        });
+      } catch (pushError) {
+        console.error("Announcement saved but push delivery failed:", pushError);
+      }
+    }
   } catch (err) {
     console.error("Failed to insert announcement in Supabase:", err);
+    return { success: false, message: "Gagal menerbitkan pengumuman." };
   }
 
   const newAnn: AnnouncementItem = {

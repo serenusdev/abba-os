@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    --font-hanken-grotesk: "Hanken Grotesk";
+    --font-ibm-plex-mono: "IBM Plex Mono";
     --background: #f6f9fa;
     --foreground: #13262c;
     --card: #ffffff;

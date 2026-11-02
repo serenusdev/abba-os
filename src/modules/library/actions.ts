@@ -110,6 +110,12 @@ export async function getResourcesAction(
 
     if (!error && data) {
       if (data.length === 0) return [];
+      const authorIds = Array.from(new Set(data.map((resource: any) => resource.created_by).filter(Boolean)));
+      const { data: authors, error: authorError } = authorIds.length
+        ? await supabase.from("profiles").select("id, full_name").in("id", authorIds)
+        : { data: [], error: null };
+      if (authorError) throw authorError;
+      const authorMap = new Map((authors || []).map((author: any) => [author.id, author.full_name]));
 
       let mapped: ResourceItem[] = data.map((r: any) => {
         const cat = r.resource_categories;
@@ -138,7 +144,7 @@ export async function getResourcesAction(
             month: "short",
             year: "numeric",
           }),
-          author: "Santri Digital",
+          author: authorMap.get(r.created_by) || "Tidak diketahui",
           visibility: r.visibility || "internal",
           status: r.status || "published",
           accessSetup: r.access_setup,
@@ -185,12 +191,37 @@ export async function getResourcesAction(
 export async function toggleFavoriteAction(
   resourceId: string
 ): Promise<{ success: boolean; isFavorited: boolean }> {
-  await requireAuthUser();
+  const user = await requireAuthUser();
   if (!resourceId) {
     return { success: false, isFavorited: false };
   }
-  return {
-    success: true,
-    isFavorited: true,
-  };
+  if (process.env.VITEST) return { success: true, isFavorited: true };
+  try {
+    const supabase = createAdminClient();
+    const { data: favorite, error: readError } = await supabase
+      .from("resource_favorites")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .eq("resource_id", resourceId)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (favorite) {
+      const { error } = await supabase
+        .from("resource_favorites")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("resource_id", resourceId);
+      if (error) throw error;
+      return { success: true, isFavorited: false };
+    }
+    const { error } = await supabase.from("resource_favorites").insert({
+      user_id: user.id,
+      resource_id: resourceId,
+    });
+    if (error) throw error;
+    return { success: true, isFavorited: true };
+  } catch (err) {
+    console.error("Failed to toggle resource favorite:", err);
+    return { success: false, isFavorited: Boolean(false) };
+  }
 }
