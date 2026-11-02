@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { formatOperationalDateTime } from "@/lib/utils";
 import { checkInAttendanceAction } from "@/modules/attendance/actions";
@@ -143,6 +144,13 @@ export default function BerandaPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
+                <Image
+                  src="/idaroh-icon.svg"
+                  alt="IDAROH"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 rounded-xl shrink-0 object-contain bg-card/80 p-0.5"
+                />
                 <span className="px-2.5 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-[11px] font-semibold uppercase tracking-wider">
                   Panel Administrator
                 </span>
@@ -684,8 +692,14 @@ export default function BerandaPage() {
       {/* Greeting & Server Sync Bar */}
       <section className="bg-card rounded-2xl p-4 sm:p-5 border border-border shadow-xs flex flex-col space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/60 text-accent-foreground w-fit">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-accent/60 text-accent-foreground w-fit">
+            <Image
+              src="/idaroh-icon.svg"
+              alt="IDAROH"
+              width={22}
+              height={22}
+              className="w-5 h-5 rounded-md object-contain"
+            />
             <span className="font-label-sm text-label-sm">
               {policy ? policy.name : "Operasional Pesantren"}
             </span>

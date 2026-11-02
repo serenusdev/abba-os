@@ -6,8 +6,10 @@ export const metadata: Metadata = {
   description:
     "Platform operasional santri, pengurus, koordinator, dan yayasan Pondok Quran Digitalpreneur Abdurrahman bin Auf.",
   icons: {
-    icon: "/favicon.ico",
+    icon: [{ url: "/idaroh-icon.svg", type: "image/svg+xml" }],
+    apple: "/idaroh-icon-192.png",
   },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {

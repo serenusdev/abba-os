@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { UserProfile } from "@/lib/auth/types";
@@ -61,9 +62,14 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
     <aside className="hidden md:flex flex-col w-64 fixed left-0 top-0 bottom-0 bg-card border-r border-border z-40">
       {/* Brand & Organization */}
       <div className="h-16 px-5 flex items-center gap-3 border-b border-border">
-        <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-base shadow-sm">
-          P
-        </div>
+        <Image
+          src="/idaroh-icon.svg"
+          alt="IDAROH"
+          width={36}
+          height={36}
+          priority
+          className="w-9 h-9 rounded-xl shrink-0 object-contain shadow-sm"
+        />
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-headline-sm text-headline-sm text-primary font-bold tracking-tight leading-none">

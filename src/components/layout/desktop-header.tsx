@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { formatOperationalDateTime } from "@/lib/utils";
 import { UserProfile } from "@/lib/auth/types";
@@ -42,7 +43,16 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
   return (
     <header className="hidden md:flex h-16 fixed top-0 right-0 left-64 bg-card border-b border-border z-30 px-6 items-center justify-between">
       {/* Page Title & Context */}
-      <div>
+      <div className="flex items-center gap-4 min-w-0">
+        <Image
+          src="/idaroh-logo.svg"
+          alt="IDAROH"
+          width={126}
+          height={39}
+          priority
+          className="h-8 w-auto shrink-0 object-contain"
+        />
+        <span className="h-7 w-px bg-border shrink-0" aria-hidden="true" />
         <h1 className="font-headline-sm text-headline-sm text-on-surface">
           {getPageTitle()}
         </h1>

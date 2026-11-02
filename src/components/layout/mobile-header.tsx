@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { Avatar } from "@/components/ui/avatar";
 import { UserProfile } from "@/lib/auth/types";
 
@@ -46,14 +47,16 @@ export function MobileHeader({ user, title }: MobileHeaderProps) {
     <header className="md:hidden fixed top-0 inset-x-0 z-50 bg-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe border-b border-border">
       <div className="h-16 px-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold flex-shrink-0 text-sm shadow-sm">
-            P
-          </div>
+          <Image
+            src="/idaroh-logo.svg"
+            alt="IDAROH"
+            width={126}
+            height={39}
+            priority
+            className="h-8 w-auto max-w-[126px] shrink-0 object-contain"
+          />
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-headline-sm text-[17px] text-primary tracking-tight leading-none truncate font-bold">
-                Pondok OS
-              </span>
               <span className="px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground font-label-sm text-[10px] leading-tight flex-shrink-0">
                 {roleLabel}
               </span>

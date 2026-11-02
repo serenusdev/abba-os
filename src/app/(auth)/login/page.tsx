@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Illustration } from "@/components/ui/illustration";
@@ -73,12 +74,14 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-sm">
         {/* Brand header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white font-bold text-xl shadow-sm mb-3">
-            P
-          </div>
-          <h2 className="font-headline-sm text-[22px] text-on-surface font-bold">
-            Pondok OS
-          </h2>
+          <Image
+            src="/idaroh-logo.svg"
+            alt="IDAROH"
+            width={220}
+            height={69}
+            priority
+            className="h-14 w-auto max-w-[220px] object-contain"
+          />
           <p className="font-body-sm text-[13px] text-muted-foreground mt-1">
             Platform Operasional Santri &amp; Pengurus
           </p>
