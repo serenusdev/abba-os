@@ -72,14 +72,14 @@ export function MobileHeader({ user, title }: MobileHeaderProps) {
         </Link>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button
+          <Link
+            href="/notifikasi"
             aria-label="Notifikasi Operasional"
             className="relative w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-accent/40 active:scale-95 transition-all"
-            type="button"
           >
             <span className="material-symbols-outlined text-[22px]">notifications</span>
             <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-error ring-2 ring-card" />
-          </button>
+          </Link>
 
           <Link href="/tim" className="w-11 h-11 flex items-center justify-center">
             <Avatar

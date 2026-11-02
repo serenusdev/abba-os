@@ -19,6 +19,7 @@ import {
   type ActiveUserItem,
 } from "@/modules/iam/actions";
 import { importMembersCsvAction } from "@/modules/operations/actions";
+import { exportAuditedDataAction } from "@/modules/analytics/actions";
 
 export default function AdminUsersPage() {
   const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
@@ -69,6 +70,7 @@ export default function AdminUsersPage() {
   const [importCsv, setImportCsv] = React.useState("");
   const [importFeedback, setImportFeedback] = React.useState<string | null>(null);
   const [isImporting, setIsImporting] = React.useState(false);
+  const [isExportingUsers, setIsExportingUsers] = React.useState(false);
 
   // Role select per applicant
   const [applicantRoles, setApplicantRoles] = React.useState<Record<string, string>>({});
@@ -88,6 +90,16 @@ export default function AdminUsersPage() {
       setIsLoading(false);
     }
   }, []);
+
+  const exportUsers = async () => {
+    setIsExportingUsers(true);
+    try {
+      const result = await exportAuditedDataAction("csv", "users", currentUser?.full_name);
+      if (result.success && result.downloadUrl) window.location.assign(result.downloadUrl);
+    } finally {
+      setIsExportingUsers(false);
+    }
+  };
 
   React.useEffect(() => {
     getCurrentUserAction()
@@ -748,9 +760,11 @@ export default function AdminUsersPage() {
           <button
             className="flex-1 h-11 rounded-xl bg-card text-on-surface-variant font-label-sm text-label-sm shadow-sm flex items-center justify-center gap-1.5 active:bg-muted transition-all border border-border hover:bg-surface-container"
             type="button"
+            onClick={exportUsers}
+            disabled={isExportingUsers}
           >
             <span className="material-symbols-outlined text-[18px]">download</span>
-            Unduh Rekap Akun
+            {isExportingUsers ? "Menyiapkan..." : "Unduh Rekap Akun"}
           </button>
           <Link
             href="/admin/audit"

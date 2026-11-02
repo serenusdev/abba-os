@@ -232,12 +232,18 @@ export async function assignReviewerAction(payload: { revieweeId: string; review
   const admin = await requireRole(["super_admin", "pengurus"]);
   if (payload.revieweeId === payload.reviewerId) return { success: false, message: "Anggota tidak dapat menjadi reviewer dirinya sendiri." };
   if (process.env.VITEST) return { success: true, message: "Reviewer utama berhasil ditetapkan." };
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const kind = payload.kind || "report";
-  await supabase.from("reviewer_assignments").update({ valid_to: new Date().toISOString().slice(0, 10) }).eq("reviewee_id", payload.revieweeId).eq("kind", kind).is("valid_to", null);
-  const { error } = await supabase.from("reviewer_assignments").insert({ reviewee_id: payload.revieweeId, reviewer_id: payload.reviewerId, kind, reason: payload.reason || null, valid_from: new Date().toISOString().slice(0, 10) });
+  const { data, error } = await supabase.rpc("assign_reviewer", {
+    p_reviewee_id: payload.revieweeId,
+    p_reviewer_id: payload.reviewerId,
+    p_kind: kind,
+    p_reason: payload.reason || null,
+  });
   if (error) throw error;
-  await supabase.from("audit_logs").insert({ event_name: "people.reviewer_assigned", actor_id: admin.id, actor_name: admin.full_name, target_id: payload.revieweeId, target_label: payload.reviewerId, action_detail: `Reviewer ${kind} ditetapkan dengan alasan: ${payload.reason || "-"}.` });
+  if (!data?.success) return { success: false, message: data?.message || "Reviewer tidak dapat ditetapkan." };
+  const auditClient = createAdminClient();
+  await auditClient.from("audit_logs").insert({ event_name: "people.reviewer_assigned", actor_id: admin.id, actor_name: admin.full_name, target_id: payload.revieweeId, target_label: payload.reviewerId, action_detail: `Reviewer ${kind} ditetapkan dengan alasan: ${payload.reason || "-"}.` });
   return { success: true, message: "Reviewer utama berhasil ditetapkan." };
 }
 

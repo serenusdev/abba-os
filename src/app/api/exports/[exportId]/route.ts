@@ -48,7 +48,7 @@ export async function GET(
   { params }: { params: Promise<{ exportId: string }> }
 ) {
   try {
-    const user = await requireRole(["super_admin", "pengurus"]);
+    const user = await requireRole(["super_admin", "yayasan", "pengurus"]);
     const { exportId } = await params;
     const exportType = new URL(request.url).pathname.endsWith(".pdf") ? "pdf" : "csv";
     const id = exportId.replace(/\.(csv|pdf)$/i, "");

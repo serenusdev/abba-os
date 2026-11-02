@@ -67,14 +67,14 @@ export default function AdminAuditPage() {
       } catch {
         setPendingPolicies([]);
       }
-      const res = await queryAuditLogsAction("");
+      const res = await queryAuditLogsAction("", scope);
       if (res.success && res.logs) {
         setAuditLogs(res.logs);
       }
     } catch (err) {
       console.error("Failed to load audit or policy:", err);
     }
-  }, []);
+  }, [scope]);
 
   React.useEffect(() => {
     getCurrentUserAction()
@@ -103,9 +103,9 @@ export default function AdminAuditPage() {
   }
 
   // Handle Log search
-  const handleSearchLogs = async (q: string) => {
+  const handleSearchLogs = async (q: string, nextScope = scope) => {
     setSearchLogQuery(q);
-    const res = await queryAuditLogsAction(q);
+    const res = await queryAuditLogsAction(q, nextScope);
     if (res.success) {
       setAuditLogs(res.logs);
     }
@@ -217,7 +217,11 @@ export default function AdminAuditPage() {
           </div>
           <select
             value={scope}
-            onChange={(e) => setScope(e.target.value)}
+            onChange={(e) => {
+              const nextScope = e.target.value;
+              setScope(nextScope);
+              void handleSearchLogs(searchLogQuery, nextScope);
+            }}
             className="font-label-sm text-xs text-primary font-semibold py-1 px-2.5 rounded-lg bg-surface-container border border-border focus:outline-none"
           >
             <option value="Semua Tim (Organisasi)">Semua Tim (Organisasi)</option>

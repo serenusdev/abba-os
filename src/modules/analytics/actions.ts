@@ -68,7 +68,8 @@ export async function exportAuditedDataAction(
  * Server Action: Search and Filter Audit Logs Explorer
  */
 export async function queryAuditLogsAction(
-  query: string
+  query: string,
+  scope: string = "Semua Tim (Organisasi)"
 ): Promise<{ success: boolean; logs: AuditLogItem[] }> {
   await requireRole(["super_admin", "yayasan", "pengurus"]);
   try {
@@ -77,7 +78,7 @@ export async function queryAuditLogsAction(
       .from("audit_logs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(200);
 
     const sanitizedQuery = query.replace(/[,()]/g, "").trim();
     if (sanitizedQuery) {
@@ -91,9 +92,18 @@ export async function queryAuditLogsAction(
     if (!error && logs) {
       if (logs.length === 0) return { success: true, logs: [] };
 
+      const actorIds = Array.from(new Set((logs as any[]).map((log) => log.actor_id).filter(Boolean)));
+      const { data: actors } = actorIds.length
+        ? await supabase.from("profiles").select("id, team_name").in("id", actorIds)
+        : { data: [] };
+      const actorTeamMap = new Map((actors || []).map((actor: any) => [actor.id, actor.team_name]));
+      const scopedLogs = scope === "Semua Tim (Organisasi)"
+        ? logs
+        : logs.filter((log: any) => actorTeamMap.get(log.actor_id) === scope);
+
       return {
         success: true,
-        logs: logs.map((l: any) => ({
+        logs: scopedLogs.map((l: any) => ({
           id: l.id,
           timeAgo: formatRelativeTimeId(l.created_at),
           eventName: l.event_name,

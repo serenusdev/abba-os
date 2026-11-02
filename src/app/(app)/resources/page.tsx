@@ -43,6 +43,14 @@ export default function ResourceLibraryPage() {
       isMounted = false;
     };
   }, [searchQuery, selectedCategory]);
+
+  React.useEffect(() => {
+    const resourceId = new URLSearchParams(window.location.search).get("resource");
+    if (!resourceId) return;
+    const match = resources.find((resource) => resource.id === resourceId);
+    if (match) setDetailModalItem(match);
+  }, [resources]);
+
   const [expandedFields, setExpandedFields] = React.useState<Record<string, boolean>>({});
   const [favorites, setFavorites] = React.useState<Record<string, boolean>>({});
   const [copyFeedback, setCopyFeedback] = React.useState<Record<string, boolean>>({});
@@ -95,8 +103,8 @@ export default function ResourceLibraryPage() {
     }));
   };
 
-  const handleCopyLink = (slug: string, id: string) => {
-    const url = `https://pondokos.app/resources/${slug}`;
+  const handleCopyLink = (_slug: string, id: string) => {
+    const url = `${window.location.origin}/resources?resource=${encodeURIComponent(id)}`;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).catch(() => {});
     }
@@ -119,7 +127,7 @@ export default function ResourceLibraryPage() {
           </span>
           <div className="flex items-center gap-1.5 font-mono text-[12px] text-muted-foreground bg-card px-2.5 py-0.5 rounded-full border border-border shadow-xs">
             <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-            <span>Database Sync OK</span>
+            <span>{statsError ? "Database Sync Error" : stats ? "Database Sync OK" : "Database Syncing..."}</span>
           </div>
         </div>
 
@@ -157,10 +165,10 @@ export default function ResourceLibraryPage() {
           </div>
           <div className="flex flex-col min-w-0">
             <p className="font-label-sm text-label-sm text-on-surface truncate font-semibold">
-              Migrasi Berkas Everything Library Selesai
+              Resource Library terhubung ke database
             </p>
             <p className="font-body-sm text-[11px] text-muted-foreground truncate">
-              Spreadsheet asli tetap dijadikan referensi baca-saja tervalidasi (BR-LIB-03)
+              Status dan kelengkapan ditampilkan berdasarkan data yang berhasil dibaca saat ini.
             </p>
           </div>
         </div>

@@ -80,14 +80,15 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
         </div>
 
         {/* Notifications */}
-        <button
+        <Link
+          href="/notifikasi"
           type="button"
           aria-label="Notifikasi Operasional"
           className="relative w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary hover:bg-accent/40 active:scale-95 transition-all"
         >
           <span className="material-symbols-outlined text-[22px]">notifications</span>
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-error ring-2 ring-card" />
-        </button>
+        </Link>
 
         {/* User Mini Profile Link to Profile Page */}
         <Link
