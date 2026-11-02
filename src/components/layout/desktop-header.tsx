@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { formatOperationalDateTime } from "@/lib/utils";
 import { UserProfile } from "@/lib/auth/types";
@@ -74,8 +75,12 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-error ring-2 ring-card" />
         </button>
 
-        {/* User Mini Profile */}
-        <div className="flex items-center gap-2 pl-2 border-l border-border">
+        {/* User Mini Profile Link to Profile Page */}
+        <Link
+          href="/settings/profile"
+          className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity"
+          title="Buka Pengaturan Profil Saya"
+        >
           <Avatar
             src={user.avatar_url}
             alt={user.full_name}
@@ -83,14 +88,14 @@ export function DesktopHeader({ user }: DesktopHeaderProps) {
             size="md"
           />
           <div className="flex flex-col text-left">
-            <span className="font-label-md text-[13px] text-on-surface leading-tight">
+            <span className="font-label-md text-[13px] text-on-surface leading-tight font-medium hover:text-primary">
               {user.full_name}
             </span>
             <span className="font-body-sm text-[11px] text-muted-foreground leading-tight">
               {user.team_name || "Santri"}
             </span>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

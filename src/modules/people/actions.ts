@@ -3,6 +3,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserProfile } from "@/lib/auth/session";
+import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { INITIAL_PEOPLE_PROFILES, INITIAL_TEAMS } from "./data";
 import { PersonProfile, TeamStructureItem } from "./types";
 
@@ -10,6 +11,7 @@ import { PersonProfile, TeamStructureItem } from "./types";
  * Server Action: Query all people profiles from Supabase
  */
 export async function getPeopleAction(): Promise<PersonProfile[]> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const currentUser = await getCurrentUserProfile();
@@ -65,6 +67,7 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
  * Server Action: Query teams from Supabase
  */
 export async function getTeamsAction(): Promise<TeamStructureItem[]> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: teams, error } = await supabase
@@ -104,6 +107,7 @@ export async function setTeamCoordinatorAction(
   userId: string,
   userName: string
 ): Promise<{ success: boolean; message: string }> {
+  await requireRole(["super_admin", "pengurus"]);
   try {
     const supabase = createAdminClient();
     if (teamId.length > 30 && userId.length > 30) {
@@ -222,6 +226,10 @@ export async function updatePersonalBioAction(
   userId: string,
   bio: string
 ): Promise<{ success: boolean; message: string }> {
+  const caller = await requireAuthUser();
+  if (caller.id !== userId && !["super_admin", "admin"].includes(caller.role)) {
+    throw new Error("FORBIDDEN: Anda hanya dapat memperbarui bio akun Anda sendiri.");
+  }
   try {
     const supabase = createAdminClient();
     if (userId.length > 30) {

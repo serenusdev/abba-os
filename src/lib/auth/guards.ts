@@ -25,10 +25,6 @@ export async function requireAuthUser(): Promise<UserProfile> {
 export async function requireRole(allowedRoles: UserRole[]): Promise<UserProfile> {
   const user = await requireAuthUser();
 
-  if (process.env.VITEST) {
-    return user;
-  }
-
   const hasRole = allowedRoles.some(
     (role) => user.role === role || user.roles?.includes(role)
   );

@@ -21,6 +21,7 @@ export interface CreateTaskPayload {
  * Server Action: Query all live tasks from Supabase
  */
 export async function getTasksAction(): Promise<TaskItem[]> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: tasks, error } = await supabase
@@ -77,6 +78,7 @@ export async function getTasksAction(): Promise<TaskItem[]> {
  * Server Action: Query projects from Supabase
  */
 export async function getProjectsAction(): Promise<ProjectItem[]> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: projects, error } = await supabase
@@ -121,6 +123,7 @@ export async function updateTaskStatusAction(
   currentStatus: TaskStatus = "todo",
   note?: string
 ): Promise<{ success: boolean; message: string; newStatus: TaskStatus }> {
+  await requireAuthUser();
   // BR-TSK-06: Done requires review if requires_review is true
   if (newStatus === "done" && requiresReview && currentStatus !== "in_review") {
     return {
@@ -168,6 +171,7 @@ export async function toggleChecklistItemAction(
   checklistId: string,
   done: boolean
 ): Promise<{ success: boolean; message: string }> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     await supabase.from("task_checklist_items").upsert({

@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { INITIAL_ANNOUNCEMENTS, INITIAL_EVENTS } from "./data";
 import { AnnouncementItem, ScheduleEventItem } from "./types";
 
@@ -9,6 +10,7 @@ import { AnnouncementItem, ScheduleEventItem } from "./types";
  * Server Action: Query Events for Schedules
  */
 export async function getEventsAction(): Promise<ScheduleEventItem[]> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: events, error } = await supabase
@@ -58,6 +60,7 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
  * Server Action: Query Announcements
  */
 export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data: announcements, error } = await supabase
@@ -101,18 +104,13 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
 export async function markAnnouncementReadAction(
   announcementId: string
 ): Promise<{ success: boolean; message: string }> {
+  const user = await requireAuthUser();
   try {
     const supabase = createAdminClient();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", "salman@pondok.id")
-      .single();
-
-    if (profile?.id && announcementId.length > 30) {
+    if (user.id && announcementId.length > 30) {
       await supabase.from("announcement_reads").upsert({
         announcement_id: announcementId,
-        user_id: profile.id,
+        user_id: user.id,
       });
     }
   } catch {
@@ -133,6 +131,7 @@ export async function generateICalSubscriptionAction(): Promise<{
   icalUrl: string;
   message: string;
 }> {
+  await requireAuthUser();
   let baseUrl = "";
   try {
     const { headers } = await import("next/headers");
@@ -240,12 +239,13 @@ export async function publishAnnouncementAction(payload: {
 export async function deleteAnnouncementAction(
   announcementId: string
 ): Promise<{ success: boolean; message: string }> {
+  const admin = await requireRole(["super_admin", "pengurus"]);
   try {
     const supabase = createAdminClient();
     await supabase.from("announcements").delete().eq("id", announcementId);
     await supabase.from("audit_logs").insert({
       event_name: "announcement.deleted",
-      actor_name: "Super Admin",
+      actor_name: admin.full_name,
       target_id: announcementId,
       target_label: "Pengumuman",
       action_detail: `Menghapus pengumuman ID ${announcementId}`,
@@ -272,6 +272,8 @@ export interface CreateEventPayload {
 export async function createEventAction(
   payload: CreateEventPayload
 ): Promise<{ success: boolean; message: string; eventId?: string }> {
+  const admin = await requireRole(["super_admin", "pengurus"]);
+
   if (!payload.title.trim()) {
     return { success: false, message: "Judul agenda wajib diisi." };
   }
@@ -299,7 +301,7 @@ export async function createEventAction(
 
     await supabase.from("audit_logs").insert({
       event_name: "event.created",
-      actor_name: "Super Admin",
+      actor_name: admin.full_name,
       target_id: inserted?.id,
       target_label: payload.title,
       action_detail: `Menambahkan agenda baru: ${payload.title} (${payload.category}) di ${payload.location}`,
@@ -322,12 +324,13 @@ export async function createEventAction(
 export async function deleteEventAction(
   eventId: string
 ): Promise<{ success: boolean; message: string }> {
+  const admin = await requireRole(["super_admin", "pengurus"]);
   try {
     const supabase = createAdminClient();
     await supabase.from("events").delete().eq("id", eventId);
     await supabase.from("audit_logs").insert({
       event_name: "event.deleted",
-      actor_name: "Super Admin",
+      actor_name: admin.full_name,
       target_id: eventId,
       target_label: "Agenda",
       action_detail: `Menghapus agenda ID ${eventId}`,

@@ -139,6 +139,7 @@ export async function submitAccountApplicationAction(payload: {
  * Server Action: Query pending account registration requests
  */
 export async function getAccountRequestsAction(): Promise<AccountRequestItem[]> {
+  await requireRole(["super_admin", "pengurus"]);
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -184,6 +185,7 @@ export async function getAccountRequestsAction(): Promise<AccountRequestItem[]> 
  * Server Action: Query active user profiles
  */
 export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
+  await requireRole(["super_admin", "pengurus"]);
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -246,38 +248,71 @@ export async function approveAccountApplicationAction(
       .maybeSingle();
 
     if (fetchError) throw fetchError;
+    if (!request) {
+      return { success: false, message: "Pengajuan akun tidak ditemukan." };
+    }
+    if (request.status !== "pending") {
+      return { success: false, message: `Pengajuan ini sudah berstatus "${request.status}".` };
+    }
 
-    const { error } = await supabase
+    // Pastikan update hanya berlaku untuk yang berstatus pending
+    const { data: updatedReq, error: updateErr } = await supabase
       .from("account_requests")
       .update({
         status: "approved",
         approved_at: new Date().toISOString(),
         approved_by: approver.id,
       })
-      .eq("id", applicantId);
+      .eq("id", applicantId)
+      .eq("status", "pending")
+      .select("id");
 
-    if (error) throw error;
+    if (updateErr) throw updateErr;
+    if (!updatedReq || updatedReq.length === 0) {
+      return { success: false, message: "Gagal memperbarui status pengajuan akun." };
+    }
 
     // Activate Auth user if auth_user_id is stored
     const authUserId = request?.auth_user_id;
     if (authUserId) {
-      await supabase.auth.admin.updateUserById(authUserId, {
+      const { error: authErr } = await supabase.auth.admin.updateUserById(authUserId, {
         email_confirm: true,
       });
+      if (authErr) {
+        console.warn("Auth user confirm notice:", authErr.message);
+      }
 
-      // Upsert profile row so user can access the app
-      await supabase.from("profiles").upsert(
+      // Upsert profile row with the role assigned by the admin
+      const { error: profErr } = await supabase.from("profiles").upsert(
         {
           id: authUserId,
           email: request.email,
           full_name: request.full_name,
           phone_number: request.phone_number || null,
           status: "active",
-          member_type: request.role_requested || "santri",
+          member_type: assignedRole || request.role_requested || "santri",
           team_name: request.team_requested || "Sentra Santri",
         },
         { onConflict: "id" }
       );
+      if (profErr) throw profErr;
+
+      // Hubungkan ke tabel user_roles
+      const { data: roleRow } = await supabase
+        .from("roles")
+        .select("id")
+        .eq("key", assignedRole)
+        .maybeSingle();
+
+      if (roleRow?.id) {
+        await supabase.from("user_roles").upsert(
+          {
+            user_id: authUserId,
+            role_id: roleRow.id,
+          },
+          { onConflict: "user_id,role_id" }
+        );
+      }
     }
 
     await supabase.from("audit_logs").insert({
@@ -350,143 +385,48 @@ export async function rejectAccountApplicationAction(
 export async function createManualAccountAction(
   payload: ManualAccountPayload
 ): Promise<ActionResult> {
+  await requireRole(["super_admin", "pengurus"]);
+
   if (!payload.fullName || !payload.email || !payload.phone) {
     return { success: false, message: "Semua bidang identitas wajib diisi." };
   }
 
   try {
     const supabase = createAdminClient();
-    const { data: authUser } = await supabase.auth.admin.createUser({
-      email: payload.email,
-      password: "PasswordPondok2026!",
-      email_confirm: true,
-      user_metadata: { full_name: payload.fullName },
-    });
+    // Menggunakan inviteUserByEmail agar pengguna mengatur password sendiri secara aman
+    const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(
+      payload.email.trim(),
+      {
+        data: { full_name: payload.fullName.trim() },
+      }
+    );
 
-    if (authUser?.user?.id) {
-      await supabase.from("profiles").upsert({
-        id: authUser.user.id,
-        email: payload.email,
-        full_name: payload.fullName,
-        phone_number: payload.phone,
+    if (inviteErr) {
+      return { success: false, message: `Gagal mengundang pengguna: ${inviteErr.message}` };
+    }
+
+    const userId = inviteData?.user?.id;
+    if (userId) {
+      const { error: profileErr } = await supabase.from("profiles").upsert({
+        id: userId,
+        email: payload.email.trim(),
+        full_name: payload.fullName.trim(),
+        phone_number: payload.phone.trim(),
         status: "active",
         member_type: payload.role,
         team_name: payload.teamName,
         notes: payload.notes || "Dibuat langsung oleh Admin (Jalur B)",
       });
-    }
 
-    await supabase.from("audit_logs").insert({
-      event_name: "iam.account_created_manual",
-      actor_name: "Super Admin",
-      target_id: payload.email,
-      target_label: payload.fullName,
-      action_detail: `Pembuatan akun manual Jalur B untuk peran ${payload.role} di tim ${payload.teamName}.`,
-    });
-  } catch (err) {
-    console.error("Failed to create manual account in Supabase:", err);
-  }
-
-  return {
-    success: true,
-    message: `Akun untuk ${payload.fullName} (${payload.email}) berhasil dibuat dan langsung berstatus aktif.`,
-  };
-}
-
-/**
- * Server Action: Reset / Revoke User Active Sessions (PRD-01 §2.5).
- */
-export async function resetUserSessionAction(
-  userId: string
-): Promise<ActionResult> {
-  if (!userId) {
-    return { success: false, message: "User ID tidak valid." };
-  }
-
-  try {
-    const supabase = createAdminClient();
-    await supabase.from("audit_logs").insert({
-      event_name: "iam.session_revoked",
-      actor_name: "Super Admin",
-      target_id: userId,
-      target_label: `User ${userId}`,
-      action_detail: "Pencabutan seluruh sesi aktif pengguna.",
-    });
-  } catch {
-    // fallback
-  }
-
-  return {
-    success: true,
-    message: `Seluruh sesi aktif untuk ID pengguna ${userId} telah berhasil dicabut.`,
-  };
-}
-
-/**
- * Server Action: Get Current User Profile for Client Components
- */
-export async function getCurrentUserAction(): Promise<UserProfile | null> {
-  return await getCurrentUserProfile();
-}
-
-/**
- * Server Action: Ensure Super Admin Account Exists with Required Password
- * Auto-provisions serenusdev.op@gmail.com with Anzhaer_25 and super_admin privileges.
- */
-export async function ensureSuperAdminAccountAction(): Promise<ActionResult> {
-  if (process.env.VITEST) {
-    return { success: true, message: "Super admin mock account ready." };
-  }
-
-  try {
-    const supabase = createAdminClient();
-    const email = "serenusdev.op@gmail.com";
-    const password = "Anzhaer_25";
-    const fullName = "Super Admin Pondok";
-
-    const { data: usersData, error: listErr } = await supabase.auth.admin.listUsers();
-    if (listErr) throw listErr;
-
-    const existingUser = usersData?.users?.find(
-      (u: any) => u.email?.toLowerCase() === email.toLowerCase()
-    );
-
-    let userId = existingUser?.id;
-
-    if (!userId) {
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { full_name: fullName, role: "super_admin" },
-      });
-      if (createError) {
-        return { success: false, message: createError.message };
+      if (profileErr) {
+        return { success: false, message: `Gagal membuat profil: ${profileErr.message}` };
       }
-      userId = newUser.user.id;
-    } else {
-      await supabase.auth.admin.updateUserById(userId, {
-        password,
-        email_confirm: true,
-        user_metadata: { full_name: fullName, role: "super_admin" },
-      });
-    }
 
-    if (userId) {
-      await supabase.from("profiles").upsert({
-        id: userId,
-        email,
-        full_name: fullName,
-        status: "active",
-        member_type: "super_admin",
-        team_name: "Pengurus Inti",
-        notes: "Super Administrator Sistem Utama",
-      });
-
+      // Kaitkan role ke user_roles
       const { data: roleRow } = await supabase
         .from("roles")
         .select("id")
-        .eq("key", "super_admin")
+        .eq("key", payload.role)
         .maybeSingle();
 
       if (roleRow?.id) {
@@ -500,19 +440,73 @@ export async function ensureSuperAdminAccountAction(): Promise<ActionResult> {
       }
     }
 
+    const adminUser = await requireRole(["super_admin", "pengurus"]);
+    await supabase.from("audit_logs").insert({
+      event_name: "iam.account_created_manual",
+      actor_name: adminUser.full_name,
+      target_id: payload.email,
+      target_label: payload.fullName,
+      action_detail: `Pembuatan akun manual Jalur B untuk peran ${payload.role} di tim ${payload.teamName}. Undangan email dikirim.`,
+    });
+
     return {
       success: true,
-      message: "Akun Super Admin berhasil disinkronisasi.",
+      message: `Undangan aktivasi akun untuk ${payload.fullName} (${payload.email}) telah dikirimkan ke email tujuan.`,
     };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Gagal inisialisasi akun Super Admin.";
-    console.error("ensureSuperAdminAccountAction error:", msg);
-    return {
-      success: false,
-      message: msg,
-    };
+    const msg = err instanceof Error ? err.message : "Terjadi kesalahan.";
+    console.error("Failed to create manual account in Supabase:", err);
+    return { success: false, message: msg };
   }
 }
+
+/**
+ * Server Action: Reset / Revoke User Active Sessions (PRD-01 §2.5).
+ */
+export async function resetUserSessionAction(
+  userId: string
+): Promise<ActionResult> {
+  const adminUser = await requireRole(["super_admin", "pengurus"]);
+
+  if (!userId) {
+    return { success: false, message: "User ID tidak valid." };
+  }
+
+  try {
+    const supabase = createAdminClient();
+    
+    // Revoke user sessions and tokens di Supabase Auth
+    const { error: signOutErr } = await supabase.auth.admin.signOut(userId, 'global');
+    if (signOutErr) {
+      console.warn("signOut global notice:", signOutErr.message);
+    }
+
+    await supabase.from("audit_logs").insert({
+      event_name: "iam.session_revoked",
+      actor_name: adminUser.full_name,
+      target_id: userId,
+      target_label: `User ${userId}`,
+      action_detail: "Pencabutan seluruh sesi aktif pengguna.",
+    });
+
+    return {
+      success: true,
+      message: `Seluruh sesi aktif untuk ID pengguna ${userId} telah berhasil dicabut.`,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Gagal mencabut sesi pengguna.";
+    return { success: false, message: msg };
+  }
+}
+
+/**
+ * Server Action: Get Current User Profile for Client Components
+ */
+export async function getCurrentUserAction(): Promise<UserProfile | null> {
+  return await getCurrentUserProfile();
+}
+
+
 
 /**
  * Server Action: Update current user's own profile (Issue 4 — self-service).

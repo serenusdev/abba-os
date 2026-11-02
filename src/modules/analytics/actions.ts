@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { INITIAL_AUDIT_LOGS } from "./data";
 import { AuditLogItem } from "./types";
 
@@ -12,15 +13,17 @@ import { AuditLogItem } from "./types";
 export async function exportAuditedDataAction(
   exportType: "csv" | "pdf",
   category: string,
-  requesterName: string = "Super Admin"
+  requesterName?: string
 ): Promise<{ success: boolean; message: string; exportId: string; downloadUrl?: string }> {
+  const admin = await requireRole(["super_admin", "pengurus"]);
+  const effectiveRequester = requesterName || admin.full_name;
   const exportId = `exp-${Date.now()}`;
   try {
     const supabase = createAdminClient();
     // 1. Record export log
     await supabase.from("export_logs").insert({
       id: exportId,
-      requester_name: requesterName,
+      requester_name: effectiveRequester,
       export_type: exportType,
       category,
       record_count: 36,
@@ -30,7 +33,7 @@ export async function exportAuditedDataAction(
     // 2. Record immutable audit log
     await supabase.from("audit_logs").insert({
       event_name: "admin.export_generated",
-      actor_name: requesterName,
+      actor_name: effectiveRequester,
       target_id: exportId,
       target_label: `Ekspor ${category.toUpperCase()} (${exportType.toUpperCase()})`,
       action_detail: `Unduhan rekap data operasional diotorisasi dan dicatat untuk kepatuhan ISO/IEC 27001.`,
@@ -42,7 +45,7 @@ export async function exportAuditedDataAction(
 
   return {
     success: true,
-    message: `Ekspor data ${category.toUpperCase()} (${exportType.toUpperCase()}) oleh ${requesterName} berhasil dicatat pada audit log.`,
+    message: `Ekspor data ${category.toUpperCase()} (${exportType.toUpperCase()}) oleh ${effectiveRequester} berhasil dicatat pada audit log.`,
     exportId,
     downloadUrl: `/api/exports/${exportId}.${exportType}`,
   };
@@ -54,6 +57,7 @@ export async function exportAuditedDataAction(
 export async function queryAuditLogsAction(
   query: string
 ): Promise<{ success: boolean; logs: AuditLogItem[] }> {
+  await requireRole(["super_admin", "pengurus"]);
   try {
     const supabase = createAdminClient();
     let dbQuery = supabase
@@ -128,6 +132,7 @@ export interface PolicySettingItem {
  * Server Action: Query current active operational hours & policy
  */
 export async function getActivePolicyAction(): Promise<PolicySettingItem | null> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -165,6 +170,7 @@ export async function updatePolicySettingsAction(payload: {
   attendanceGraceCutoffTime: string;
   reportDeadlineTime: string;
 }): Promise<{ success: boolean; message: string }> {
+  const admin = await requireRole(["super_admin", "pengurus"]);
   try {
     const supabase = createAdminClient();
     const code = `POL-${new Date().getFullYear()}-v${Date.now().toString().slice(-4)}`;
@@ -188,7 +194,7 @@ export async function updatePolicySettingsAction(payload: {
 
     await supabase.from("audit_logs").insert({
       event_name: "policy.settings_updated",
-      actor_name: "Super Admin",
+      actor_name: admin.full_name,
       target_id: id,
       target_label: code,
       action_detail: `Pembaruan jam operasional: Tepat ≤ ${payload.attendanceCutoffTime}, Toleransi ≤ ${payload.attendanceGraceCutoffTime}, Batas Laporan ${payload.reportDeadlineTime} WIB.`,
@@ -222,6 +228,7 @@ export interface AdminDashboardMetrics {
  * Server Action: Query high-level operational counts for Admin Overview Dashboard
  */
 export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetrics> {
+  await requireRole(["super_admin", "pengurus"]);
   const result: AdminDashboardMetrics = {
     totalSantri: 0,
     todayCheckedIn: 0,

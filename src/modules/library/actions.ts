@@ -2,10 +2,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuthUser } from "@/lib/auth/guards";
 import { INITIAL_RESOURCES, CATEGORIES_DATA } from "./data";
 import { CategorySummary, ResourceItem } from "./types";
 
 export async function getCategoriesAction(): Promise<CategorySummary[]> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const [categoriesResult, resourcesResult] = await Promise.all([
@@ -49,6 +51,7 @@ export async function getResourceStatsAction(): Promise<{
   validCount: number;
   validPercent: number;
 }> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -78,6 +81,7 @@ export async function getResourcesAction(
   query: string = "",
   categorySlug: string = "all"
 ): Promise<ResourceItem[]> {
+  await requireAuthUser();
   try {
     const supabase = createAdminClient();
     let dbQuery = supabase
@@ -177,6 +181,7 @@ export async function getResourcesAction(
 export async function toggleFavoriteAction(
   resourceId: string
 ): Promise<{ success: boolean; isFavorited: boolean }> {
+  await requireAuthUser();
   if (!resourceId) {
     return { success: false, isFavorited: false };
   }
