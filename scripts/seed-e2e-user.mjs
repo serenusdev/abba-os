@@ -49,7 +49,7 @@ await request("/rest/v1/profiles", {
   }]),
 });
 
-const roles = await request("/rest/v1/roles?key=eq.santri&select=id");
+const roles = await request("/rest/v1/roles?key=eq.santri&select=id,key");
 const role = roles?.[0];
 if (!role) throw new Error("Santri role was not seeded.");
 
@@ -62,4 +62,16 @@ await request("/rest/v1/user_roles", {
   }]),
 });
 
-console.log("E2E user seeded");
+const profiles = await request(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,status`);
+if (profiles?.[0]?.status !== "active") {
+  throw new Error("E2E profile verification failed: expected active status.");
+}
+
+const assignedRoles = await request(
+  `/rest/v1/user_roles?user_id=eq.${encodeURIComponent(userId)}&revoked_at=is.null&select=role_id,roles(key)`,
+);
+if (assignedRoles?.[0]?.roles?.key !== "santri") {
+  throw new Error("E2E role verification failed: expected santri role.");
+}
+
+console.log("E2E user seeded and verified: active profile, santri role");

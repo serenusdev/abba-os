@@ -87,7 +87,12 @@ jobs:
           cat /tmp/idaroh-next.log
           exit 1
       - name: Run browser E2E
-        run: npm run test:e2e
+        run: |
+          if ! npm run test:e2e; then
+            echo "----- Next.js server log -----"
+            cat /tmp/idaroh-next.log
+            exit 1
+          fi
       - name: Stop disposable Supabase
         if: always()
         run: supabase stop --no-backup
