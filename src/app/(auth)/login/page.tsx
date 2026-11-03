@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,6 @@ import { Illustration } from "@/components/ui/illustration";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -44,8 +42,9 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        router.push("/");
-        router.refresh();
+        // Force a document navigation so the middleware receives the freshly
+        // persisted Supabase SSR cookies before rendering protected routes.
+        window.location.assign("/");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat masuk ke sistem.";
