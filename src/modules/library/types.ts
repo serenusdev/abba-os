@@ -33,6 +33,7 @@ export interface CategorySummary {
 }
 
 export interface ResourceAdminInput extends DocumentationFields {
+  legacyRecordId?: string | null;
   name: string;
   slug: string;
   description: string;

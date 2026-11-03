@@ -211,6 +211,7 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
     let reportsQuery = supabase
       .from("daily_reports")
       .select("*, report_items(*, report_categories(name))")
+      .eq("submission_status", "submitted")
       .order("created_at", { ascending: false })
       .limit(50);
     if (scopedAuthorIds) reportsQuery = reportsQuery.in("user_id", scopedAuthorIds);
@@ -553,13 +554,14 @@ export async function reviewReportAction(
       }
     }
 
-    await admin.from("audit_logs").insert({
+    const { error: auditError } = await admin.from("audit_logs").insert({
       event_name: `report.review_${payload.decision}`,
       actor_name: reviewer.full_name,
       target_id: payload.reportId,
       target_label: `Laporan Santri (${payload.reportId})`,
       action_detail: `Keputusan: ${payload.decision}. Catatan: ${payload.notes || "-"}`,
     });
+    if (auditError) throw auditError;
   } catch (err: any) {
     console.error("Failed to record review action:", err);
     return {

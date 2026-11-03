@@ -12,13 +12,17 @@ import {
 } from "@/modules/reports/actions";
 import { getActivePolicyAction, type PolicySettingItem } from "@/modules/analytics/actions";
 
+function getJakartaDate() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+}
+
 const BLANK_REPORT: DailyReport = {
   id: "rep-draft",
   userId: "",
   authorName: "Santri",
   authorRole: "Santri",
   teamName: "Sentra Santri",
-  reportDate: new Date().toISOString().split("T")[0],
+  reportDate: getJakartaDate(),
   reportDateFormatted: new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -60,7 +64,22 @@ export default function LaporanPage() {
       if (data) setReport(data);
     });
     getReportCategoriesAction().then((categories) => {
-      if (categories.length) setReportCategories(categories);
+      if (categories.length) {
+        setReportCategories(categories);
+        setReport((current) => ({
+          ...current,
+          items: current.items.map((item) => {
+            const category = categories.find((candidate) => candidate.id === item.categoryId)
+              || categories.find((candidate) => candidate.slug === item.categoryId)
+              || categories[0];
+            return {
+              ...item,
+              categoryId: category.id,
+              categoryName: category.name,
+            };
+          }),
+        }));
+      }
     });
     getActivePolicyAction().then((p) => {
       setPolicy(p);
@@ -71,8 +90,8 @@ export default function LaporanPage() {
   const handleAddItem = () => {
     const newItem: ReportItem = {
       id: `item-${Date.now()}`,
-      categoryId: REPORT_CATEGORIES[0].id,
-      categoryName: REPORT_CATEGORIES[0].name,
+      categoryId: reportCategories[0]?.id || REPORT_CATEGORIES[0].id,
+      categoryName: reportCategories[0]?.name || REPORT_CATEGORIES[0].name,
       title: "",
       description: "",
       resultProgress: "",
