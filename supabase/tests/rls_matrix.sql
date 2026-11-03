@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(8);
+SELECT plan(7);
 
 -- These fixed identities are disposable test fixtures. They never leave the
 -- local database because the test transaction is rolled back at the end.
