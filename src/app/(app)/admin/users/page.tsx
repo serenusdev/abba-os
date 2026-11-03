@@ -679,19 +679,19 @@ export default function AdminUsersPage() {
                       </span>
                       <div className="flex flex-col">
                         <span className="font-mono text-[12px] text-on-surface leading-tight font-medium">
-                          {resetSessions[user.id] ? "0 Sesi (Telah Direset)" : user.deviceInfo}
+                          {resetSessions[user.id] ? "0 Sesi & Perangkat (Telah Dicabut)" : user.deviceInfo}
                         </span>
                       </div>
                     </div>
                     {resetSessions[user.id] ? (
-                      <span className="text-[11px] font-mono text-success">Sesi Dicabut</span>
+                        <span className="text-[11px] font-mono text-success">Sesi &amp; Perangkat Dicabut</span>
                     ) : (
                       <button
                         className="px-2.5 py-1 rounded-md bg-card text-destructive font-label-sm text-label-sm active:scale-95 shadow-xs transition-all border border-border hover:bg-destructive/10"
                         onClick={() => handleResetSession(user.id)}
                         type="button"
                       >
-                        Reset Sesi
+                        Cabut Sesi &amp; Perangkat
                       </button>
                     )}
                   </div>

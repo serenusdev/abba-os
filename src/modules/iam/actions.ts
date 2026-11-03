@@ -402,59 +402,23 @@ export async function approveAccountApplicationAction(
     if (!authUserId) {
       return { success: false, message: "Pengajuan belum memiliki akun Auth yang valid dan tidak dapat disetujui." };
     }
-    if (authUserId) {
-      const { data: authLookup, error: authLookupError } = await supabase.auth.admin.getUserById(authUserId);
-      if (authLookupError) throw authLookupError;
-      if (!authLookup.user?.email_confirmed_at) {
-        return { success: false, message: "Email pemohon belum dikonfirmasi. Minta pemohon membuka tautan verifikasi dari Supabase terlebih dahulu." };
-      }
-
-      // Upsert profile row with the role assigned by the admin
-      const { error: profErr } = await supabase.from("profiles").upsert(
-        {
-          id: authUserId,
-          email: request.email,
-          full_name: request.full_name,
-          phone_number: request.phone_number || null,
-          status: "active",
-          member_type: canonicalRole,
-          team_name: request.team_requested || "Sentra Santri",
-        },
-        { onConflict: "id" }
-      );
-      if (profErr) throw profErr;
-
-      // Hubungkan ke tabel user_roles
-      const { data: roleRow } = await supabase
-        .from("roles")
-        .select("id")
-        .eq("key", canonicalRole)
-        .maybeSingle();
-
-      if (!roleRow?.id) throw new Error("Role tujuan tidak ditemukan.");
-      await grantActiveRole(supabase, authUserId, roleRow.id, approver.id);
+    const { data: authLookup, error: authLookupError } = await supabase.auth.admin.getUserById(authUserId);
+    if (authLookupError) throw authLookupError;
+    if (!authLookup.user?.email_confirmed_at) {
+      return { success: false, message: "Email pemohon belum dikonfirmasi. Minta pemohon membuka tautan verifikasi dari Supabase terlebih dahulu." };
     }
 
-    // Mark the request approved only after Auth, profile, and role provisioning
-    // have all succeeded. This keeps the queue retryable on partial failure.
-    const { data: updatedReq, error: updateErr } = await supabase
-      .from("account_requests")
-      .update({ status: "approved", approved_at: new Date().toISOString(), approved_by: approver.id })
-      .eq("id", applicantId)
-      .eq("status", "pending")
-      .select("id");
-    if (updateErr) throw updateErr;
-    if (!updatedReq?.length) return { success: false, message: "Pengajuan sudah diproses oleh admin lain." };
-
-    const { error: auditError } = await supabase.from("audit_logs").insert({
-      event_name: "iam.account_approved",
-      actor_id: approver.id,
-      actor_name: approver.full_name,
-      target_id: applicantId,
-      target_label: `Permohonan ${applicantId}`,
-      action_detail: `Persetujuan akun dengan peran '${canonicalRole}'.`,
+    // Profile, role grant, request transition, and audit log are committed by
+    // one database transaction so a failed role write cannot leave a half-
+    // approved account behind.
+    const { data: provisioned, error: provisionError } = await supabase.rpc("approve_account_application", {
+      p_request_id: applicantId,
+      p_auth_user_id: authUserId,
+      p_role_key: canonicalRole,
+      p_approver_id: approver.id,
     });
-    if (auditError) throw auditError;
+    if (provisionError) throw provisionError;
+    if (!provisioned?.success) return { success: false, message: provisioned?.message || "Persetujuan akun gagal." };
     if (request.auth_user_id && !process.env.VITEST) {
       try {
         await sendPushToUsers([request.auth_user_id], {
@@ -557,6 +521,7 @@ export async function createManualAccountAction(
     return { success: true, message: `Akun ${payload.fullName} berhasil dibuat dan langsung berstatus aktif. Undangan aktivasi telah dikirimkan ke email tujuan.` };
   }
 
+  let createdUserId: string | undefined;
   try {
     const supabase = createAdminClient();
     // Menggunakan inviteUserByEmail agar pengguna mengatur password sendiri secara aman
@@ -572,6 +537,7 @@ export async function createManualAccountAction(
     }
 
     const userId = inviteData?.user?.id;
+    createdUserId = userId;
     if (userId) {
       const { error: profileErr } = await supabase.from("profiles").upsert({
         id: userId,
@@ -601,15 +567,18 @@ export async function createManualAccountAction(
         return { success: false, message: "Role akun tidak ditemukan." };
       }
       await grantActiveRole(supabase, userId, roleRow.id, adminUser.id);
+    } else {
+      throw new Error("Supabase tidak mengembalikan ID pengguna baru.");
     }
 
-    await supabase.from("audit_logs").insert({
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "iam.account_created_manual",
       actor_name: adminUser.full_name,
       target_id: payload.email,
       target_label: payload.fullName,
       action_detail: `Pembuatan akun manual Jalur B untuk peran ${canonicalRole} di tim ${payload.teamName}. Undangan email dikirim.`,
     });
+    if (auditError) throw auditError;
 
     return {
       success: true,
@@ -618,6 +587,11 @@ export async function createManualAccountAction(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Terjadi kesalahan.";
     console.error("Failed to create manual account in Supabase:", err);
+    if (createdUserId) {
+      await createAdminClient().auth.admin.deleteUser(createdUserId).catch((cleanupError: unknown) => {
+        console.error("Failed to roll back manual account:", cleanupError);
+      });
+    }
     return { success: false, message: msg };
   }
 }
@@ -643,17 +617,21 @@ export async function resetUserSessionAction(
       .eq("id", userId);
     if (revokeError) throw revokeError;
 
-    await supabase.from("audit_logs").insert({
+    const { error: deviceError } = await supabase.from("device_tokens").delete().eq("user_id", userId);
+    if (deviceError) throw deviceError;
+
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "iam.session_revoked",
       actor_name: adminUser.full_name,
       target_id: userId,
       target_label: `User ${userId}`,
-      action_detail: "Pencabutan seluruh sesi aktif pengguna.",
+      action_detail: "Pencabutan seluruh sesi aktif dan token push perangkat pengguna.",
     });
+    if (auditError) throw auditError;
 
     return {
       success: true,
-      message: `Seluruh sesi aktif untuk ID pengguna ${userId} telah berhasil dicabut.`,
+      message: `Seluruh sesi aktif dan perangkat push untuk ID pengguna ${userId} telah berhasil dicabut.`,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Gagal mencabut sesi pengguna.";
