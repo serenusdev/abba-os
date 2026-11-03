@@ -41,9 +41,13 @@ jobs:
 
   database-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
       - uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -53,6 +57,37 @@ jobs:
         run: supabase db reset --local --yes
       - name: Run RLS matrix
         run: supabase test db --local
+      - name: Install application dependencies
+        run: npm ci
+      - name: Install Chromium for E2E
+        run: npx playwright install --with-deps chromium
+      - name: Export local Supabase credentials
+        run: |
+          supabase status -o env > /tmp/supabase.env
+          source /tmp/supabase.env
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "E2E_EMAIL=e2e-active@example.test"
+            echo "E2E_PASSWORD=Local-E2E-Password-2026"
+            echo "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000"
+          } >> "$GITHUB_ENV"
+      - name: Seed active E2E user
+        run: npm run e2e:seed
+      - name: Start application
+        run: |
+          npm run dev -- --hostname 127.0.0.1 --port 3000 > /tmp/idaroh-next.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/login > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/idaroh-next.log
+          exit 1
+      - name: Run browser E2E
+        run: npm run test:e2e
       - name: Stop disposable Supabase
         if: always()
         run: supabase stop --no-backup
