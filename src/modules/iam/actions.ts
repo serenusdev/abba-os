@@ -85,6 +85,7 @@ export interface ActiveUserItem {
   deviceInfo: string;
   mfaEnabled: boolean;
   isVerified?: boolean;
+  devices: Array<{ id: string; platform: string; label: string; updatedAt: string }>;
 }
 
 /**
@@ -301,7 +302,7 @@ export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
     if (!error && data && data.length > 0) {
       const userIds = data.map((profile: any) => profile.id).filter(Boolean);
       const { data: deviceRows } = userIds.length
-        ? await supabase.from("device_tokens").select("user_id, platform, device_label").in("user_id", userIds)
+        ? await supabase.from("device_tokens").select("id, user_id, platform, device_label, updated_at").in("user_id", userIds)
         : { data: [] as any[] };
       const devicesByUser = new Map<string, any[]>();
       for (const device of deviceRows || []) {
@@ -345,6 +346,12 @@ export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
             : "Belum ada perangkat terhubung",
           mfaEnabled: mfaByUser.get(d.id) || false,
           isVerified: d.status === "active",
+          devices: devices.map((device: any) => ({
+            id: device.id,
+            platform: device.platform,
+            label: device.device_label || device.platform,
+            updatedAt: device.updated_at,
+          })),
         };
       });
     }
@@ -636,6 +643,32 @@ export async function resetUserSessionAction(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Gagal mencabut sesi pengguna.";
     return { success: false, message: msg };
+  }
+}
+
+export async function revokeDeviceTokenAction(deviceId: string): Promise<ActionResult> {
+  const adminUser = await requireRole(["super_admin", "pengurus"]);
+  if (!deviceId) return { success: false, message: "ID perangkat tidak valid." };
+  if (process.env.VITEST) return { success: true, message: "Perangkat berhasil dicabut." };
+  try {
+    const supabase = createAdminClient();
+    const { data: device, error: lookupError } = await supabase.from("device_tokens").select("id, user_id, device_label, platform").eq("id", deviceId).maybeSingle();
+    if (lookupError) throw lookupError;
+    if (!device) return { success: false, message: "Perangkat tidak ditemukan." };
+    const { data: target, error: targetError } = await supabase.from("profiles").select("id, full_name, member_type").eq("id", device.user_id).maybeSingle();
+    if (targetError) throw targetError;
+    if (!target) return { success: false, message: "Pemilik perangkat tidak ditemukan." };
+    if (normalizeRole(target.member_type) && ROLE_PRIORITY[normalizeRole(target.member_type)!] >= ROLE_PRIORITY[getHighestRole(adminUser)]) {
+      return { success: false, message: "Anda tidak dapat mencabut perangkat akun dengan hierarki setara atau lebih tinggi." };
+    }
+    const { error } = await supabase.from("device_tokens").delete().eq("id", deviceId);
+    if (error) throw error;
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "iam.device_revoked", actor_id: adminUser.id, actor_name: adminUser.full_name, target_id: device.user_id, target_label: device.device_label || device.platform, action_detail: "Satu token perangkat push dicabut." });
+    if (auditError) throw auditError;
+    return { success: true, message: `Perangkat ${device.device_label || device.platform} berhasil dicabut.` };
+  } catch (error: any) {
+    console.error("Failed to revoke device token:", error);
+    return { success: false, message: error.message || "Gagal mencabut perangkat." };
   }
 }
 

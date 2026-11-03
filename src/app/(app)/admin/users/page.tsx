@@ -13,6 +13,7 @@ import {
   rejectAccountApplicationAction,
   createManualAccountAction,
   resetUserSessionAction,
+  revokeDeviceTokenAction,
   getCurrentUserAction,
   adminUpdateUserAction,
   type AccountRequestItem,
@@ -53,6 +54,7 @@ export default function AdminUsersPage() {
   const [approvedCards, setApprovedCards] = React.useState<Record<string, string>>({});
   const [rejectedCards, setRejectedCards] = React.useState<Record<string, string>>({});
   const [resetSessions, setResetSessions] = React.useState<Record<string, boolean>>({});
+  const [revokedDevices, setRevokedDevices] = React.useState<Record<string, boolean>>({});
   const [processingCards, setProcessingCards] = React.useState<Record<string, boolean>>({});
 
   // Manual Account Creation Form State
@@ -163,6 +165,16 @@ export default function AdminUsersPage() {
     if (res.success) {
       setResetSessions((prev) => ({ ...prev, [userId]: true }));
     }
+  };
+
+  const handleRevokeDevice = async (userId: string, deviceId: string) => {
+    if (!window.confirm("Cabut akses push dari perangkat ini?")) return;
+    const res = await revokeDeviceTokenAction(deviceId);
+    if (res.success) {
+      setRevokedDevices((prev) => ({ ...prev, [deviceId]: true }));
+      setActiveUsers((prev) => prev.map((user) => user.id === userId ? { ...user, devices: user.devices.filter((device) => device.id !== deviceId), devicesCount: Math.max(0, user.devicesCount - 1), deviceInfo: user.devices.length > 1 ? `${user.devices.length - 1} Perangkat Aktif` : "Belum ada perangkat terhubung" } : user));
+    }
+    if (!res.success) console.error(res.message);
   };
 
   const openEditUser = (user: ActiveUserItem) => {
@@ -695,6 +707,17 @@ export default function AdminUsersPage() {
                       </button>
                     )}
                   </div>
+                  {user.devices.length > 0 && !resetSessions[user.id] && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {user.devices.filter((device) => !revokedDevices[device.id]).map((device) => (
+                        <div key={device.id} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-[11px] text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[14px]">{device.platform === "web" ? "language" : "smartphone"}</span>
+                          <span>{device.label}</span>
+                          <button type="button" onClick={() => handleRevokeDevice(user.id, device.id)} className="text-destructive hover:underline">Cabut</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))
             )}
