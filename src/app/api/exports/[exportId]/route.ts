@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/guards";
+import { buildPdf } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
 
@@ -8,52 +9,6 @@ function csvCell(value: unknown): string {
   const raw = value === null || value === undefined ? "" : String(value);
   const text = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
   return `"${text.replace(/"/g, '""')}"`;
-}
-
-function buildPdf(title: string, lines: string[]): Uint8Array {
-  const wrapLine = (line: string) => {
-    const text = String(line);
-    const chunks: string[] = [];
-    for (let index = 0; index < text.length; index += 100) chunks.push(text.slice(index, index + 100));
-    return chunks.length ? chunks : [""];
-  };
-  const safeLines = [title, ...lines].flatMap(wrapLine).map((line) =>
-    line.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)")
-  );
-  const linesPerPage = 44;
-  const pageLines = Array.from({ length: Math.max(1, Math.ceil(safeLines.length / linesPerPage)) }, (_, pageIndex) =>
-    safeLines.slice(pageIndex * linesPerPage, (pageIndex + 1) * linesPerPage)
-  );
-  const pageIds = pageLines.map((_, index) => 3 + index * 2);
-  const fontId = 3 + pageLines.length * 2;
-  const objects: string[] = [
-    `<< /Type /Catalog /Pages 2 0 R >>`,
-    `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageLines.length} >>`,
-  ];
-  for (let index = 0; index < pageLines.length; index += 1) {
-    const content = ["BT", "/F1 10 Tf", "40 760 Td", ...pageLines[index].flatMap((line, lineIndex) => [
-      lineIndex > 0 ? "0 -16 Td" : "",
-      `(${line}) Tj`,
-    ]), "ET"].filter(Boolean).join("\n");
-    const contentId = 4 + index * 2;
-    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
-    objects.push(`<< /Length ${Buffer.byteLength(content, "utf8")} >>\nstream\n${content}\nendstream`);
-  }
-  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
-
-  const chunks: Buffer[] = [Buffer.from("%PDF-1.4\n", "utf8")];
-  const offsets = [0];
-  let byteOffset = chunks[0].length;
-  objects.forEach((object, index) => {
-    const chunk = Buffer.from(`${index + 1} 0 obj\n${object}\nendobj\n`, "utf8");
-    offsets.push(byteOffset);
-    chunks.push(chunk);
-    byteOffset += chunk.length;
-  });
-  const xrefOffset = byteOffset;
-  const xref = [`xref`, `0 ${objects.length + 1}`, "0000000000 65535 f ", ...offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n `), `trailer`, `<< /Size ${objects.length + 1} /Root 1 0 R >>`, `startxref`, String(xrefOffset), "%%EOF"].join("\n");
-  chunks.push(Buffer.from(xref, "utf8"));
-  return Buffer.concat(chunks);
 }
 
 export async function GET(
@@ -114,10 +69,11 @@ export async function GET(
     }
 
     const title = `Pondok OS - Ekspor ${log.category}`;
-    await supabase.from("export_logs").update({ row_count: rows.length }).eq("id", id);
+    const { error: rowCountError } = await supabase.from("export_logs").update({ row_count: rows.length }).eq("id", id);
+    if (rowCountError) throw rowCountError;
     if (exportType === "pdf") {
-      const lines = [headers.join(" | "), ...rows.map((row) => row.map(String).join(" | "))];
-      return new Response(Buffer.from(buildPdf(title, lines)), {
+      const lines = [headers.join(" | "), ...rows.map((row) => row.map((value) => String(value ?? "")).join(" | "))];
+      return new Response(Buffer.from(await buildPdf(title, lines)), {
         status: 200,
         headers: {
           "Content-Type": "application/pdf",
