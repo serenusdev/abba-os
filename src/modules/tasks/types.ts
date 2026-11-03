@@ -62,6 +62,7 @@ export interface ProjectItem {
   blockedTasks: number;
   progressPercent: number;
   icon: string;
+  canManage?: boolean;
 }
 
 export type TaskTimeFilter = "all" | "overdue" | "today" | "this_week" | "later";

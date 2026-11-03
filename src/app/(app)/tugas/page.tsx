@@ -18,6 +18,12 @@ import {
   getTasksAction,
   getProjectsAction,
   deleteTaskAction,
+  addChecklistItemAction,
+  updateChecklistItemAction,
+  deleteChecklistItemAction,
+  createProjectAction,
+  updateProjectAction,
+  archiveProjectAction,
 } from "@/modules/tasks/actions";
 import { TaskDiscussion } from "@/components/tasks/task-discussion";
 
@@ -51,6 +57,15 @@ export default function TugasPage() {
   const [newDescription, setNewDescription] = React.useState("");
   const [editingTaskId, setEditingTaskId] = React.useState<string | null>(null);
   const [isCreating, setIsCreating] = React.useState(false);
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = React.useState(false);
+  const [editingProjectId, setEditingProjectId] = React.useState<string | null>(null);
+  const [isSavingProject, setIsSavingProject] = React.useState(false);
+  const [projectForm, setProjectForm] = React.useState({
+    name: "",
+    description: "",
+    teamName: "",
+    status: "planned" as ProjectItem["status"],
+  });
 
   // Filter tasks based on timeFilter
   const filteredTasks = React.useMemo(() => {
@@ -120,7 +135,32 @@ export default function TugasPage() {
       })
     );
 
-    await toggleChecklistItemAction(taskId, checklistId, nextDone);
+    const result = await toggleChecklistItemAction(taskId, checklistId, nextDone);
+    if (!result.success) {
+      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, checklist: t.checklist.map((c) => c.id === checklistId ? { ...c, done: currentDone } : c) } : t));
+      setToastMessage({ type: "error", text: result.message });
+    }
+  };
+
+  const handleAddChecklist = async (taskId: string, text: string) => {
+    const result = await addChecklistItemAction(taskId, text);
+    setToastMessage({ type: result.success ? "success" : "error", text: result.message });
+    if (result.success && result.data) {
+      setTasks((prev) => prev.map((task) => task.id === taskId ? { ...task, checklist: [...task.checklist, { id: result.data!.itemId, text: text.trim(), done: false }] } : task));
+    }
+    return result.success;
+  };
+
+  const handleUpdateChecklist = async (taskId: string, checklistId: string, text: string) => {
+    const result = await updateChecklistItemAction(taskId, checklistId, text);
+    setToastMessage({ type: result.success ? "success" : "error", text: result.message });
+    if (result.success) setTasks((prev) => prev.map((task) => task.id === taskId ? { ...task, checklist: task.checklist.map((item) => item.id === checklistId ? { ...item, text: text.trim() } : item) } : task));
+  };
+
+  const handleDeleteChecklist = async (taskId: string, checklistId: string) => {
+    const result = await deleteChecklistItemAction(taskId, checklistId);
+    setToastMessage({ type: result.success ? "success" : "error", text: result.message });
+    if (result.success) setTasks((prev) => prev.map((task) => task.id === taskId ? { ...task, checklist: task.checklist.filter((item) => item.id !== checklistId) } : task));
   };
 
   // Handle Create Task Submission
@@ -203,6 +243,40 @@ export default function TugasPage() {
     setNewVisibility(task.visibility || "team");
     setNewDescription(task.description || "");
     setIsDialogOpen(true);
+  };
+
+  const openCreateProject = () => {
+    setEditingProjectId(null);
+    setProjectForm({ name: "", description: "", teamName: "", status: "planned" });
+    setIsProjectDialogOpen(true);
+  };
+
+  const openEditProject = (project: ProjectItem) => {
+    setEditingProjectId(project.id);
+    setProjectForm({ name: project.name, description: project.description, teamName: project.teamName, status: project.status });
+    setIsProjectDialogOpen(true);
+  };
+
+  const handleSaveProject = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSavingProject(true);
+    const result = editingProjectId
+      ? await updateProjectAction(editingProjectId, projectForm)
+      : await createProjectAction(projectForm);
+    setToastMessage({ type: result.success ? "success" : "error", text: result.message });
+    if (result.success) {
+      const latestProjects = await getProjectsAction();
+      setProjects(latestProjects);
+      setIsProjectDialogOpen(false);
+    }
+    setIsSavingProject(false);
+  };
+
+  const handleArchiveProject = async (project: ProjectItem) => {
+    if (!window.confirm(`Arsipkan proyek "${project.name}"? Task dan riwayatnya tetap dipertahankan.`)) return;
+    const result = await archiveProjectAction(project.id);
+    setToastMessage({ type: result.success ? "success" : "error", text: result.message });
+    if (result.success) setProjects((current) => current.filter((item) => item.id !== project.id));
   };
 
   const overdueCount = tasks.filter((t) => t.isOverdue).length;
@@ -542,6 +616,9 @@ export default function TugasPage() {
                         onToggleChecklist={handleToggleChecklist}
                         onDelete={handleDeleteTask}
                         onEdit={handleEditTask}
+                        onAddChecklist={handleAddChecklist}
+                        onUpdateChecklist={handleUpdateChecklist}
+                        onDeleteChecklist={handleDeleteChecklist}
                       />
                     ))}
                   </div>
@@ -572,6 +649,9 @@ export default function TugasPage() {
                         onToggleChecklist={handleToggleChecklist}
                         onDelete={handleDeleteTask}
                         onEdit={handleEditTask}
+                        onAddChecklist={handleAddChecklist}
+                        onUpdateChecklist={handleUpdateChecklist}
+                        onDeleteChecklist={handleDeleteChecklist}
                       />
                     ))}
                   </div>
@@ -602,6 +682,9 @@ export default function TugasPage() {
                         onToggleChecklist={handleToggleChecklist}
                         onDelete={handleDeleteTask}
                         onEdit={handleEditTask}
+                        onAddChecklist={handleAddChecklist}
+                        onUpdateChecklist={handleUpdateChecklist}
+                        onDeleteChecklist={handleDeleteChecklist}
                       />
                     ))}
                   </div>
@@ -632,6 +715,9 @@ export default function TugasPage() {
                         onToggleChecklist={handleToggleChecklist}
                         onDelete={handleDeleteTask}
                         onEdit={handleEditTask}
+                        onAddChecklist={handleAddChecklist}
+                        onUpdateChecklist={handleUpdateChecklist}
+                        onDeleteChecklist={handleDeleteChecklist}
                       />
                     ))}
                   </div>
@@ -709,6 +795,13 @@ export default function TugasPage() {
           {/* TAB 3: Daftar Proyek */}
           {activeTab === "projects" && (
             <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-on-surface">Siklus hidup proyek</p>
+                <button type="button" onClick={openCreateProject} className="h-9 px-3 rounded-lg bg-primary text-on-primary text-xs font-semibold hover:bg-primary-container">
+                  <span className="material-symbols-outlined text-[15px] align-middle mr-1">create_new_folder</span>
+                  Proyek Baru
+                </button>
+              </div>
               {projects.length === 0 ? (
                 <div className="p-8 sm:p-10 text-center bg-card rounded-2xl border border-dashed border-border flex flex-col items-center justify-center space-y-3">
                   <Illustration
@@ -748,9 +841,12 @@ export default function TugasPage() {
                         </p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold">
-                      {proj.progressPercent}% Selesai
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold">
+                        {proj.progressPercent}% Selesai
+                      </span>
+                      {proj.canManage && <button type="button" onClick={() => openEditProject(proj)} className="h-8 px-2 rounded-lg border border-border text-[11px] font-semibold text-primary hover:bg-accent">Edit</button>}
+                    </div>
                   </div>
 
                   <p className="text-xs text-muted-foreground leading-relaxed">
@@ -770,6 +866,7 @@ export default function TugasPage() {
                       <span>{proj.blockedTasks} tugas terhambat</span>
                     </div>
                   </div>
+                  {proj.canManage && <button type="button" onClick={() => handleArchiveProject(proj)} className="text-left text-[11px] font-semibold text-destructive hover:underline">Arsipkan proyek</button>}
                 </div>
               )))}
             </div>
@@ -943,6 +1040,49 @@ export default function TugasPage() {
           </div>
         </div>
       )}
+
+      {isProjectDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+          <div className="bg-card rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-xl border border-border space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">create_new_folder</span>
+                <h3 className="font-headline-sm text-base text-on-surface font-semibold">{editingProjectId ? "Edit Proyek" : "Buat Proyek Baru"}</h3>
+              </div>
+              <button type="button" onClick={() => setIsProjectDialogOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-on-surface">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleSaveProject} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-on-surface block">Nama Proyek <span className="text-error">*</span></label>
+                <input required maxLength={120} value={projectForm.name} onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-on-surface block">Tim / Sentra</label>
+                <input value={projectForm.teamName} onChange={(event) => setProjectForm({ ...projectForm, teamName: event.target.value })} placeholder="Contoh: Sentra Digital" className="w-full h-10 px-3 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-on-surface block">Deskripsi</label>
+                <textarea rows={3} value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} className="w-full p-2.5 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-on-surface block">Status</label>
+                <select value={projectForm.status} onChange={(event) => setProjectForm({ ...projectForm, status: event.target.value as ProjectItem["status"] })} className="w-full h-10 px-2.5 rounded-lg bg-surface-container-low border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="planned">Direncanakan</option>
+                  <option value="active">Aktif</option>
+                  <option value="on_hold">Ditahan</option>
+                  <option value="completed">Selesai</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+                <button type="button" onClick={() => setIsProjectDialogOpen(false)} className="h-10 px-4 rounded-xl bg-surface-container text-xs font-semibold text-on-surface hover:bg-muted">Batal</button>
+                <button type="submit" disabled={isSavingProject} className="h-10 px-5 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow-xs hover:bg-primary-container disabled:opacity-50">{isSavingProject ? "Menyimpan..." : editingProjectId ? "Simpan Perubahan" : "Buat Proyek"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -956,14 +1096,21 @@ function TaskCard({
   onToggleChecklist,
   onDelete,
   onEdit,
+  onAddChecklist,
+  onUpdateChecklist,
+  onDeleteChecklist,
 }: {
   task: TaskItem;
   onStatusChange: (task: TaskItem, status: TaskStatus) => void;
   onToggleChecklist: (taskId: string, checklistId: string, currentDone: boolean) => void;
   onDelete: (task: TaskItem) => void;
   onEdit: (task: TaskItem) => void;
+  onAddChecklist: (taskId: string, text: string) => Promise<boolean>;
+  onUpdateChecklist: (taskId: string, checklistId: string, text: string) => Promise<void>;
+  onDeleteChecklist: (taskId: string, checklistId: string) => Promise<void>;
 }) {
   const [showDiscussion, setShowDiscussion] = React.useState(false);
+  const [newChecklistText, setNewChecklistText] = React.useState("");
   const isDone = task.status === "done";
   const isInReview = task.status === "in_review";
   const completedChecklist = task.checklist.filter((c) => c.done).length;
@@ -1042,10 +1189,18 @@ function TaskCard({
               <span className={item.done ? "line-through text-muted-foreground" : ""}>
                 {item.text}
               </span>
+              <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); const next = window.prompt("Ubah checklist", item.text); if (next?.trim()) void onUpdateChecklist(task.id, item.id, next); }} className="ml-auto text-[10px] text-primary hover:underline">Edit</button>
+              <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (window.confirm("Hapus checklist ini?")) void onDeleteChecklist(task.id, item.id); }} className="text-[10px] text-destructive hover:underline">Hapus</button>
             </label>
           ))}
+          <form onSubmit={async (event) => { event.preventDefault(); if (!newChecklistText.trim()) return; const added = await onAddChecklist(task.id, newChecklistText); if (added) setNewChecklistText(""); }} className="flex gap-1.5 pt-1">
+            <input value={newChecklistText} onChange={(event) => setNewChecklistText(event.target.value)} placeholder="Tambah item checklist" className="min-w-0 flex-1 h-7 rounded-md border border-border bg-card px-2 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
+            <button type="submit" className="h-7 px-2 rounded-md bg-primary text-on-primary text-[11px] font-semibold">Tambah</button>
+          </form>
         </div>
       )}
+
+      {task.checklist.length === 0 && <form onSubmit={async (event) => { event.preventDefault(); if (!newChecklistText.trim()) return; const added = await onAddChecklist(task.id, newChecklistText); if (added) setNewChecklistText(""); }} className="flex gap-1.5"><input value={newChecklistText} onChange={(event) => setNewChecklistText(event.target.value)} placeholder="Tambah item checklist" className="min-w-0 flex-1 h-8 rounded-md border border-border bg-surface-container-low px-2 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" /><button type="submit" className="h-8 px-2 rounded-md border border-primary text-primary text-[11px] font-semibold">Tambah</button></form>}
 
       {/* Reviewer Note Warning (if In Review) */}
       {isInReview && (

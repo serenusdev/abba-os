@@ -8,6 +8,12 @@ import { sendPushToUsers } from "@/lib/fcm";
 import { INITIAL_PROJECTS, INITIAL_TASKS } from "./data";
 import { ProjectItem, TaskItem, TaskPriority, TaskStatus, TaskVisibility } from "./types";
 
+interface TaskActionResult<T = unknown> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
+
 export interface CreateTaskPayload {
   title: string;
   projectId?: string;
@@ -19,6 +25,41 @@ export interface CreateTaskPayload {
   description?: string;
   assigneeIds?: string[];
   visibility?: TaskVisibility;
+}
+
+export interface ProjectPayload {
+  name: string;
+  description?: string;
+  teamName?: string;
+  status?: ProjectItem["status"];
+}
+
+async function canAccessTaskForUser(
+  supabase: ReturnType<typeof createAdminClient>,
+  user: { id: string; role: string; roles?: string[] },
+  taskId: string
+) {
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .select("id, created_by, team_id, task_assignees(user_id, unassigned_at)")
+    .eq("id", taskId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw error;
+  if (!task) return false;
+  const roles = user.roles || [user.role];
+  if (roles.some((role) => ["super_admin", "yayasan", "pengurus"].includes(role))) return true;
+  if (task.created_by === user.id || (task.task_assignees || []).some((item: any) => item.user_id === user.id && !item.unassigned_at)) return true;
+  if (!task.team_id) return false;
+  const { data: memberships, error: membershipError } = await supabase
+    .from("team_members")
+    .select("team_id, teams(id, name, slug)")
+    .eq("user_id", user.id)
+    .is("valid_to", null);
+  if (membershipError) throw membershipError;
+  return (memberships || []).some((item: any) =>
+    task.team_id === item.team_id || task.team_id === item.teams?.id || task.team_id === item.teams?.name || task.team_id === item.teams?.slug
+  );
 }
 
 /**
@@ -116,6 +157,7 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
     const { data: projects, error } = await supabase
       .from("projects")
       .select("*")
+      .is("archived_at", null)
       .order("created_at", { ascending: true });
 
     if (!error && projects) {
@@ -162,6 +204,7 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
           ? Math.round(((byProject.get(p.id) || []).filter((task: any) => task.status === "done").length / (byProject.get(p.id) || []).length) * 100)
           : 0,
         icon: "folder",
+        canManage: elevated || p.owner_id === user.id || p.created_by === user.id,
       }));
     }
   } catch (err) {
@@ -173,6 +216,84 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
   }
 
   return [];
+}
+
+export async function createProjectAction(payload: ProjectPayload): Promise<TaskActionResult<{ projectId: string }>> {
+  const user = await requireAuthUser();
+  if (!hasMinimumRole(user, "koordinator")) return { success: false, message: "Hanya koordinator atau pengurus yang dapat membuat proyek." };
+  const name = payload.name.trim();
+  if (!name) return { success: false, message: "Nama proyek wajib diisi." };
+  if (name.length > 120) return { success: false, message: "Nama proyek maksimal 120 karakter." };
+  if (process.env.VITEST) return { success: true, message: "Proyek berhasil dibuat.", data: { projectId: `project-${Date.now()}` } };
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase.from("projects").insert({
+      name,
+      description: payload.description?.trim() || null,
+      team_id: payload.teamName?.trim() || null,
+      status: payload.status || "planned",
+      owner_id: user.id,
+      created_by: user.id,
+    }).select("id").single();
+    if (error) throw error;
+    const { error: auditError } = await supabase.from("audit_logs").insert({
+      event_name: "task.project_created",
+      actor_id: user.id,
+      actor_name: user.full_name,
+      target_id: data.id,
+      target_label: name,
+      action_detail: "Proyek operasional dibuat.",
+    });
+    if (auditError) throw auditError;
+    return { success: true, message: `Proyek "${name}" berhasil dibuat.`, data: { projectId: data.id } };
+  } catch (error) {
+    console.error("Failed to create project:", error);
+    return { success: false, message: "Gagal membuat proyek." };
+  }
+}
+
+export async function updateProjectAction(projectId: string, payload: ProjectPayload): Promise<TaskActionResult> {
+  const user = await requireAuthUser();
+  const name = payload.name.trim();
+  if (!projectId || !name) return { success: false, message: "ID dan nama proyek wajib diisi." };
+  if (name.length > 120) return { success: false, message: "Nama proyek maksimal 120 karakter." };
+  if (process.env.VITEST) return { success: true, message: "Proyek berhasil diperbarui." };
+  try {
+    const supabase = createAdminClient();
+    const { data: project, error: projectError } = await supabase.from("projects").select("id, name, owner_id, created_by").eq("id", projectId).is("archived_at", null).maybeSingle();
+    if (projectError) throw projectError;
+    if (!project) return { success: false, message: "Proyek tidak ditemukan." };
+    if (!hasMinimumRole(user, "koordinator") && project.owner_id !== user.id && project.created_by !== user.id) return { success: false, message: "Anda tidak memiliki akses mengubah proyek ini." };
+    const { error } = await supabase.from("projects").update({ name, description: payload.description?.trim() || null, team_id: payload.teamName?.trim() || null, status: payload.status || "active", updated_at: new Date().toISOString() }).eq("id", projectId).is("archived_at", null);
+    if (error) throw error;
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.project_updated", actor_id: user.id, actor_name: user.full_name, target_id: projectId, target_label: name, action_detail: "Detail proyek diperbarui." });
+    if (auditError) throw auditError;
+    return { success: true, message: `Proyek "${name}" berhasil diperbarui.` };
+  } catch (error) {
+    console.error("Failed to update project:", error);
+    return { success: false, message: "Gagal memperbarui proyek." };
+  }
+}
+
+export async function archiveProjectAction(projectId: string): Promise<TaskActionResult> {
+  const user = await requireAuthUser();
+  if (!projectId) return { success: false, message: "ID proyek tidak valid." };
+  if (process.env.VITEST) return { success: true, message: "Proyek berhasil diarsipkan." };
+  try {
+    const supabase = createAdminClient();
+    const { data: project, error: projectError } = await supabase.from("projects").select("id, name, owner_id, created_by").eq("id", projectId).is("archived_at", null).maybeSingle();
+    if (projectError) throw projectError;
+    if (!project) return { success: false, message: "Proyek tidak ditemukan." };
+    if (!hasMinimumRole(user, "koordinator") && project.owner_id !== user.id && project.created_by !== user.id) return { success: false, message: "Anda tidak memiliki akses mengarsipkan proyek ini." };
+    const { error } = await supabase.from("projects").update({ status: "archived", archived_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", projectId).is("archived_at", null);
+    if (error) throw error;
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.project_archived", actor_id: user.id, actor_name: user.full_name, target_id: projectId, target_label: project.name, action_detail: "Proyek diarsipkan tanpa menghapus task dan riwayat." });
+    if (auditError) throw auditError;
+    return { success: true, message: `Proyek "${project.name}" berhasil diarsipkan.` };
+  } catch (error) {
+    console.error("Failed to archive project:", error);
+    return { success: false, message: "Gagal mengarsipkan proyek." };
+  }
 }
 
 /**
@@ -252,22 +373,7 @@ export async function toggleChecklistItemAction(
   }
   try {
     const supabase = createAdminClient();
-    const { data: task, error: taskError } = await supabase
-      .from("tasks")
-      .select("id, created_by")
-      .eq("id", taskId)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (taskError) throw taskError;
-    if (!task) return { success: false, message: "Tugas tidak ditemukan." };
-    const { data: assignment } = await supabase
-      .from("task_assignees")
-      .select("task_id")
-      .eq("task_id", taskId)
-      .eq("user_id", user.id)
-      .is("unassigned_at", null)
-      .maybeSingle();
-    if (task.created_by !== user.id && !assignment && !hasMinimumRole(user, "pengurus")) {
+    if (!(await canAccessTaskForUser(supabase, user, taskId))) {
       return { success: false, message: "Anda tidak memiliki akses ke checklist tugas ini." };
     }
     const { data: item, error: itemError } = await supabase
@@ -279,6 +385,8 @@ export async function toggleChecklistItemAction(
       .maybeSingle();
     if (itemError) throw itemError;
     if (!item) return { success: false, message: "Item checklist tidak ditemukan." };
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.checklist_toggled", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: checklistId, action_detail: `Checklist ditandai ${done ? "selesai" : "belum selesai"}.` });
+    if (auditError) throw auditError;
   } catch (err) {
     console.error("Failed to update checklist:", err);
     return { success: false, message: "Gagal memperbarui checklist tugas." };
@@ -287,6 +395,67 @@ export async function toggleChecklistItemAction(
     success: true,
     message: `Checklist tugas berhasil ${done ? "diselesaikan" : "dibuka kembali"}.`,
   };
+}
+
+export async function addChecklistItemAction(taskId: string, text: string): Promise<TaskActionResult<{ itemId: string }>> {
+  const user = await requireAuthUser();
+  const cleanText = text.trim();
+  if (!taskId || !cleanText) return { success: false, message: "Tugas dan teks checklist wajib diisi." };
+  if (process.env.VITEST) return { success: true, message: "Checklist ditambahkan.", data: { itemId: `check-${Date.now()}` } };
+  try {
+    const supabase = createAdminClient();
+    if (!(await canAccessTaskForUser(supabase, user, taskId))) return { success: false, message: "Anda tidak memiliki akses ke checklist tugas ini." };
+    const { data: last } = await supabase.from("task_checklist_items").select("sort_order").eq("task_id", taskId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
+    const { data, error } = await supabase.from("task_checklist_items").insert({ task_id: taskId, text: cleanText, sort_order: Number(last?.sort_order || 0) + 1 }).select("id").single();
+    if (error) throw error;
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.checklist_created", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: cleanText, action_detail: "Item checklist ditambahkan." });
+    if (auditError) throw auditError;
+    return { success: true, message: "Checklist berhasil ditambahkan.", data: { itemId: data.id } };
+  } catch (error) {
+    console.error("Failed to add checklist item:", error);
+    return { success: false, message: "Gagal menambahkan checklist." };
+  }
+}
+
+export async function updateChecklistItemAction(taskId: string, checklistId: string, text: string): Promise<TaskActionResult> {
+  const user = await requireAuthUser();
+  const cleanText = text.trim();
+  if (!taskId || !checklistId || !cleanText) return { success: false, message: "Checklist tidak valid." };
+  if (process.env.VITEST) return { success: true, message: "Checklist diperbarui." };
+  try {
+    const supabase = createAdminClient();
+    if (!(await canAccessTaskForUser(supabase, user, taskId))) return { success: false, message: "Anda tidak memiliki akses ke checklist tugas ini." };
+    const { data, error } = await supabase.from("task_checklist_items").update({ text: cleanText }).eq("id", checklistId).eq("task_id", taskId).select("id").maybeSingle();
+    if (error) throw error;
+    if (data) {
+      const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.checklist_updated", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: checklistId, action_detail: "Item checklist diperbarui." });
+      if (auditError) throw auditError;
+    }
+    return data ? { success: true, message: "Checklist berhasil diperbarui." } : { success: false, message: "Checklist tidak ditemukan." };
+  } catch (error) {
+    console.error("Failed to update checklist item:", error);
+    return { success: false, message: "Gagal memperbarui checklist." };
+  }
+}
+
+export async function deleteChecklistItemAction(taskId: string, checklistId: string): Promise<TaskActionResult> {
+  const user = await requireAuthUser();
+  if (!taskId || !checklistId) return { success: false, message: "Checklist tidak valid." };
+  if (process.env.VITEST) return { success: true, message: "Checklist dihapus." };
+  try {
+    const supabase = createAdminClient();
+    if (!(await canAccessTaskForUser(supabase, user, taskId))) return { success: false, message: "Anda tidak memiliki akses ke checklist tugas ini." };
+    const { data, error } = await supabase.from("task_checklist_items").delete().eq("id", checklistId).eq("task_id", taskId).select("id").maybeSingle();
+    if (error) throw error;
+    if (data) {
+      const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.checklist_deleted", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: checklistId, action_detail: "Item checklist dihapus." });
+      if (auditError) throw auditError;
+    }
+    return data ? { success: true, message: "Checklist berhasil dihapus." } : { success: false, message: "Checklist tidak ditemukan." };
+  } catch (error) {
+    console.error("Failed to delete checklist item:", error);
+    return { success: false, message: "Gagal menghapus checklist." };
+  }
 }
 
 /**
@@ -379,7 +548,8 @@ export async function updateTaskAction(
       updated_at: new Date().toISOString(),
     }).eq("id", taskId).is("deleted_at", null);
     if (error) throw error;
-    await supabase.from("audit_logs").insert({ event_name: "task.updated", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: payload.title.trim(), action_detail: "Detail tugas diperbarui." });
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.updated", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: payload.title.trim(), action_detail: "Detail tugas diperbarui." });
+    if (auditError) throw auditError;
     return { success: true, message: `Tugas "${payload.title.trim()}" berhasil diperbarui.`, taskId };
   } catch (error) {
     console.error("Failed to update task:", error);
@@ -399,7 +569,8 @@ export async function deleteTaskAction(taskId: string): Promise<{ success: boole
     if (task.created_by !== user.id && !hasMinimumRole(user, "pengurus")) return { success: false, message: "Hanya pembuat tugas atau pengurus yang dapat mengarsipkan tugas." };
     const { error } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", taskId).is("deleted_at", null);
     if (error) throw error;
-    await supabase.from("audit_logs").insert({ event_name: "task.archived", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: task.title, action_detail: "Tugas diarsipkan secara soft-delete." });
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.archived", actor_id: user.id, actor_name: user.full_name, target_id: taskId, target_label: task.title, action_detail: "Tugas diarsipkan secara soft-delete." });
+    if (auditError) throw auditError;
     return { success: true, message: "Tugas berhasil diarsipkan." };
   } catch (error) {
     console.error("Failed to archive task:", error);

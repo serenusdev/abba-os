@@ -352,6 +352,7 @@ export interface TaskDiscussionItem {
 
 export interface TaskAttachmentItem {
   id: string;
+  uploadedBy?: string;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -366,7 +367,7 @@ export async function getTaskDiscussionAction(taskId: string): Promise<{ comment
   if (!(await canAccessTask(supabase, user, taskId))) throw new Error("FORBIDDEN: Tugas tidak dapat diakses.");
   const [{ data: comments, error: commentsError }, { data: attachments, error: attachmentsError }] = await Promise.all([
     supabase.from("task_comments").select("id, body, created_at, author_id, task_mentions(mentioned_user_id)").eq("task_id", taskId).order("created_at", { ascending: true }),
-    supabase.from("task_attachments").select("id, file_name, mime_type, size_bytes, storage_path, created_at").eq("task_id", taskId).order("created_at", { ascending: false }),
+    supabase.from("task_attachments").select("id, file_name, mime_type, size_bytes, storage_path, uploaded_by, created_at").eq("task_id", taskId).order("created_at", { ascending: false }),
   ]);
   if (commentsError) throw commentsError;
   if (attachmentsError) throw attachmentsError;
@@ -375,7 +376,7 @@ export async function getTaskDiscussionAction(taskId: string): Promise<{ comment
   const profileMap = new Map((profiles || []).map((profile: any) => [profile.id, profile.full_name]));
   const signed = await Promise.all((attachments || []).map(async (item: any) => {
     const result = await supabase.storage.from("task-attachments").createSignedUrl(item.storage_path, 900);
-    return { id: item.id, fileName: item.file_name, mimeType: item.mime_type, sizeBytes: Number(item.size_bytes), signedUrl: result.data?.signedUrl, createdAt: item.created_at };
+    return { id: item.id, uploadedBy: item.uploaded_by, fileName: item.file_name, mimeType: item.mime_type, sizeBytes: Number(item.size_bytes), signedUrl: result.data?.signedUrl, createdAt: item.created_at };
   }));
   return {
     comments: (comments || []).map((item: any) => ({
@@ -425,6 +426,37 @@ export async function uploadTaskAttachmentAction(formData: FormData): Promise<{ 
     throw error;
   }
   return { success: true, message: "Lampiran berhasil diunggah.", attachment: { id: data.id, fileName: data.file_name, mimeType: data.mime_type, sizeBytes: Number(data.size_bytes), createdAt: data.created_at } };
+}
+
+export async function deleteTaskAttachmentAction(attachmentId: string): Promise<{ success: boolean; message: string }> {
+  const user = await requireAuthUser();
+  if (!attachmentId) return { success: false, message: "ID lampiran tidak valid." };
+  if (process.env.VITEST) return { success: true, message: "Lampiran berhasil dihapus." };
+  try {
+    const supabase = createAdminClient();
+    const { data: attachment, error: lookupError } = await supabase
+      .from("task_attachments")
+      .select("id, task_id, uploaded_by, storage_path, file_name")
+      .eq("id", attachmentId)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (!attachment) return { success: false, message: "Lampiran tidak ditemukan." };
+    if (!(await canAccessTask(supabase, user, attachment.task_id))) return { success: false, message: "Anda tidak memiliki akses ke tugas ini." };
+    const roles = user.roles || [user.role];
+    if (attachment.uploaded_by !== user.id && !roles.some((role) => ["super_admin", "pengurus"].includes(role))) {
+      return { success: false, message: "Hanya pengunggah atau pengurus yang dapat menghapus lampiran." };
+    }
+    const { error: storageError } = await supabase.storage.from("task-attachments").remove([attachment.storage_path]);
+    if (storageError) throw storageError;
+    const { error } = await supabase.from("task_attachments").delete().eq("id", attachmentId);
+    if (error) throw error;
+    const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "task.attachment_deleted", actor_id: user.id, actor_name: user.full_name, target_id: attachment.task_id, target_label: attachment.file_name, action_detail: "Lampiran tugas dihapus bersama objek storage." });
+    if (auditError) throw auditError;
+    return { success: true, message: "Lampiran berhasil dihapus." };
+  } catch (error) {
+    console.error("Failed to delete task attachment:", error);
+    return { success: false, message: "Gagal menghapus lampiran." };
+  }
 }
 
 export async function sendTestPushAction(): Promise<{ success: boolean; message: string; sent: number; skipped: boolean }> {
