@@ -37,6 +37,8 @@ export interface ScheduleEventItem {
   actionLabel: string;
   subNote?: string;
   audienceConfig?: AudienceConfig;
+  recurrenceRule?: string;
+  recurrenceUntil?: string;
 }
 
 export interface AnnouncementItem {
@@ -50,6 +52,8 @@ export interface AnnouncementItem {
   publishedAtStr: string;
   isRead: boolean;
   audienceConfig?: AudienceConfig;
+  status?: "draft" | "published" | "archived";
+  scheduledFor?: string;
 }
 
 export interface WeekDayPickerItem {

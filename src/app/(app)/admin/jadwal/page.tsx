@@ -9,11 +9,12 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Illustration } from "@/components/ui/illustration";
 import {
   getEventsAction,
-  getAnnouncementsAction,
+  getAdminAnnouncementsAction,
   createEventAction,
   updateEventAction,
   deleteEventAction,
   publishAnnouncementAction,
+  saveAnnouncementDraftAction,
   updateAnnouncementAction,
   deleteAnnouncementAction,
 } from "@/modules/schedules/actions";
@@ -64,6 +65,8 @@ export default function AdminJadwalPage() {
     location: "Lab Utama Pesantren",
     description: "",
     audienceScope: "all" as "all" | "santri" | "pengurus" | "koordinator",
+    recurrenceRule: "none" as "none" | "daily" | "weekly",
+    recurrenceUntil: "",
   });
 
   // Announcement form
@@ -73,6 +76,9 @@ export default function AdminJadwalPage() {
     priority: "normal" as "normal" | "important",
     targetAudienceLabel: "Semua Santri & Tim",
     audienceScope: "all" as "all" | "santri" | "pengurus" | "koordinator",
+    status: "published" as "draft" | "published",
+    scheduledFor: "",
+    expiresAt: "",
   });
 
   const loadData = React.useCallback(async () => {
@@ -80,7 +86,7 @@ export default function AdminJadwalPage() {
     try {
       const [evList, anList] = await Promise.all([
         getEventsAction(),
-        getAnnouncementsAction(),
+        getAdminAnnouncementsAction(),
       ]);
       setEvents(evList || []);
       setAnnouncements(anList || []);
@@ -138,6 +144,8 @@ export default function AdminJadwalPage() {
       location: eventForm.location,
       description: eventForm.description,
       audienceConfig: audienceFromScope(eventForm.audienceScope),
+      recurrenceRule: eventForm.recurrenceRule,
+      recurrenceUntil: eventForm.recurrenceUntil || undefined,
     };
     const res = editingEventId ? await updateEventAction(editingEventId, payload) : await createEventAction(payload);
 
@@ -154,6 +162,8 @@ export default function AdminJadwalPage() {
         location: "Lab Utama Pesantren",
         description: "",
         audienceScope: "all",
+        recurrenceRule: "none",
+        recurrenceUntil: "",
       });
       loadData();
     } else {
@@ -183,6 +193,8 @@ export default function AdminJadwalPage() {
       location: evt.location,
       description: evt.subNote || "",
       audienceScope: evt.audienceConfig?.scope === "member_type" ? ((evt.audienceConfig.memberTypes?.[0] || "all") as typeof eventForm.audienceScope) : "all",
+      recurrenceRule: (evt.recurrenceRule || "none") as typeof eventForm.recurrenceRule,
+      recurrenceUntil: evt.recurrenceUntil ? toJakartaDateTimeLocal(evt.recurrenceUntil) : "",
     });
     setIsEventModalOpen(true);
   };
@@ -199,8 +211,15 @@ export default function AdminJadwalPage() {
       priority: announcementForm.priority,
       targetAudienceLabel: announcementForm.targetAudienceLabel,
       audienceConfig: audienceFromScope(announcementForm.audienceScope),
+      status: announcementForm.status,
+      scheduledFor: announcementForm.scheduledFor || undefined,
+      expiresAt: announcementForm.expiresAt || undefined,
     };
-    const res = editingAnnouncementId ? await updateAnnouncementAction(editingAnnouncementId, payload) : await publishAnnouncementAction(payload);
+    const res = editingAnnouncementId
+      ? await updateAnnouncementAction(editingAnnouncementId, payload)
+      : announcementForm.status === "draft"
+        ? await saveAnnouncementDraftAction(payload)
+        : await publishAnnouncementAction(payload);
 
     setIsSubmitting(false);
     if (res.success) {
@@ -213,6 +232,9 @@ export default function AdminJadwalPage() {
         priority: "normal",
         targetAudienceLabel: "Semua Santri & Tim",
         audienceScope: "all",
+        status: "published",
+        scheduledFor: "",
+        expiresAt: "",
       });
       loadData();
     } else {
@@ -228,6 +250,9 @@ export default function AdminJadwalPage() {
       priority: ann.priority,
       targetAudienceLabel: ann.targetAudienceLabel,
       audienceScope: ann.audienceConfig?.scope === "member_type" ? ((ann.audienceConfig.memberTypes?.[0] || "all") as typeof announcementForm.audienceScope) : "all",
+      status: ann.status === "draft" ? "draft" : "published",
+      scheduledFor: ann.scheduledFor ? toJakartaDateTimeLocal(ann.scheduledFor) : "",
+      expiresAt: "",
     });
     setIsAnnouncementModalOpen(true);
   };
@@ -639,6 +664,21 @@ export default function AdminJadwalPage() {
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-label-sm text-xs text-on-surface font-medium">Pengulangan</label>
+                  <select value={eventForm.recurrenceRule} onChange={(e) => setEventForm({ ...eventForm, recurrenceRule: e.target.value as typeof eventForm.recurrenceRule })} className="w-full h-10 px-2 rounded-lg bg-surface-container-low text-on-surface text-sm border border-border focus:ring-2 focus:ring-primary focus:outline-none">
+                    <option value="none">Tidak berulang</option>
+                    <option value="daily">Setiap hari</option>
+                    <option value="weekly">Setiap minggu</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-label-sm text-xs text-on-surface font-medium">Berulang sampai</label>
+                  <input type="datetime-local" value={eventForm.recurrenceUntil} onChange={(e) => setEventForm({ ...eventForm, recurrenceUntil: e.target.value })} disabled={eventForm.recurrenceRule === "none"} className="w-full h-10 px-2 rounded-lg bg-surface-container-low text-on-surface text-xs border border-border focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50" />
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
                 <button
                   type="button"
@@ -752,6 +792,24 @@ export default function AdminJadwalPage() {
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-label-sm text-xs text-on-surface font-medium">Workflow</label>
+                  <select value={announcementForm.status} onChange={(e) => setAnnouncementForm({ ...announcementForm, status: e.target.value as typeof announcementForm.status })} className="w-full h-10 px-2 rounded-lg bg-surface-container-low text-on-surface text-sm border border-border focus:ring-2 focus:ring-primary focus:outline-none">
+                    <option value="published">Terbitkan</option>
+                    <option value="draft">Simpan sebagai draft</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-label-sm text-xs text-on-surface font-medium">Terbit terjadwal (opsional)</label>
+                  <input type="datetime-local" value={announcementForm.scheduledFor} onChange={(e) => setAnnouncementForm({ ...announcementForm, scheduledFor: e.target.value, status: e.target.value ? "draft" : announcementForm.status })} className="w-full h-10 px-2 rounded-lg bg-surface-container-low text-on-surface text-xs border border-border focus:ring-2 focus:ring-primary focus:outline-none" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="font-label-sm text-xs text-on-surface font-medium">Kedaluwarsa (opsional)</label>
+                <input type="datetime-local" value={announcementForm.expiresAt} onChange={(e) => setAnnouncementForm({ ...announcementForm, expiresAt: e.target.value })} className="w-full h-10 px-2 rounded-lg bg-surface-container-low text-on-surface text-xs border border-border focus:ring-2 focus:ring-primary focus:outline-none" />
+              </div>
+
               <div className="space-y-1">
                 <label className="font-label-sm text-xs text-on-surface font-medium">
                   Isi Pesan Pengumuman <span className="text-error">*</span>
@@ -785,7 +843,7 @@ export default function AdminJadwalPage() {
                   className="px-5 py-2 rounded-xl bg-primary text-on-primary font-label-md text-xs shadow-xs hover:bg-primary-container disabled:opacity-50 transition-all flex items-center gap-1.5"
                 >
                   {isSubmitting && <LoadingSpinner size="sm" />}
-                  <span>Terbitkan Pengumuman</span>
+                  <span>{announcementForm.status === "draft" ? "Simpan Draft" : "Terbitkan Pengumuman"}</span>
                 </button>
               </div>
             </form>

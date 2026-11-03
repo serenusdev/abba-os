@@ -26,7 +26,7 @@ async function filterByAudience(supabase: ReturnType<typeof createAdminClient>, 
   });
 }
 
-async function getAudienceUserIds(supabase: ReturnType<typeof createAdminClient>, config?: AudienceConfig): Promise<string[]> {
+export async function getAudienceUserIds(supabase: ReturnType<typeof createAdminClient>, config?: AudienceConfig): Promise<string[]> {
   if (!config || config.scope === "all") {
     const { data } = await supabase.from("profiles").select("id").eq("status", "active");
     return (data || []).map((row: any) => row.id);
@@ -38,6 +38,57 @@ async function getAudienceUserIds(supabase: ReturnType<typeof createAdminClient>
   }
   const { data } = await supabase.from("team_members").select("user_id").is("valid_to", null).in("team_id", config.teamIds || []);
   return Array.from(new Set((data || []).map((row: any) => row.user_id)));
+}
+
+function expandEventRows(rows: any[]): any[] {
+  const expanded: any[] = [];
+  const horizon = Date.now() + 180 * 24 * 60 * 60 * 1000;
+  for (const row of rows) {
+    const rule = row.recurrence_rule;
+    if (!rule || rule === "none") {
+      expanded.push(row);
+      continue;
+    }
+    const baseStart = new Date(row.starts_at);
+    const baseEnd = new Date(row.ends_at);
+    const duration = baseEnd.getTime() - baseStart.getTime();
+    const until = Math.min(
+      row.recurrence_until ? new Date(row.recurrence_until).getTime() : horizon,
+      horizon
+    );
+    const step = rule === "daily" ? 24 * 60 * 60 * 1000 : rule === "weekly" ? 7 * 24 * 60 * 60 * 1000 : 0;
+    if (!step || Number.isNaN(baseStart.getTime()) || Number.isNaN(until)) {
+      expanded.push(row);
+      continue;
+    }
+    for (let occurrence = baseStart.getTime(); occurrence <= until; occurrence += step) {
+      const copy = { ...row };
+      copy.id = `${row.id}:${new Date(occurrence).toISOString().slice(0, 10)}`;
+      copy.starts_at = new Date(occurrence).toISOString();
+      copy.ends_at = new Date(occurrence + duration).toISOString();
+      expanded.push(copy);
+    }
+  }
+  return expanded;
+}
+
+function toAnnouncementItem(row: any, readIds: Set<string> = new Set()): AnnouncementItem {
+  return {
+    id: row.id,
+    title: row.title,
+    bodyMarkdown: row.body_markdown,
+    priority: row.priority as "normal" | "important",
+    isPinned: row.pinned || row.priority === "important",
+    expiresAtStr: row.expires_at ? new Date(row.expires_at).toLocaleDateString("id-ID") : undefined,
+    targetAudienceLabel: row.target_audience_label || "Semua Santri",
+    publishedAtStr: row.published_at
+      ? new Date(row.published_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+      : "Draft",
+    isRead: readIds.has(row.id),
+    audienceConfig: row.audience_config || undefined,
+    status: row.status,
+    scheduledFor: row.scheduled_for || undefined,
+  };
 }
 
 /**
@@ -57,7 +108,7 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
     if (!error && events) {
       if (events.length === 0) return [];
 
-      const visibleEvents = await filterByAudience(supabase, events as any[], user);
+      const visibleEvents = await filterByAudience(supabase, expandEventRows(events as any[]), user);
       const organizerIds = Array.from(
         new Set(visibleEvents.map((e: any) => e.organizer_id).filter(Boolean))
       );
@@ -99,6 +150,8 @@ export async function getEventsAction(): Promise<ScheduleEventItem[]> {
           actionLabel: "Lihat Detail",
           subNote: e.description,
           audienceConfig: e.audience_config || undefined,
+          recurrenceRule: e.recurrence_rule || undefined,
+          recurrenceUntil: e.recurrence_until || undefined,
         };
       });
     }
@@ -135,24 +188,9 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
         .from("announcement_reads")
         .select("announcement_id")
         .eq("user_id", user.id);
-      const readIds = new Set((reads || []).map((read: any) => read.announcement_id));
+      const readIds = new Set<string>((reads || []).map((read: any) => String(read.announcement_id)));
 
-      return visibleAnnouncements.map((a: any) => ({
-        id: a.id,
-        title: a.title,
-        bodyMarkdown: a.body_markdown,
-        priority: a.priority as "normal" | "important",
-        isPinned: a.pinned || a.priority === "important",
-        expiresAtStr: a.expires_at ? new Date(a.expires_at).toLocaleDateString("id-ID") : undefined,
-        targetAudienceLabel: a.target_audience_label || "Semua Santri",
-        publishedAtStr: new Date(a.published_at || a.created_at).toLocaleDateString("id-ID", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        }),
-        isRead: readIds.has(a.id),
-        audienceConfig: a.audience_config || undefined,
-      }));
+      return visibleAnnouncements.map((a: any) => toAnnouncementItem(a, readIds));
     }
   } catch (err) {
     console.error("Failed to query announcements from Supabase:", err);
@@ -164,6 +202,16 @@ export async function getAnnouncementsAction(): Promise<AnnouncementItem[]> {
   }
 
   return [];
+}
+
+/** Administrator view: includes drafts, scheduled announcements, and archived history. */
+export async function getAdminAnnouncementsAction(): Promise<AnnouncementItem[]> {
+  await requireRole(["super_admin", "yayasan", "pengurus"]);
+  if (process.env.VITEST) return INITIAL_ANNOUNCEMENTS;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((row: any) => toAnnouncementItem(row));
 }
 
 export async function getUnreadAnnouncementsCountAction(): Promise<number> {
@@ -270,6 +318,9 @@ export async function publishAnnouncementAction(payload: {
   priority: "normal" | "important";
   targetAudienceLabel: string;
   audienceConfig?: AudienceConfig;
+  scheduledFor?: string;
+  expiresAt?: string;
+  status?: "draft" | "published";
 }): Promise<{ success: boolean; message: string; announcement?: AnnouncementItem }> {
   const admin = await requireRole(["super_admin", "yayasan", "pengurus"]);
   if (!payload.title.trim()) {
@@ -305,6 +356,11 @@ export async function publishAnnouncementAction(payload: {
     };
   }
 
+  const scheduledFor = payload.scheduledFor ? new Date(payload.scheduledFor) : null;
+  const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
+  if (scheduledFor && Number.isNaN(scheduledFor.getTime())) return { success: false, message: "Waktu terbit terjadwal tidak valid." };
+  if (expiresAt && Number.isNaN(expiresAt.getTime())) return { success: false, message: "Waktu kedaluwarsa tidak valid." };
+  const shouldPublish = payload.status !== "draft" && (!scheduledFor || scheduledFor.getTime() <= Date.now());
   let newId = `ann-${Date.now()}`;
   try {
     const supabase = createAdminClient();
@@ -316,8 +372,10 @@ export async function publishAnnouncementAction(payload: {
         priority: payload.priority,
         pinned: payload.priority === "important",
         target_audience_label: payload.targetAudienceLabel,
-        status: "published",
-        published_at: new Date().toISOString(),
+        status: shouldPublish ? "published" : "draft",
+        published_at: shouldPublish ? new Date().toISOString() : null,
+        scheduled_for: scheduledFor?.toISOString() || null,
+        expires_at: expiresAt?.toISOString() || null,
         author_id: admin.id,
         audience_config: payload.audienceConfig || { scope: "all" },
       })
@@ -338,7 +396,7 @@ export async function publishAnnouncementAction(payload: {
       action_detail: `Menerbitkan pengumuman prioritas ${payload.priority} untuk ${payload.targetAudienceLabel}`,
     });
     if (auditError) throw auditError;
-    if (!process.env.VITEST) {
+    if (shouldPublish && !process.env.VITEST) {
       try {
         const recipientIds = await getAudienceUserIds(supabase, payload.audienceConfig);
         await sendPushToUsers(recipientIds, {
@@ -367,11 +425,15 @@ export async function publishAnnouncementAction(payload: {
     publishedAtStr: "Baru Saja",
     isRead: false,
     audienceConfig: payload.audienceConfig,
+    status: shouldPublish ? "published" : "draft",
+    scheduledFor: scheduledFor?.toISOString(),
   };
 
   return {
     success: true,
-    message: `Pengumuman "${payload.title}" berhasil diterbitkan untuk ${payload.targetAudienceLabel}.`,
+    message: shouldPublish
+      ? `Pengumuman "${payload.title}" berhasil diterbitkan untuk ${payload.targetAudienceLabel}.`
+      : `Pengumuman "${payload.title}" disimpan sebagai draft${scheduledFor ? " dan dijadwalkan" : ""}.`,
     announcement: newAnn,
   };
 }
@@ -405,6 +467,18 @@ export async function deleteAnnouncementAction(
   }
 }
 
+export async function saveAnnouncementDraftAction(payload: {
+  title: string;
+  bodyMarkdown: string;
+  priority: "normal" | "important";
+  targetAudienceLabel: string;
+  audienceConfig?: AudienceConfig;
+  scheduledFor?: string;
+  expiresAt?: string;
+}): Promise<{ success: boolean; message: string; announcement?: AnnouncementItem }> {
+  return publishAnnouncementAction({ ...payload, status: "draft" });
+}
+
 export interface CreateEventPayload {
   title: string;
   description?: string;
@@ -413,6 +487,30 @@ export interface CreateEventPayload {
   location: string;
   category: "teknologi" | "keagamaan" | "operasional" | "umum";
   audienceConfig?: AudienceConfig;
+  recurrenceRule?: "none" | "daily" | "weekly";
+  recurrenceUntil?: string;
+}
+
+async function hasEventConflict(
+  supabase: ReturnType<typeof createAdminClient>,
+  startsAt: Date,
+  endsAt: Date,
+  location: string,
+  ignoredEventId?: string
+) {
+  const { data, error } = await supabase
+    .from("events")
+    .select("id, starts_at, ends_at")
+    .eq("location", location)
+    .eq("status", "scheduled")
+    .is("deleted_at", null);
+  if (error) throw error;
+  return (data || []).some((event: any) => {
+    if (ignoredEventId && event.id === ignoredEventId) return false;
+    const existingStart = new Date(event.starts_at).getTime();
+    const existingEnd = new Date(event.ends_at).getTime();
+    return existingStart < endsAt.getTime() && existingEnd > startsAt.getTime();
+  });
 }
 
 export async function updateEventAction(
@@ -428,6 +526,11 @@ export async function updateEventAction(
   if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || startsAt >= endsAt) {
     return { success: false, message: "Rentang waktu agenda tidak valid." };
   }
+  const recurrenceRule = payload.recurrenceRule || "none";
+  const recurrenceUntil = payload.recurrenceUntil ? new Date(payload.recurrenceUntil) : null;
+  if (!["none", "daily", "weekly"].includes(recurrenceRule) || (recurrenceUntil && Number.isNaN(recurrenceUntil.getTime()))) {
+    return { success: false, message: "Aturan pengulangan agenda tidak valid." };
+  }
   if (payload.title.trim().length > 160 || (payload.description || "").trim().length > 5000 || payload.location.trim().length > 240) {
     return { success: false, message: "Judul, deskripsi, atau lokasi melebihi batas yang diizinkan." };
   }
@@ -442,6 +545,9 @@ export async function updateEventAction(
       .maybeSingle();
     if (readError) throw readError;
     if (!existing) return { success: false, message: "Agenda tidak ditemukan." };
+    if (await hasEventConflict(supabase, startsAt, endsAt, payload.location.trim(), eventId)) {
+      return { success: false, message: "Bentrok: sudah ada agenda di lokasi dan waktu tersebut." };
+    }
 
     const { count } = await supabase
       .from("event_revisions")
@@ -465,11 +571,13 @@ export async function updateEventAction(
       previous_location: existing.location !== payload.location.trim() ? existing.location : existing.previous_location,
       category: payload.category,
       audience_config: payload.audienceConfig || existing.audience_config || { scope: "all" },
+      recurrence_rule: recurrenceRule,
+      recurrence_until: recurrenceUntil?.toISOString() || null,
       updated_at: new Date().toISOString(),
     }).eq("id", eventId);
     if (error) throw error;
 
-    await supabase.from("audit_logs").insert({
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       event_name: "event.updated",
       actor_id: admin.id,
       actor_name: admin.full_name,
@@ -477,6 +585,15 @@ export async function updateEventAction(
       target_label: payload.title.trim(),
       action_detail: "Agenda diperbarui; snapshot versi sebelumnya disimpan.",
     });
+    if (auditError) throw auditError;
+    if (existing.starts_at !== startsAt.toISOString() || existing.ends_at !== endsAt.toISOString() || existing.location !== payload.location.trim()) {
+      try {
+        const recipientIds = await getAudienceUserIds(supabase, payload.audienceConfig || existing.audience_config || { scope: "all" });
+        await sendPushToUsers(recipientIds, { type: "EVENT_UPDATED", title: `Perubahan Agenda: ${payload.title.trim()}`, body: "Waktu atau lokasi agenda telah diperbarui.", url: "/jadwal", referenceId: eventId });
+      } catch (pushError) {
+        console.error("Event updated but push delivery failed:", pushError);
+      }
+    }
     return { success: true, message: "Agenda berhasil diperbarui dan revisi sebelumnya disimpan.", eventId };
   } catch (err) {
     console.error("Failed to update event:", err);
@@ -509,9 +626,17 @@ export async function createEventAction(
   if (payload.location.trim().length > 240) {
     return { success: false, message: "Lokasi maksimal 240 karakter." };
   }
+  const recurrenceRule = payload.recurrenceRule || "none";
+  const recurrenceUntil = payload.recurrenceUntil ? new Date(payload.recurrenceUntil) : null;
+  if (!["none", "daily", "weekly"].includes(recurrenceRule) || (recurrenceUntil && Number.isNaN(recurrenceUntil.getTime()))) {
+    return { success: false, message: "Aturan pengulangan agenda tidak valid." };
+  }
 
   try {
     const supabase = createAdminClient();
+    if (await hasEventConflict(supabase, startsAt, endsAt, payload.location.trim())) {
+      return { success: false, message: "Bentrok: sudah ada agenda di lokasi dan waktu tersebut." };
+    }
     const { data: inserted, error } = await supabase
       .from("events")
       .insert({
@@ -525,6 +650,8 @@ export async function createEventAction(
         category: payload.category || "umum",
         status: "scheduled",
         audience_config: payload.audienceConfig || { scope: "all" },
+        recurrence_rule: recurrenceRule,
+        recurrence_until: recurrenceUntil?.toISOString() || null,
       })
       .select("id")
       .single();
@@ -580,6 +707,12 @@ export async function deleteEventAction(
       action_detail: `Membatalkan agenda ID ${eventId}`,
     });
     if (auditError) throw auditError;
+    try {
+      const recipientIds = await getAudienceUserIds(supabase, existing.audience_config || { scope: "all" });
+      await sendPushToUsers(recipientIds, { type: "EVENT_CANCELLED", title: `Agenda Dibatalkan: ${existing.title}`, body: "Agenda ini telah dibatalkan oleh administrator.", url: "/jadwal", referenceId: eventId });
+    } catch (pushError) {
+      console.error("Event cancellation saved but push delivery failed:", pushError);
+    }
     return { success: true, message: "Agenda berhasil dihapus." };
   } catch (err) {
     console.error("Failed to delete event:", err);
@@ -595,6 +728,9 @@ export async function updateAnnouncementAction(
     priority: "normal" | "important";
     targetAudienceLabel: string;
     audienceConfig?: AudienceConfig;
+    scheduledFor?: string | null;
+    expiresAt?: string | null;
+    status?: "draft" | "published";
   }
 ): Promise<{ success: boolean; message: string; announcementId?: string }> {
   const admin = await requireRole(["super_admin", "yayasan", "pengurus"]);
@@ -611,6 +747,17 @@ export async function updateAnnouncementAction(
     const { data: existing, error: readError } = await supabase.from("announcements").select("*").eq("id", announcementId).maybeSingle();
     if (readError) throw readError;
     if (!existing) return { success: false, message: "Pengumuman tidak ditemukan." };
+    if (existing.status === "archived") return { success: false, message: "Pengumuman yang sudah diarsipkan tidak dapat diubah." };
+    const scheduledFor = payload.scheduledFor === undefined
+      ? (existing.scheduled_for ? new Date(existing.scheduled_for) : null)
+      : (payload.scheduledFor ? new Date(payload.scheduledFor) : null);
+    const expiresAt = payload.expiresAt === undefined
+      ? (existing.expires_at ? new Date(existing.expires_at) : null)
+      : (payload.expiresAt ? new Date(payload.expiresAt) : null);
+    if (scheduledFor && Number.isNaN(scheduledFor.getTime())) return { success: false, message: "Waktu terbit terjadwal tidak valid." };
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) return { success: false, message: "Waktu kedaluwarsa tidak valid." };
+    const nextStatus = payload.status || existing.status;
+    if (nextStatus === "published" && scheduledFor && scheduledFor.getTime() > Date.now()) return { success: false, message: "Pengumuman dengan waktu mendatang harus berstatus draft terjadwal." };
     const { count } = await supabase.from("announcement_revisions").select("id", { count: "exact", head: true }).eq("announcement_id", announcementId);
     const { error: revisionError } = await supabase.from("announcement_revisions").insert({ announcement_id: announcementId, revision_no: (count || 0) + 1, snapshot: existing, changed_by: admin.id });
     if (revisionError) throw revisionError;
@@ -621,12 +768,30 @@ export async function updateAnnouncementAction(
       pinned: payload.priority === "important",
       target_audience_label: payload.targetAudienceLabel,
       audience_config: payload.audienceConfig || existing.audience_config || { scope: "all" },
+      status: nextStatus,
+      published_at: nextStatus === "published" ? (existing.published_at || new Date().toISOString()) : null,
+      scheduled_for: scheduledFor?.toISOString() || null,
+      expires_at: expiresAt?.toISOString() || null,
       updated_at: new Date().toISOString(),
     }).eq("id", announcementId);
     if (error) throw error;
     const { error: auditError } = await supabase.from("audit_logs").insert({ event_name: "announcement.updated", actor_id: admin.id, actor_name: admin.full_name, target_id: announcementId, target_label: payload.title.trim(), action_detail: "Pengumuman diperbarui; snapshot versi sebelumnya disimpan." });
     if (auditError) throw auditError;
-    return { success: true, message: "Pengumuman berhasil diperbarui dan revisi sebelumnya disimpan.", announcementId };
+    if (nextStatus === "published" && !process.env.VITEST) {
+      try {
+        const recipientIds = await getAudienceUserIds(supabase, payload.audienceConfig || existing.audience_config || { scope: "all" });
+        await sendPushToUsers(recipientIds, {
+          type: "ANNOUNCEMENT_UPDATED",
+          title: `Pembaruan Pengumuman: ${payload.title.trim()}`,
+          body: "Pengumuman yang Anda ikuti telah diperbarui.",
+          url: "/jadwal",
+          referenceId: announcementId,
+        });
+      } catch (pushError) {
+        console.error("Announcement updated but push delivery failed:", pushError);
+      }
+    }
+    return { success: true, message: nextStatus === "published" ? "Pengumuman berhasil diperbarui dan diterbitkan." : "Draft pengumuman berhasil diperbarui.", announcementId };
   } catch (err) {
     console.error("Failed to update announcement:", err);
     return { success: false, message: "Gagal memperbarui pengumuman." };

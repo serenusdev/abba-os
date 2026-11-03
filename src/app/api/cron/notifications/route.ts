@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToUsers } from "@/lib/fcm";
 import { getJakartaTime } from "@/lib/auth/guards";
+import { getAudienceUserIds } from "@/modules/schedules/actions";
 import { timingSafeEqual } from "node:crypto";
 
 export const dynamic = "force-dynamic";
@@ -23,12 +24,55 @@ export async function GET(request: Request) {
     const admin = createAdminClient();
     const jakarta = getJakartaTime();
     const today = jakarta.dateStr;
+    const now = new Date().toISOString();
+    let scheduledPublished = 0;
+    let expiredArchived = 0;
+    const { data: dueAnnouncements, error: dueError } = await admin
+      .from("announcements")
+      .select("id, title, audience_config")
+      .eq("status", "draft")
+      .not("scheduled_for", "is", null)
+      .lte("scheduled_for", now);
+    if (dueError) throw dueError;
+    for (const announcement of dueAnnouncements || []) {
+      const { data: published, error: publishError } = await admin
+        .from("announcements")
+        .update({ status: "published", published_at: now, updated_at: now })
+        .eq("id", announcement.id)
+        .eq("status", "draft")
+        .select("id")
+        .maybeSingle();
+      if (publishError) throw publishError;
+      if (!published) continue;
+      scheduledPublished += 1;
+      try {
+        const recipientIds = await getAudienceUserIds(admin, announcement.audience_config || { scope: "all" });
+        await sendPushToUsers(recipientIds, {
+          type: "ANNOUNCEMENT_PUBLISHED",
+          title: `Pengumuman Baru: ${announcement.title}`,
+          body: "Pengumuman terjadwal telah diterbitkan.",
+          url: "/jadwal",
+          referenceId: announcement.id,
+        });
+      } catch (pushError) {
+        console.error("Scheduled announcement published but push delivery failed:", pushError);
+      }
+    }
+    const { data: expired, error: expiryError } = await admin
+      .from("announcements")
+      .update({ status: "archived", archived_at: now, updated_at: now })
+      .eq("status", "published")
+      .not("expires_at", "is", null)
+      .lte("expires_at", now)
+      .select("id");
+    if (expiryError) throw expiryError;
+    expiredArchived = expired?.length || 0;
     const sendAttendanceReminder = jakarta.hours === 7 && jakarta.minutes >= 25 && jakarta.minutes <= 35;
     const sendReportReminder = jakarta.hours === 21 && jakarta.minutes <= 5;
     const { error: snapshotError } = await admin.rpc("refresh_attendance_effective", { p_date: today });
     if (snapshotError) console.error("Attendance effective snapshot failed:", snapshotError);
     if (!sendAttendanceReminder && !sendReportReminder) {
-      return NextResponse.json({ success: true, today, skipped: true });
+      return NextResponse.json({ success: true, today, skipped: true, scheduledPublished, expiredArchived });
     }
     const jobKeys = [
       ...(sendAttendanceReminder ? [`attendance-reminder:${today}`] : []),
@@ -116,7 +160,7 @@ export async function GET(request: Request) {
     const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     await admin.from("device_tokens").delete().lt("updated_at", cutoff);
     await admin.from("cron_job_runs").update({ status: "completed", completed_at: new Date().toISOString() }).in("job_key", claimedKeys);
-    return NextResponse.json({ success: true, today, attendancePush, reportPush });
+    return NextResponse.json({ success: true, today, attendancePush, reportPush, scheduledPublished, expiredArchived });
   } catch (error) {
     console.error("Notification cron failed:", error);
     const message = error instanceof Error ? error.message : "Notification job failed";
