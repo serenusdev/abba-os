@@ -12,10 +12,10 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
-  const [isMounted, setIsMounted] = React.useState(false);
+  const [isHydrated, setIsHydrated] = React.useState(false);
 
   React.useEffect(() => {
-    setIsMounted(true);
+    setIsHydrated(true);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -86,8 +86,8 @@ export default function LoginPage() {
         )}
 
         <form
-          action="javascript:void(0)"
           onSubmit={handleLogin}
+          data-hydrated={isHydrated}
           className="space-y-4"
         >
           <Input
@@ -117,7 +117,7 @@ export default function LoginPage() {
             variant="primary"
             size="lg"
             className="w-full mt-2"
-            disabled={isLoading || !isMounted}
+            disabled={isLoading}
           >
             {isLoading ? "Memproses Autentikasi..." : "Masuk ke Sistem"}
           </Button>

@@ -38,3 +38,4 @@ android/.idea
 # local build & temp artifacts
 android/app/release/
 supabase/.temp/
+test-results/
