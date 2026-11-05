@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasMinimumRole, requireAuthUser } from "@/lib/auth/guards";
 import { sendPushToUsers } from "@/lib/fcm";
 import { isNonEmptyString, isPlainRecord } from "@/lib/input-validation";
+import { throwQueryError } from "@/lib/query-error";
 import { INITIAL_PROJECTS, INITIAL_TASKS } from "./data";
 import { ProjectItem, TaskItem, TaskPriority, TaskStatus, TaskVisibility } from "./types";
 
@@ -140,7 +141,8 @@ export async function getTasksAction(): Promise<TaskItem[]> {
       }));
     }
   } catch (err) {
-    console.error("Failed to query tasks from Supabase:", err);
+    if (process.env.VITEST) return INITIAL_TASKS;
+    throwQueryError("tasks.list", err);
   }
 
   if (process.env.VITEST) {
@@ -211,7 +213,8 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
       }));
     }
   } catch (err) {
-    console.error("Failed to query projects from Supabase:", err);
+    if (process.env.VITEST) return INITIAL_PROJECTS;
+    throwQueryError("tasks.projects", err);
   }
 
   if (process.env.VITEST) {

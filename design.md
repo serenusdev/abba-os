@@ -26,9 +26,9 @@ Mobile is the primary experience, not a reduced desktop layout. Many users will 
 - **Approachable:** friendly rounded surfaces without looking childish or overly playful.
 - **Efficient:** common actions should take as few steps as reasonably possible.
 
-### Visual direction: Pearl & Teal with restrained glass accents
+### Visual direction: Forest Green, Sand Beige, and Electric Purple
 
-Use **Clinic Pearl** as the foundation: pearl-tinted backgrounds, clean surfaces, strong readable typography, teal as the primary action color, and restrained borders.
+Use **Sand Beige** as the calm foundation, **Forest Green** for structure and primary actions, and **Electric Purple** as a restrained 10% accent for focus, highlights, and selected states. Warm white is used only as a readable content surface—not as a fourth brand color.
 
 Borrow only selected qualities from **Aurora Glass**: subtle color atmosphere, gentle surface layering, and soft transitions. Do not apply heavy glassmorphism throughout the product. Operational screens must remain crisp, readable, fast, and accessible.
 
@@ -90,7 +90,7 @@ Suggested starting structure (final visibility depends on role and usage):
 
 Rules:
 - Use an icon plus a short text label. Never rely on icons alone for primary navigation.
-- Make the active destination visually clear using the primary teal treatment.
+- Make the active destination visually clear using the primary Forest Green treatment.
 - Keep the bar compact and safe-area aware.
 - Do not put every module in the bottom bar.
 - Provide a visible route to profile, help, notifications, and other modules.
@@ -117,21 +117,21 @@ Use semantic tokens. Components must not hardcode unrelated hex values. The ligh
 
 | Token | Value | Purpose |
 |---|---|---|
-| `background` | `#f6f9fa` | Main page canvas |
-| `foreground` | `#13262c` | Main text |
-| `card` | `#ffffff` | Cards, sheets, menus |
-| `card-foreground` | `#13262c` | Text on cards |
-| `muted` | `#e9f0f2` | Quiet surfaces and selected neutral fills |
-| `muted-foreground` | `#4c6168` | Secondary text |
-| `primary` | `#0b6e6a` | Main action, active navigation, key links |
-| `primary-foreground` | `#ffffff` | Text/icons on primary |
-| `secondary` | `#e1eeee` | Secondary action surfaces |
-| `secondary-foreground` | `#0c4a47` | Text on secondary |
-| `accent` | `#d6ecea` | Hover and selected backgrounds |
-| `accent-foreground` | `#0a4d4a` | Text on accent |
-| `border` | `rgba(19,38,44,0.11)` | Dividers and outlines |
-| `input` | `rgba(19,38,44,0.26)` | Input borders |
-| `ring` | `#0b6e6a` | Focus indicator |
+| `background` | `#f3ebdd` | Main Sand Beige page canvas |
+| `foreground` | `#12382c` | Forest Green text |
+| `card` | `#fffdf8` | Warm white cards, sheets, menus |
+| `card-foreground` | `#12382c` | Text on cards |
+| `muted` | `#e6e0d4` | Quiet Sand Beige surfaces |
+| `muted-foreground` | `#52615a` | Secondary text |
+| `primary` | `#185c45` | Forest Green actions and navigation |
+| `primary-foreground` | `#fffdf8` | Text/icons on primary |
+| `secondary` | `#3d6b58` | Forest Green secondary surfaces |
+| `secondary-foreground` | `#fffdf8` | Text on secondary |
+| `accent` | `#ede5ff` | Electric Purple tint for highlights |
+| `accent-foreground` | `#5b21b6` | Text on purple accent |
+| `border` | `rgba(18,56,44,0.14)` | Dividers and outlines |
+| `input` | `rgba(18,56,44,0.28)` | Input borders |
+| `ring` | `#7c3aed` | Electric Purple focus indicator |
 | `destructive` | `#b42f3a` | Destructive actions and blocking errors |
 | `success` | `#1e7a4c` | Successful or approved state |
 | `warning` | `#f0b94a` | Caution, pending attention, deadline reminders |
@@ -140,31 +140,32 @@ Use semantic tokens. Components must not hardcode unrelated hex values. The ligh
 
 | Token | Value |
 |---|---|
-| `background` | `#0c1a1e` |
-| `foreground` | `#e8f3f3` |
-| `card` | `#122429` |
-| `card-foreground` | `#e8f3f3` |
-| `muted` | `#18303a` |
-| `muted-foreground` | `#97b2b6` |
-| `primary` | `#4fc4bd` |
-| `primary-foreground` | `#052321` |
-| `secondary` | `#1b3840` |
-| `secondary-foreground` | `#d3ecea` |
-| `accent` | `#1f4a4d` |
-| `accent-foreground` | `#d0f2ef` |
-| `border` | `rgba(190,230,230,0.12)` |
-| `input` | `rgba(190,230,230,0.26)` |
-| `ring` | `#4fc4bd` |
-| `destructive` | `#ff8a93` |
-| `destructive-foreground` | `#310609` |
-| `success` | `#58d39a` |
-| `success-foreground` | `#03241a` |
-| `warning` | `#f0b94a` |
-| `warning-foreground` | `#2d2105` |
+| `background` | `#185c45` |
+| `foreground` | `#fffdf8` |
+| `card` | `#2d7357` |
+| `card-foreground` | `#fffdf8` |
+| `muted` | `#3d6b58` |
+| `muted-foreground` | `#e4dacc` |
+| `primary` | `#f3ebdd` |
+| `primary-foreground` | `#185c45` |
+| `secondary` | `#e4dacc` |
+| `secondary-foreground` | `#185c45` |
+| `accent` | `#ede5ff` |
+| `accent-foreground` | `#5b21b6` |
+| `border` | `rgba(255,253,248,0.20)` |
+| `input` | `rgba(255,253,248,0.32)` |
+| `ring` | `#c4b5fd` |
+| `destructive` | `#ffb3b8` |
+| `destructive-foreground` | `#5c0b12` |
+| `success` | `#9bd8b5` |
+| `success-foreground` | `#185c45` |
+| `warning` | `#fbe6a9` |
+| `warning-foreground` | `#3d2a00` |
 
 ### Color usage rules
 
-- Teal is the primary action color. Use it deliberately, not as decoration on every element.
+- Forest Green is the primary action color. Use it deliberately, not as decoration on every element.
+- Keep the visual ratio near 60% Sand Beige/warm neutral surfaces, 30% Forest Green structure, and 10% Electric Purple accents.
 - Keep one visually dominant primary action per screen or section. Other actions should be secondary, outline, or ghost.
 - Status colors must always be paired with a readable text label and, where useful, an icon.
 - Never communicate attendance or report status by color alone.
@@ -535,21 +536,22 @@ The following is the canonical starting token set for the project. Extend it onl
   --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --background: #f6f9fa;
-  --foreground: #13262c;
-  --card: #ffffff;
-  --card-foreground: #13262c;
-  --muted: #e9f0f2;
-  --muted-foreground: #4c6168;
-  --primary: #0b6e6a;
-  --primary-foreground: #ffffff;
-  --secondary: #e1eeee;
-  --secondary-foreground: #0c4a47;
-  --accent: #d6ecea;
-  --accent-foreground: #0a4d4a;
-  --border: rgba(19, 38, 44, 0.11);
-  --input: rgba(19, 38, 44, 0.26);
-  --ring: #0b6e6a;
+  --background: #f3ebdd;
+  --foreground: #12382c;
+  --card: #fffdf8;
+  --card-foreground: #12382c;
+  --muted: #e6e0d4;
+  --muted-foreground: #52615a;
+  --primary: #185c45;
+  --primary-foreground: #fffdf8;
+  --secondary: #3d6b58;
+  --secondary-foreground: #fffdf8;
+  --accent: #ede5ff;
+  --accent-foreground: #5b21b6;
+  --electric: #7c3aed;
+  --border: rgba(18, 56, 44, 0.14);
+  --input: rgba(18, 56, 44, 0.28);
+  --ring: #7c3aed;
   --destructive: #b42f3a;
   --destructive-foreground: #ffffff;
   --success: #1e7a4c;
@@ -557,10 +559,10 @@ The following is the canonical starting token set for the project. Extend it onl
   --warning: #f0b94a;
   --warning-foreground: #2d2105;
 
-  --chart-1: #0b6e6a;
-  --chart-2: #5aa7c9;
+  --chart-1: #185c45;
+  --chart-2: #7c3aed;
   --chart-3: #e0a23c;
-  --chart-4: #8e7cc3;
+  --chart-4: #b7791f;
   --chart-5: #c96f6f;
 
   --space-1: 4px;
@@ -603,30 +605,30 @@ The following is the canonical starting token set for the project. Extend it onl
 .dark {
   color-scheme: dark;
 
-  --background: #0c1a1e;
-  --foreground: #e8f3f3;
-  --card: #122429;
-  --card-foreground: #e8f3f3;
-  --muted: #18303a;
-  --muted-foreground: #97b2b6;
-  --primary: #4fc4bd;
-  --primary-foreground: #052321;
-  --secondary: #1b3840;
-  --secondary-foreground: #d3ecea;
-  --accent: #1f4a4d;
-  --accent-foreground: #d0f2ef;
-  --border: rgba(190, 230, 230, 0.12);
-  --input: rgba(190, 230, 230, 0.26);
-  --ring: #4fc4bd;
-  --destructive: #ff8a93;
-  --destructive-foreground: #310609;
-  --success: #58d39a;
-  --success-foreground: #03241a;
-  --warning: #f0b94a;
-  --warning-foreground: #2d2105;
+  --background: #185c45;
+  --foreground: #fffdf8;
+  --card: #2d7357;
+  --card-foreground: #fffdf8;
+  --muted: #3d6b58;
+  --muted-foreground: #e4dacc;
+  --primary: #f3ebdd;
+  --primary-foreground: #185c45;
+  --secondary: #e4dacc;
+  --secondary-foreground: #185c45;
+  --accent: #ede5ff;
+  --accent-foreground: #5b21b6;
+  --border: rgba(255, 253, 248, 0.20);
+  --input: rgba(255, 253, 248, 0.32);
+  --ring: #c4b5fd;
+  --destructive: #ffb3b8;
+  --destructive-foreground: #5c0b12;
+  --success: #9bd8b5;
+  --success-foreground: #185c45;
+  --warning: #fbe6a9;
+  --warning-foreground: #3d2a00;
 
-  --chart-1: #4fc4bd;
-  --chart-2: #7cc0e4;
+  --chart-1: #f3ebdd;
+  --chart-2: #c4b5fd;
   --chart-3: #f0b94a;
   --chart-4: #b3a3e6;
   --chart-5: #ee8f8f;
@@ -719,4 +721,4 @@ Before creating or modifying any UI:
 6. When a design decision is not specified, choose the simplest accessible solution consistent with this file and document the decision.
 7. If a proposed change conflicts with this file, explain the conflict and update this document deliberately rather than silently diverging.
 
-**Source references:** the visual direction is adapted from the supplied *Clinic Pearl* and *Aurora Glass* design references. Their healthcare and wellness-specific content has intentionally been replaced with Pondok OS product and workflow requirements.
+**Source references:** the visual direction now uses the approved Forest Green, Sand Beige, and Electric Purple palette. The earlier Clinic Pearl reference remains historical only; production components must follow the tokens above.

@@ -5,7 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushToUsers } from "@/lib/fcm";
 import { requireAuthUser, requireRole, getJakartaTime } from "@/lib/auth/guards";
-import { isDateOnly, isNonEmptyString, isPlainRecord } from "@/lib/input-validation";
+import { isDateOnly, isNonEmptyString, isPlainRecord, isTimeOnly } from "@/lib/input-validation";
+import { throwQueryError } from "@/lib/query-error";
 import { INITIAL_USER_DAILY_REPORT, REPORT_CATEGORIES, REVIEW_QUEUE_REPORTS } from "./data";
 import { DailyReport, ReportCategory, ReportItem, ReviewDecision } from "./types";
 
@@ -61,7 +62,8 @@ export async function getReportCategoriesAction(): Promise<ReportCategory[]> {
     if (error) throw error;
     if (data?.length) return data as ReportCategory[];
   } catch (err) {
-    console.error("Failed to query report categories:", err);
+    if (process.env.VITEST) return REPORT_CATEGORIES;
+    throwQueryError("reports.categories", err);
   }
   return [];
 }
@@ -422,13 +424,15 @@ export async function submitReportAction(
 
   try {
     const supabaseAdmin = createAdminClient();
-    const { data: policy } = await supabaseAdmin
+    const { data: policy, error: policyError } = await supabaseAdmin
       .from("policy_settings")
       .select("report_deadline_time")
       .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (policyError) throw policyError;
 
     if (!policy) {
       return {
@@ -438,20 +442,27 @@ export async function submitReportAction(
         submittedAtTime,
       };
     }
-    if (policy.report_deadline_time) {
-      const parts = policy.report_deadline_time.split(":");
-      if (parts.length >= 2) {
-        const h = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        if (!isNaN(h) && !isNaN(m)) {
-          deadlineH = h;
-          deadlineM = m;
-          deadlineDisplay = `${policy.report_deadline_time} WIB`;
-        }
-      }
+    const deadline = policy.report_deadline_time?.slice(0, 5) || "";
+    if (!isTimeOnly(deadline)) {
+      return {
+        success: false,
+        message: "Format batas laporan pada kebijakan aktif tidak valid.",
+        isLate: false,
+        submittedAtTime,
+      };
     }
-  } catch {
-    // Non-fatal, fallback to 21:00
+    const [hours, minutes] = deadline.split(":").map(Number);
+    deadlineH = hours;
+    deadlineM = minutes;
+    deadlineDisplay = `${deadline} WIB`;
+  } catch (error) {
+    console.error("Failed to load active report policy:", error);
+    return {
+      success: false,
+      message: "Kebijakan batas laporan tidak dapat dimuat. Laporan belum dikirim.",
+      isLate: false,
+      submittedAtTime,
+    };
   }
 
   const nowTotal = jakarta.totalMinutes;

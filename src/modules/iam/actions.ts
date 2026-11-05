@@ -9,6 +9,7 @@ import { UserProfile } from "@/lib/auth/types";
 import { ManualAccountPayload } from "./types";
 import { sendPushToUsers } from "@/lib/fcm";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { throwQueryError } from "@/lib/query-error";
 
 const VALID_ROLES = ["super_admin", "yayasan", "pengurus", "koordinator", "santri"] as const;
 type ValidRole = (typeof VALID_ROLES)[number];
@@ -282,7 +283,8 @@ export async function getAccountRequestsAction(): Promise<AccountRequestItem[]> 
       });
     }
   } catch (err) {
-    console.error("Failed to query account requests:", err);
+    if (process.env.VITEST) return [];
+    throwQueryError("iam.account_requests", err);
   }
   return [];
 }
@@ -356,7 +358,8 @@ export async function getActiveUsersAction(): Promise<ActiveUserItem[]> {
       });
     }
   } catch (err) {
-    console.error("Failed to query active users:", err);
+    if (process.env.VITEST) return [];
+    throwQueryError("iam.active_users", err);
   }
   return [];
 }

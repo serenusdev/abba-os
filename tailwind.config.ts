@@ -18,7 +18,7 @@ const config: Config = {
           "on-container": "#cfe9d8",
           fixed: "#bee3ca",
           "fixed-dim": "#9bc8aa",
-          "on-fixed": "#0d251a",
+          "on-fixed": "#12382c",
           "on-fixed-variant": "#185c45",
         },
         "primary-container": "#2d7357",
@@ -26,7 +26,7 @@ const config: Config = {
         "on-primary-container": "#cfe9d8",
         "primary-fixed": "#bee3ca",
         "primary-fixed-dim": "#9bc8aa",
-        "on-primary-fixed": "#0d251a",
+        "on-primary-fixed": "#12382c",
         "on-primary-fixed-variant": "#185c45",
         "inverse-primary": "#9bc8aa",
 
@@ -37,7 +37,7 @@ const config: Config = {
           "on-container": "#294b3b",
           fixed: "#dbe9df",
           "fixed-dim": "#bfd4c5",
-          "on-fixed": "#142d21",
+          "on-fixed": "#185c45",
           "on-fixed-variant": "#315b48",
         },
         "secondary-container": "#dbe9df",
@@ -45,7 +45,7 @@ const config: Config = {
         "on-secondary-container": "#294b3b",
         "secondary-fixed": "#dbe9df",
         "secondary-fixed-dim": "#bfd4c5",
-        "on-secondary-fixed": "#142d21",
+        "on-secondary-fixed": "#185c45",
         "on-secondary-fixed-variant": "#315b48",
 
         tertiary: {
@@ -90,8 +90,8 @@ const config: Config = {
 
         "on-surface": "#12382c",
         "on-surface-variant": "#40564b",
-        "inverse-surface": "#244334",
-        "inverse-on-surface": "#f0f4ed",
+        "inverse-surface": "#f3ebdd",
+        "inverse-on-surface": "#185c45",
 
         background: "#f3ebdd",
         foreground: "#12382c",

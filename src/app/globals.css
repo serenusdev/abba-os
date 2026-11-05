@@ -29,26 +29,28 @@
   }
 
   .dark {
-    --background: #12251c;
-    --foreground: #f4f0e8;
-    --card: #193126;
-    --card-foreground: #f4f0e8;
-    --muted: #244334;
-    --muted-foreground: #b6c8bc;
-    --primary: #5faf87;
-    --primary-foreground: #0d251a;
-    --secondary: #355f4a;
-    --secondary-foreground: #f4f0e8;
-    --accent: #33244d;
-    --accent-foreground: #d9c3ff;
-    --electric: #b18cff;
-    --border: rgba(220, 239, 225, 0.16);
-    --input: rgba(220, 239, 225, 0.28);
-    --ring: #b18cff;
-    --destructive: #ff8a93;
-    --destructive-foreground: #310609;
-    --success: #58d39a;
-    --warning: #f0b94a;
+    /* The dark theme stays within the same Forest Green / Sand / Electric
+       Purple system; it does not introduce a separate deep-green brand color. */
+    --background: #185c45;
+    --foreground: #fffdf8;
+    --card: #2d7357;
+    --card-foreground: #fffdf8;
+    --muted: #3d6b58;
+    --muted-foreground: #e4dacc;
+    --primary: #f3ebdd;
+    --primary-foreground: #185c45;
+    --secondary: #e4dacc;
+    --secondary-foreground: #185c45;
+    --accent: #ede5ff;
+    --accent-foreground: #5b21b6;
+    --electric: #c4b5fd;
+    --border: rgba(255, 253, 248, 0.2);
+    --input: rgba(255, 253, 248, 0.32);
+    --ring: #c4b5fd;
+    --destructive: #ffb3b8;
+    --destructive-foreground: #5c0b12;
+    --success: #9bd8b5;
+    --warning: #fbe6a9;
   }
 
   html,
