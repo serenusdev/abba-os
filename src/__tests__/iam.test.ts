@@ -4,6 +4,9 @@ import {
   rejectAccountApplicationAction,
   createManualAccountAction,
   resetUserSessionAction,
+  deleteAvatarAction,
+  updateProfileAction,
+  adminUpdateUserAction,
 } from "@/modules/iam/actions";
 
 describe("Stage 2 — Identity & Access Management (IAM)", () => {
@@ -41,6 +44,66 @@ describe("Stage 2 — Identity & Access Management (IAM)", () => {
     const result = await resetUserSessionAction("usr-salman");
     expect(result.success).toBe(true);
     expect(result.message).toContain("berhasil dicabut");
+  });
+
+  it("prevents IDOR on deleteAvatarAction when path does not belong to caller (F-03)", async () => {
+    const result = await deleteAvatarAction("victim-user-999/avatar.png");
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("Akses ditolak");
+  });
+
+  it("rejects path traversal attempts on deleteAvatarAction (F-03)", async () => {
+    const result = await deleteAvatarAction("usr-santri-001/../other/avatar.png");
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("Akses ditolak");
+  });
+
+  it("rejects external or unverified avatar URLs on updateProfileAction (F-12)", async () => {
+    const result = await updateProfileAction({
+      fullName: "Salman Al-Farisi",
+      phoneNumber: "081234567890",
+      avatarUrl: "https://malicious-site.com/track.png",
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("URL avatar tidak valid");
+  });
+
+  describe("adminUpdateUserAction (F-04 & F-13)", () => {
+    it("rejects empty userId", async () => {
+      const result = await adminUpdateUserAction("", { fullName: "Ahmad" });
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("User ID tidak valid");
+    });
+
+    it("rejects empty or single-character full_name", async () => {
+      const result = await adminUpdateUserAction("mock-test-01", { fullName: "A" });
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("Nama lengkap minimal 2 karakter");
+    });
+
+    it("rejects invalid status", async () => {
+      const result = await adminUpdateUserAction("mock-test-01", { status: "hacked_status" });
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("Status akun tidak valid");
+    });
+
+    it("blocks modification when target has equal or higher hierarchy", async () => {
+      const result = await adminUpdateUserAction("mock-test-forbidden-hierarchy", {
+        fullName: "Super Admin Lain",
+      });
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("hierarki");
+    });
+
+    it("allows valid admin update on lower-hierarchy user", async () => {
+      const result = await adminUpdateUserAction("mock-test-santri", {
+        fullName: "Ahmad Dahlan",
+        phoneNumber: "08123456789",
+        status: "active",
+      });
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("berhasil diperbarui");
+    });
   });
 });
 

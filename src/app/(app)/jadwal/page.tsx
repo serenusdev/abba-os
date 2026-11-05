@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Illustration } from "@/components/ui/illustration";
-import { WEEK_DAYS_AGENDA } from "@/modules/schedules/data";
 import {
   AnnouncementItem,
   ScheduleEventItem,
@@ -38,15 +37,17 @@ function buildWeekDays(dateStr: string, activeDate = dateStr): WeekDayPickerItem
 
 export default function JadwalPage() {
   const [activeTab, setActiveTab] = React.useState<ScheduleTab>("agenda");
-  const [weekDays, setWeekDays] = React.useState<WeekDayPickerItem[]>(WEEK_DAYS_AGENDA);
-  const [selectedDate, setSelectedDate] = React.useState("");
+  const [selectedDate, setSelectedDate] = React.useState<string>(() => {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  });
+  const [weekDays, setWeekDays] = React.useState<WeekDayPickerItem[]>(() => {
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    return buildWeekDays(today);
+  });
   const [events, setEvents] = React.useState<ScheduleEventItem[]>([]);
   const [announcements, setAnnouncements] = React.useState<AnnouncementItem[]>([]);
 
   React.useEffect(() => {
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
-    setSelectedDate(today);
-    setWeekDays(buildWeekDays(today));
     Promise.all([getEventsAction(), getAnnouncementsAction()]).then(([evData, anData]) => {
       setEvents(evData || []);
       setAnnouncements(anData || []);

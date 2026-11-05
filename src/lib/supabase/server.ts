@@ -4,10 +4,21 @@ import { cookies } from 'next/headers';
 export async function createClient() {
   const cookieStore = await cookies();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'Konfigurasi Supabase tidak lengkap atau masih menggunakan placeholder di lingkungan produksi (F-23).'
+      );
+    }
+  }
+
+  const effectiveUrl = supabaseUrl || 'https://placeholder.supabase.co';
+  const effectiveKey = supabaseAnonKey || 'placeholder-anon-key';
+
+  return createServerClient(effectiveUrl, effectiveKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

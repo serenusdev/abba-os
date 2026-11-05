@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 function getSafeLoginMessage(message: string) {
   if (
@@ -38,6 +39,28 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!process.env.VITEST) {
+    try {
+      const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+      const allowed = await enforceRateLimit(
+        `login:${email.toLowerCase()}:${clientIp}`,
+        10,
+        60 * 15
+      );
+      if (!allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Terlalu banyak percobaan login gagal. Harap tunggu beberapa saat sebelum mencoba kembali.",
+          },
+          { status: 429 },
+        );
+      }
+    } catch {
+      // Fall through if rate limiting storage is temporarily unavailable
+    }
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -56,4 +79,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ success: true });
 }
-

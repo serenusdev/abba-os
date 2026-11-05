@@ -34,9 +34,8 @@ export default function LoginPage() {
 
       // The server route writes the SSR session cookies on this response.
       window.location.assign("/");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat masuk ke sistem.";
-      setErrorMessage(msg);
+    } catch {
+      setErrorMessage("Tidak dapat terhubung ke server autentikasi. Silakan periksa koneksi Anda dan coba lagi.");
       setIsLoading(false);
     }
   };

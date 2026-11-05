@@ -34,3 +34,7 @@ google-services.json
 .idea
 *.iml
 android/.idea
+
+# local build & temp artifacts
+android/app/release/
+supabase/.temp/

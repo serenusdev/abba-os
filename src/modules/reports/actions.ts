@@ -406,9 +406,10 @@ export async function submitReportAction(
   const submittedAtTime = `${jakarta.timeFormatted} WIB`;
 
   if (process.env.VITEST) {
+    const deadlineDisplay = "21:00 WIB";
     const nowTotal = jakarta.totalMinutes;
     const isLate = nowTotal > (21 * 60);
-    const statusLabel = isLate ? "Terlambat (melewati 21:00 WIB)" : "Tepat Waktu";
+    const statusLabel = isLate ? `Terlambat (melewati ${deadlineDisplay})` : "Tepat Waktu";
     return {
       success: true,
       message: `Laporan harian berhasil dikirim: ${statusLabel}.`,

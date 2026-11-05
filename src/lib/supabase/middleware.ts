@@ -1,6 +1,28 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+export const PUBLIC_PATHS = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/offline',
+  '/api/auth/login',
+  '/api/calendar/feed',
+  '/sw.js',
+  '/manifest.webmanifest',
+];
+
+export const PUBLIC_PREFIXES = [
+  '/api/cron/',
+];
+
+export function isPublicRoute(pathname: string): boolean {
+  const normalized = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  if (PUBLIC_PATHS.includes(normalized)) return true;
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -9,14 +31,10 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const pathname = request.nextUrl.pathname;
-  const isPublicRoute =
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/register') ||
-    pathname.startsWith('/api/calendar/feed') ||
-    pathname.startsWith('/api/cron/');
+  const isPublic = isPublicRoute(pathname);
 
   if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
-    if (isPublicRoute) return supabaseResponse;
+    if (isPublic) return supabaseResponse;
     return NextResponse.json(
       { error: 'Server authentication is not configured.' },
       { status: 503 }
@@ -61,7 +79,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   // If unauthenticated and accessing protected app route
-  if ((!user || !activeProfile) && !isPublicRoute) {
+  if ((!user || !activeProfile) && !isPublic) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'UNAUTHORIZED: Otentikasi diperlukan.' },
+        { status: 401 }
+      );
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
