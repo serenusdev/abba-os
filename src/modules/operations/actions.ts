@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { sendPushToUsers } from "@/lib/fcm";
+import { isNonEmptyString } from "@/lib/input-validation";
 
 async function canAccessTask(
   supabase: ReturnType<typeof createAdminClient>,
@@ -261,6 +262,9 @@ export async function importMembersCsvAction(
   csv: string
 ): Promise<MemberImportResult> {
   const adminUser = await requireRole(["super_admin", "pengurus"]);
+  if (!isNonEmptyString(fileName, 255) || typeof csv !== "string" || csv.length > 5_000_000) {
+    return { success: false, message: "Nama file atau isi CSV tidak valid.", totalRows: 0, importedRows: 0, rejectedRows: 0, errors: [] };
+  }
   const rows = parseCsv(csv.replace(/^\uFEFF/, ""));
   if (rows.length < 2) {
     return { success: false, message: "CSV harus memiliki header dan minimal satu baris anggota.", totalRows: 0, importedRows: 0, rejectedRows: 0, errors: [] };

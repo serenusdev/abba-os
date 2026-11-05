@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasMinimumRole, requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { INITIAL_PEOPLE_PROFILES, INITIAL_TEAMS } from "./data";
 import { PersonProfile, TeamStructureItem } from "./types";
+import { throwQueryError } from "@/lib/query-error";
 
 /**
  * Server Action: Query all people profiles from Supabase
@@ -22,32 +23,36 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
       .order("created_at", { ascending: true })
       .limit(500);
 
-    if (!error && profiles) {
+    if (error) throw error;
+    if (profiles) {
       if (profiles.length === 0) return [];
       const profileIds = profiles.map((profile: any) => profile.id);
-      const { data: assignments } = await supabase
+      const { data: assignments, error: assignmentsError } = await supabase
         .from("reviewer_assignments")
         .select("reviewee_id, reviewer_id")
         .in("reviewee_id", profileIds)
         .eq("kind", "report")
         .or(`valid_to.is.null,valid_to.gte.${new Date().toISOString().slice(0, 10)}`);
+      if (assignmentsError) throw assignmentsError;
       const reviewerIds = Array.from(new Set((assignments || []).map((a: any) => a.reviewer_id)));
       const { data: reviewers } = reviewerIds.length
         ? await supabase.from("profiles").select("id, full_name").in("id", reviewerIds)
         : { data: [] };
       const reviewerMap = new Map<string, string>((reviewers || []).map((reviewer: any) => [reviewer.id, reviewer.full_name] as [string, string]));
-      const { data: memberships } = await supabase
+      const { data: memberships, error: membershipsError } = await supabase
         .from("team_members")
         .select("user_id, team_id, team_role")
         .in("user_id", profileIds)
         .is("valid_to", null);
+      if (membershipsError) throw membershipsError;
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
-      const { data: dutyRows } = await supabase
+      const { data: dutyRows, error: dutyError } = await supabase
         .from("attendance_duty_flags")
         .select("user_id, attendance_required, report_required, date_from, date_to, created_at")
         .in("user_id", profileIds)
         .lte("date_from", today)
         .order("created_at", { ascending: false });
+      if (dutyError) throw dutyError;
       const dutyByUser = new Map<string, { attendanceRequired: boolean; reportRequired: boolean }>();
       for (const duty of dutyRows || []) {
         if (duty.date_to && duty.date_to < today) continue;
@@ -122,13 +127,11 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
       });
     }
   } catch (err) {
-    console.error("Failed to query people from Supabase:", err);
+    if (process.env.VITEST) {
+      return INITIAL_PEOPLE_PROFILES;
+    }
+    throwQueryError("people.profiles", err);
   }
-
-  if (process.env.VITEST) {
-    return INITIAL_PEOPLE_PROFILES;
-  }
-
   return [];
 }
 
@@ -157,7 +160,8 @@ export async function getTeamsAction(): Promise<TeamStructureItem[]> {
         .select("*, team_members(*)")
       .order("created_at", { ascending: true });
 
-    if (!error && teams) {
+    if (error) throw error;
+    if (teams) {
       if (teams.length === 0) return [];
       const teamIds = teams.map((team: any) => team.id);
       const memberIds = Array.from(new Set((teams as any[]).flatMap((team: any) => (team.team_members || []).map((member: any) => member.user_id))));
@@ -193,13 +197,11 @@ export async function getTeamsAction(): Promise<TeamStructureItem[]> {
       }));
     }
   } catch (err) {
-    console.error("Failed to query teams from Supabase:", err);
+    if (process.env.VITEST) {
+      return INITIAL_TEAMS;
+    }
+    throwQueryError("people.teams", err);
   }
-
-  if (process.env.VITEST) {
-    return INITIAL_TEAMS;
-  }
-
   return [];
 }
 

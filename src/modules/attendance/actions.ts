@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAuthUser, getJakartaTime } from "@/lib/auth/guards";
 import { ATTENDANCE_HISTORY } from "./data";
 import { AttendanceClassification, AttendanceRecordItem, CorrectionRequestPayload } from "./types";
+import { throwQueryError } from "@/lib/query-error";
 
 export interface CheckinResult {
   success: boolean;
@@ -108,7 +109,8 @@ export async function getAttendanceHistoryAction(): Promise<AttendanceRecordItem
 
     const { data, error } = await query;
 
-    if (!error && data) {
+    if (error) throw error;
+    if (data) {
       const effectiveQuery = supabase
         .from("attendance_effective")
         .select("user_id, attendance_date, status, source_id")
@@ -117,7 +119,8 @@ export async function getAttendanceHistoryAction(): Promise<AttendanceRecordItem
       const scopedEffectiveQuery = ["santri", "koordinator"].includes(user.role)
         ? effectiveQuery.eq("user_id", user.id)
         : effectiveQuery;
-      const { data: effectiveRows } = await scopedEffectiveQuery;
+      const { data: effectiveRows, error: effectiveError } = await scopedEffectiveQuery;
+      if (effectiveError) throw effectiveError;
       if (effectiveRows?.length) {
         const rawByDate = new Map((data as any[]).map((row) => [row.attendance_date, row]));
         const labels: Record<string, string> = {
@@ -188,13 +191,11 @@ export async function getAttendanceHistoryAction(): Promise<AttendanceRecordItem
       });
     }
   } catch (err) {
-    console.error("Failed to query attendance records:", err);
+    if (process.env.VITEST) {
+      return ATTENDANCE_HISTORY;
+    }
+    throwQueryError("attendance.history", err);
   }
-
-  if (process.env.VITEST) {
-    return ATTENDANCE_HISTORY;
-  }
-
   return [];
 }
 

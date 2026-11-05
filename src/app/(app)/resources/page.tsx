@@ -16,10 +16,12 @@ export default function ResourceLibraryPage() {
   const [categories, setCategories] = React.useState<CategorySummary[]>([]);
   const [stats, setStats] = React.useState<{ totalCount: number; validCount: number; validPercent: number } | null>(null);
   const [statsError, setStatsError] = React.useState(false);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let isMounted = true;
     async function loadData() {
+      setLoadError(null);
       try {
         const [resData, catData, statsData, favoriteIds] = await Promise.all([
           getResourcesAction(searchQuery, selectedCategory),
@@ -35,7 +37,10 @@ export default function ResourceLibraryPage() {
         }
       } catch (err) {
         console.error("Failed to load resources:", err);
-        if (isMounted) setStatsError(true);
+        if (isMounted) {
+          setStatsError(true);
+          setLoadError(err instanceof Error ? err.message : "Data pustaka gagal dimuat.");
+        }
       }
     }
     loadData();
@@ -167,6 +172,12 @@ export default function ResourceLibraryPage() {
           </div>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-error/30 bg-error-container/30 p-3 text-sm text-error" role="alert">
+          {loadError}. Muat ulang halaman untuk mencoba lagi.
+        </div>
+      )}
 
       {/* 2. Migration Banner Stat (Stitch Screen Feature) */}
       <div className="rounded-xl bg-surface-container-low p-3.5 flex items-center justify-between shadow-xs border border-border/50">

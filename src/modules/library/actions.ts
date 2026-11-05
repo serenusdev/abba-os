@@ -6,6 +6,8 @@ import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { randomUUID } from "node:crypto";
 import { INITIAL_RESOURCES } from "./data";
 import { CategorySummary, ResourceAdminInput, ResourceItem, ResourceRevisionItem } from "./types";
+import { throwQueryError } from "@/lib/query-error";
+import { isNonEmptyString } from "@/lib/input-validation";
 
 const RESOURCE_ADMIN_ROLES = ["super_admin", "yayasan", "pengurus"] as const;
 
@@ -18,13 +20,15 @@ export async function getCategoriesAction(): Promise<CategorySummary[]> {
       supabase.from("resources").select("category_id").eq("status", "published"),
     ]);
 
-    if (!categoriesResult.error && categoriesResult.data && categoriesResult.data.length > 0) {
+    if (categoriesResult.error) throw categoriesResult.error;
+    if (resourcesResult.error) throw resourcesResult.error;
+    if (categoriesResult.data && categoriesResult.data.length > 0) {
       const typedData = categoriesResult.data as Array<{ id: string; name: string; slug: string; icon?: string | null }>;
 
       // Build count map per category_id
       const countMap = new Map<string, number>();
       let totalCount = 0;
-      if (!resourcesResult.error && resourcesResult.data) {
+      if (resourcesResult.data) {
         for (const r of resourcesResult.data as Array<{ category_id: string | null }>) {
           if (r.category_id) {
             countMap.set(r.category_id, (countMap.get(r.category_id) || 0) + 1);
@@ -44,7 +48,8 @@ export async function getCategoriesAction(): Promise<CategorySummary[]> {
       return [{ name: "Semua", slug: "all", count: totalCount, icon: "apps" }, ...mapped];
     }
   } catch (err) {
-    console.error("Failed to query categories from Supabase:", err);
+    if (process.env.VITEST) return [];
+    throwQueryError("library.categories", err);
   }
   return [];
 }
@@ -78,8 +83,8 @@ export async function getResourceStatsAction(): Promise<{
       return { totalCount, validCount, validPercent };
     }
   } catch (err) {
-    console.error("Failed to query resource stats from Supabase:", err);
-    return null;
+    if (process.env.VITEST) return null;
+    throwQueryError("library.resource_stats", err);
   }
   return { totalCount: 0, validCount: 0, validPercent: 0 };
 }
@@ -96,8 +101,8 @@ export async function getFavoriteResourceIdsAction(): Promise<string[]> {
     if (error) throw error;
     return (data || []).map((row: any) => row.resource_id).filter(Boolean);
   } catch (err) {
-    console.error("Failed to query resource favorites:", err);
-    return [];
+    if (process.env.VITEST) return [];
+    throwQueryError("library.resource_favorites", err);
   }
 }
 
@@ -106,6 +111,7 @@ export async function getResourcesAction(
   categorySlug: string = "all"
 ): Promise<ResourceItem[]> {
   const user = await requireAuthUser();
+  if (typeof query !== "string" || typeof categorySlug !== "string") return [];
   try {
     const supabase = createAdminClient();
     let dbQuery = supabase
@@ -132,13 +138,15 @@ export async function getResourcesAction(
       }
     }
     if (categorySlug && categorySlug !== "all") {
-      const { data: category } = await supabase.from("resource_categories").select("id").eq("slug", categorySlug).maybeSingle();
+      const { data: category, error: categoryError } = await supabase.from("resource_categories").select("id").eq("slug", categorySlug).maybeSingle();
+      if (categoryError) throw categoryError;
       if (category?.id) dbQuery = dbQuery.eq("category_id", category.id);
     }
 
     const { data, error } = await dbQuery;
 
-    if (!error && data) {
+    if (error) throw error;
+    if (data) {
       if (data.length === 0) return [];
       const authorIds = Array.from(new Set(data.map((resource: any) => resource.created_by).filter(Boolean)));
       const { data: authors, error: authorError } = authorIds.length
@@ -188,8 +196,8 @@ export async function getResourcesAction(
 
       return mapped;
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    if (!process.env.VITEST) throwQueryError("library.resources", err);
   }
 
   // Vitest test runner fallback only
@@ -218,7 +226,7 @@ export async function toggleFavoriteAction(
   resourceId: string
 ): Promise<{ success: boolean; isFavorited: boolean }> {
   const user = await requireAuthUser();
-  if (!resourceId) {
+  if (!isNonEmptyString(resourceId, 100)) {
     return { success: false, isFavorited: false };
   }
   if (process.env.VITEST) return { success: true, isFavorited: true };

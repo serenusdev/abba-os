@@ -7,6 +7,8 @@ import { requireAuthUser, requireRole } from "@/lib/auth/guards";
 import { createHash, randomUUID } from "node:crypto";
 import { formatRelativeTimeId } from "@/lib/utils";
 import { INITIAL_AUDIT_LOGS } from "./data";
+import { throwQueryError } from "@/lib/query-error";
+import { isDateOnly, isNonEmptyString, isTimeOnly, isPlainRecord } from "@/lib/input-validation";
 import { AuditLogItem } from "./types";
 
 /**
@@ -105,7 +107,8 @@ export async function queryAuditLogsAction(
 
     const { data: logs, error, count } = await dbQuery;
 
-    if (!error && logs) {
+    if (error) throw error;
+    if (logs) {
       if (logs.length === 0) return { success: true, logs: [], hasMore: false, page: safePage };
 
       return {
@@ -125,7 +128,7 @@ export async function queryAuditLogsAction(
       };
     }
   } catch (err) {
-    console.error("Failed to query audit logs from Supabase:", err);
+    if (!process.env.VITEST) throwQueryError("analytics.audit_logs", err);
   }
 
   // Fallback for tests runner only
@@ -197,7 +200,8 @@ export async function getActivePolicyAction(): Promise<PolicySettingItem | null>
       .limit(1)
       .maybeSingle();
 
-    if (!error && data) {
+    if (error) throw error;
+    if (data) {
       return {
         id: data.id,
         code: data.code,
@@ -214,7 +218,8 @@ export async function getActivePolicyAction(): Promise<PolicySettingItem | null>
       };
     }
   } catch (err) {
-    console.error("Failed to query active policy from Supabase:", err);
+    if (process.env.VITEST) return null;
+    throwQueryError("analytics.active_policy", err);
   }
   return null;
 }
@@ -231,6 +236,9 @@ export async function updatePolicySettingsAction(payload: {
   changeReason?: string;
 }): Promise<{ success: boolean; message: string }> {
   const admin = await requireRole(["super_admin"]);
+  if (!isPlainRecord(payload) || !isNonEmptyString(payload.name, 200) || !isTimeOnly(payload.attendanceCutoffTime) || !isTimeOnly(payload.attendanceGraceCutoffTime) || !isTimeOnly(payload.reportDeadlineTime) || (payload.effectiveFrom !== undefined && !isDateOnly(payload.effectiveFrom))) {
+    return { success: false, message: "Format kebijakan operasional tidak valid." };
+  }
   try {
     const supabase = createAdminClient();
     const code = `POL-${new Date().getFullYear()}-v${Date.now().toString().slice(-4)}`;
@@ -392,7 +400,8 @@ export async function getAdminDashboardStatsAction(): Promise<AdminDashboardMetr
     if (taskError) throw taskError;
     result.activeTasks = taskCount || 0;
   } catch (err) {
-    console.error("Failed to query admin dashboard stats:", err);
+    if (process.env.VITEST) return result;
+    throwQueryError("analytics.admin_dashboard", err);
   }
 
   return result;

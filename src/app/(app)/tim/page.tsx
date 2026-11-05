@@ -17,12 +17,13 @@ export default function TimPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [profiles, setProfiles] = React.useState<PersonProfile[]>([]);
   const [teams, setTeams] = React.useState<TeamStructureItem[]>([]);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     Promise.all([getPeopleAction(), getTeamsAction()]).then(([pData, tData]) => {
       setProfiles(pData || []);
       setTeams(tData || []);
-    });
+    }).catch((error) => setLoadError(error instanceof Error ? error.message : "Data anggota dan tim gagal dimuat."));
   }, []);
   const [selectedPerson, setSelectedPerson] = React.useState<PersonProfile | null>(null);
   const [unmaskedPhones, setUnmaskedPhones] = React.useState<Record<string, string>>({});
@@ -81,6 +82,11 @@ export default function TimPage() {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-5 pb-24">
       {/* Toast Notice */}
+      {loadError && (
+        <div className="p-3.5 rounded-xl bg-error-container/30 text-error border border-error/30 text-xs sm:text-sm" role="alert">
+          {loadError}. Muat ulang halaman untuk mencoba lagi.
+        </div>
+      )}
       {toastNotice && (
         <div className="p-3.5 rounded-xl bg-surface-container text-primary border border-border flex items-center justify-between text-xs sm:text-sm shadow-xs">
           <div className="flex items-center gap-2">

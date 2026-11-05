@@ -31,6 +31,7 @@ export default function BerandaPage() {
   const [events, setEvents] = React.useState<ScheduleEventItem[]>([]);
   const [announcements, setAnnouncements] = React.useState<AnnouncementItem[]>([]);
   const [adminStats, setAdminStats] = React.useState<AdminDashboardMetrics | null>(null);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // Time clocks
   const [currentDateTime, setCurrentDateTime] = React.useState(formatOperationalDateTime());
@@ -50,6 +51,7 @@ export default function BerandaPage() {
   const [previewAsMember, setPreviewAsMember] = React.useState(false);
 
   const loadData = React.useCallback(async () => {
+    setLoadError(null);
     try {
       const user = await getCurrentUserAction();
       setCurrentUser(user);
@@ -78,6 +80,7 @@ export default function BerandaPage() {
       setAdminStats(stats);
     } catch (err) {
       console.error("Gagal memuat data beranda:", err);
+      setLoadError(err instanceof Error ? err.message : "Data beranda gagal dimuat.");
     } finally {
       setIsLoadingAuth(false);
     }
@@ -673,6 +676,7 @@ export default function BerandaPage() {
   // =========================================================================
   return (
     <div className="flex flex-col w-full pb-8 space-y-4 max-w-4xl mx-auto">
+      {loadError && <div className="rounded-xl border border-error/30 bg-error-container/30 p-3 text-sm text-error" role="alert">{loadError}. Muat ulang halaman untuk mencoba lagi.</div>}
       {/* Return to Admin Mode Banner if in preview mode */}
       {isAdminOrPengurus && previewAsMember && (
         <div className="bg-surface-container-high p-3 rounded-xl flex items-center justify-between gap-3 text-xs border border-primary/30">

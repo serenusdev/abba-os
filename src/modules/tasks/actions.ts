@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { hasMinimumRole, requireAuthUser } from "@/lib/auth/guards";
 import { sendPushToUsers } from "@/lib/fcm";
+import { isNonEmptyString, isPlainRecord } from "@/lib/input-validation";
 import { INITIAL_PROJECTS, INITIAL_TASKS } from "./data";
 import { ProjectItem, TaskItem, TaskPriority, TaskStatus, TaskVisibility } from "./types";
 
@@ -223,9 +224,8 @@ export async function getProjectsAction(): Promise<ProjectItem[]> {
 export async function createProjectAction(payload: ProjectPayload): Promise<TaskActionResult<{ projectId: string }>> {
   const user = await requireAuthUser();
   if (!hasMinimumRole(user, "koordinator")) return { success: false, message: "Hanya koordinator atau pengurus yang dapat membuat proyek." };
+  if (!isPlainRecord(payload) || !isNonEmptyString(payload.name, 120)) return { success: false, message: "Nama proyek wajib diisi dan maksimal 120 karakter." };
   const name = payload.name.trim();
-  if (!name) return { success: false, message: "Nama proyek wajib diisi." };
-  if (name.length > 120) return { success: false, message: "Nama proyek maksimal 120 karakter." };
   if (process.env.VITEST) return { success: true, message: "Proyek berhasil dibuat.", data: { projectId: `project-${Date.now()}` } };
   try {
     const supabase = createAdminClient();
@@ -256,9 +256,8 @@ export async function createProjectAction(payload: ProjectPayload): Promise<Task
 
 export async function updateProjectAction(projectId: string, payload: ProjectPayload): Promise<TaskActionResult> {
   const user = await requireAuthUser();
+  if (!isNonEmptyString(projectId, 100) || !isPlainRecord(payload) || !isNonEmptyString(payload.name, 120)) return { success: false, message: "ID dan nama proyek wajib diisi dengan format yang valid." };
   const name = payload.name.trim();
-  if (!projectId || !name) return { success: false, message: "ID dan nama proyek wajib diisi." };
-  if (name.length > 120) return { success: false, message: "Nama proyek maksimal 120 karakter." };
   if (process.env.VITEST) return { success: true, message: "Proyek berhasil diperbarui." };
   try {
     const supabase = createAdminClient();
@@ -466,7 +465,7 @@ export async function deleteChecklistItemAction(taskId: string, checklistId: str
 export async function createTaskAction(
   payload: CreateTaskPayload
 ): Promise<{ success: boolean; message: string; taskId?: string }> {
-  if (!payload.title.trim()) {
+  if (!isPlainRecord(payload) || !isNonEmptyString(payload.title, 200)) {
     return {
       success: false,
       message: "Judul tugas wajib diisi.",
@@ -528,7 +527,7 @@ export async function updateTaskAction(
   taskId: string,
   payload: CreateTaskPayload
 ): Promise<{ success: boolean; message: string; taskId?: string }> {
-  if (!taskId || !payload.title.trim()) return { success: false, message: "ID dan judul tugas wajib diisi." };
+  if (!isNonEmptyString(taskId, 100) || !isPlainRecord(payload) || !isNonEmptyString(payload.title, 200)) return { success: false, message: "ID dan judul tugas wajib diisi dengan format yang valid." };
   const user = await requireAuthUser();
   if (process.env.VITEST) return { success: true, message: "Tugas berhasil diperbarui.", taskId };
   try {

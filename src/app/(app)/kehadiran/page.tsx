@@ -21,14 +21,15 @@ export default function KehadiranPage() {
   const [checkedInStatus, setCheckedInStatus] = React.useState("Tepat Waktu");
   const [historyItems, setHistoryItems] = React.useState<AttendanceRecordItem[]>([]);
   const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     getAttendanceHistoryAction().then((data) => {
       setHistoryItems(data || []);
-    });
+    }).catch((error) => setLoadError(error instanceof Error ? error.message : "Riwayat presensi gagal dimuat."));
     getActivePolicyAction().then((p) => {
       setPolicy(p);
-    });
+    }).catch((error) => setLoadError(error instanceof Error ? error.message : "Kebijakan presensi gagal dimuat."));
 
     const now = new Date();
     const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(now);
@@ -127,6 +128,7 @@ export default function KehadiranPage() {
 
   return (
     <div className="flex flex-col w-full pb-10 max-w-7xl mx-auto space-y-4">
+      {loadError && <div className="rounded-xl border border-error/30 bg-error-container/30 p-3 text-sm text-error" role="alert">{loadError}. Muat ulang halaman untuk mencoba lagi.</div>}
       {/* 1. Operational Time & Verified Server Sync Banner */}
       <div className="w-full bg-card rounded-2xl p-4 sm:p-5 shadow-xs space-y-3 border border-border">
         <div className="flex items-center justify-between">

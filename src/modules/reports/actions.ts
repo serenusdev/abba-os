@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushToUsers } from "@/lib/fcm";
 import { requireAuthUser, requireRole, getJakartaTime } from "@/lib/auth/guards";
+import { isDateOnly, isNonEmptyString, isPlainRecord } from "@/lib/input-validation";
 import { INITIAL_USER_DAILY_REPORT, REPORT_CATEGORIES, REVIEW_QUEUE_REPORTS } from "./data";
 import { DailyReport, ReportCategory, ReportItem, ReviewDecision } from "./types";
 
@@ -303,7 +304,7 @@ export async function getReviewQueueAction(): Promise<DailyReport[]> {
 export async function saveReportDraftAction(
   payload: SaveReportDraftPayload
 ): Promise<{ success: boolean; message: string }> {
-  if (!payload.items || payload.items.length === 0) {
+  if (!isPlainRecord(payload) || !Array.isArray(payload.items) || payload.items.length === 0) {
     return {
       success: false,
       message: "Laporan draft harus memiliki minimal 1 item aktivitas.",
@@ -312,7 +313,7 @@ export async function saveReportDraftAction(
 
   const user = await requireAuthUser();
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.reportDate)) {
+  if (!isDateOnly(payload.reportDate)) {
     return { success: false, message: "Tanggal laporan tidak valid." };
   }
   if (!process.env.VITEST && payload.reportDate !== getJakartaTime().dateStr) {
@@ -363,7 +364,7 @@ export async function submitReportAction(
   isLate: boolean;
   submittedAtTime: string;
 }> {
-  if (!payload.items || payload.items.length === 0) {
+  if (!isPlainRecord(payload) || !Array.isArray(payload.items) || payload.items.length === 0) {
     return {
       success: false,
       message: "Laporan wajib memiliki minimal 1 item aktivitas yang terisi.",
@@ -374,7 +375,7 @@ export async function submitReportAction(
 
   for (let i = 0; i < payload.items.length; i++) {
     const item = payload.items[i];
-    if (!item.title.trim()) {
+    if (!isNonEmptyString(item?.title, 500)) {
       return {
         success: false,
         message: `Judul aktivitas ke-${i + 1} wajib diisi.`,
@@ -382,7 +383,7 @@ export async function submitReportAction(
         submittedAtTime: "",
       };
     }
-    if (!item.description.trim()) {
+    if (!isNonEmptyString(item?.description, 10000)) {
       return {
         success: false,
         message: `Deskripsi kegiatan untuk "${item.title || `Aktivitas ${i + 1}`}" wajib diisi.`,
@@ -394,7 +395,7 @@ export async function submitReportAction(
 
   const user = await requireAuthUser();
   const jakarta = getJakartaTime();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.reportDate)) {
+  if (!isDateOnly(payload.reportDate)) {
     return { success: false, message: "Tanggal laporan tidak valid.", isLate: false, submittedAtTime: "" };
   }
   if (!process.env.VITEST && payload.reportDate !== jakarta.dateStr) {
