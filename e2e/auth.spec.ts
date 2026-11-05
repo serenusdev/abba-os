@@ -14,6 +14,7 @@ test.describe("authentication boundary", () => {
     test.skip(!email || !password, "E2E credentials are not configured");
 
     await page.goto("/login");
+    await expect(page.getByRole("button", { name: "Masuk ke Sistem" })).toBeEnabled();
     await page.getByLabel("Alamat Email").fill(email!);
     await page.getByLabel("Kata Sandi").fill(password!);
     await page.getByRole("button", { name: "Masuk ke Sistem" }).click();

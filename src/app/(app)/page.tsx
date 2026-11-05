@@ -695,6 +695,7 @@ export default function BerandaPage() {
 
       {/* Greeting & Server Sync Bar */}
       <section className="bg-card rounded-2xl p-4 sm:p-5 border border-border shadow-xs flex flex-col space-y-2">
+        <h1 className="sr-only">Beranda Santri</h1>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-accent/60 text-accent-foreground w-fit">
             <Image

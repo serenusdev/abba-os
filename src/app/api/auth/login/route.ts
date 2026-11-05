@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextRequest, NextResponse } from "next/server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 function getSafeLoginMessage(message: string) {
@@ -17,7 +17,7 @@ function getSafeLoginMessage(message: string) {
   return "Terjadi kesalahan saat masuk ke sistem.";
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let payload: { email?: unknown; password?: unknown };
 
   try {
@@ -61,7 +61,25 @@ export async function POST(request: Request) {
     }
   }
 
-  const supabase = await createClient();
+  const response = NextResponse.json({ success: true });
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }>) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          request.cookies.set({ name, value, ...options });
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -77,5 +95,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ success: true });
+  return response;
 }
