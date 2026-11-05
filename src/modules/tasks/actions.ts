@@ -41,7 +41,7 @@ async function canAccessTaskForUser(
 ) {
   const { data: task, error } = await supabase
     .from("tasks")
-    .select("id, created_by, team_id, task_assignees(user_id, unassigned_at)")
+    .select("id, created_by, team_id, visibility, task_assignees(user_id, unassigned_at)")
     .eq("id", taskId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -50,6 +50,8 @@ async function canAccessTaskForUser(
   const roles = user.roles || [user.role];
   if (roles.some((role) => ["super_admin", "yayasan", "pengurus"].includes(role))) return true;
   if (task.created_by === user.id || (task.task_assignees || []).some((item: any) => item.user_id === user.id && !item.unassigned_at)) return true;
+  if (task.visibility === "private") return false;
+  if (task.visibility === "organization") return true;
   if (!task.team_id) return false;
   const { data: memberships, error: membershipError } = await supabase
     .from("team_members")

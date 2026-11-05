@@ -6,7 +6,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Illustration } from "@/components/ui/illustration";
-import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = React.useState("");
@@ -20,32 +19,21 @@ export default function LoginPage() {
     setErrorMessage("");
 
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
       });
+      const result = (await response.json()) as { success?: boolean; message?: string };
 
-      if (error) {
-        if (
-          error.message.includes("Invalid login credentials") ||
-          error.message.includes("invalid_grant")
-        ) {
-          setErrorMessage("Email atau password yang Anda masukkan salah.");
-        } else if (error.message.includes("Email not confirmed")) {
-          setErrorMessage("Email Anda belum dikonfirmasi. Silakan periksa inbox email Anda.");
-        } else {
-          setErrorMessage(error.message);
-        }
+      if (!response.ok || !result.success) {
+        setErrorMessage(result.message || "Terjadi kesalahan saat masuk ke sistem.");
         setIsLoading(false);
         return;
       }
 
-      if (data.user) {
-        // Force a document navigation so the middleware receives the freshly
-        // persisted Supabase SSR cookies before rendering protected routes.
-        window.location.assign("/");
-      }
+      // The server route writes the SSR session cookies on this response.
+      window.location.assign("/");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat masuk ke sistem.";
       setErrorMessage(msg);

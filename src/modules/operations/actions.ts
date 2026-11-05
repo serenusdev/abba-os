@@ -15,7 +15,7 @@ async function canAccessTask(
 ) {
   const { data: task, error } = await supabase
     .from("tasks")
-    .select("id, created_by, team_id, task_assignees(user_id, unassigned_at)")
+    .select("id, created_by, team_id, visibility, task_assignees(user_id, unassigned_at)")
     .eq("id", taskId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -24,6 +24,8 @@ async function canAccessTask(
   const roles = user.roles || [user.role];
   if (roles.some((role) => ["super_admin", "yayasan", "pengurus"].includes(role))) return true;
   if (task.created_by === user.id || (task.task_assignees || []).some((item: any) => item.user_id === user.id && !item.unassigned_at)) return true;
+  if (task.visibility === "private") return false;
+  if (task.visibility === "organization") return true;
   if (!task.team_id) return false;
   const { data: memberships, error: membershipError } = await supabase
     .from("team_members")
@@ -299,7 +301,7 @@ export async function importMembersCsvAction(
     total_rows: items.length,
     imported_rows: valid.length,
     rejected_rows: errors.length,
-    status: "validated",
+    status: "processing",
     errors,
   });
   if (batchError) throw batchError;
@@ -330,7 +332,17 @@ export async function importMembersCsvAction(
     await supabase.from("member_import_batches").update({ status: "failed", errors: [...errors, insertError.message] }).eq("id", batchId);
     throw insertError;
   }
-  await supabase.from("member_import_batches").update({ status: "completed", imported_rows: provisioned.length, rejected_rows: errors.length, errors }).eq("id", batchId);
+  const { error: completeError } = await supabase
+    .from("member_import_batches")
+    .update({ status: "completed", imported_rows: provisioned.length, rejected_rows: errors.length, errors })
+    .eq("id", batchId);
+  if (completeError) {
+    await supabase
+      .from("member_import_batches")
+      .update({ status: "failed", errors: [...errors, completeError.message] })
+      .eq("id", batchId);
+    throw completeError;
+  }
   await supabase.from("audit_logs").insert({
     event_name: "iam.member_csv_imported",
     actor_id: adminUser.id,
