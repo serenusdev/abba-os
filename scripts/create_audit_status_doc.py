@@ -42,12 +42,11 @@ PARTIAL = {
     "UI-07",
     "PPL-08",
     "SCH-02",
+    "QUAL-05",
     "QUAL-07",
 }
 
 OPEN = {
-    "QUAL-04",
-    "QUAL-05",
 }
 
 
@@ -276,7 +275,7 @@ def main():
     rows = [
         ("Tanggal laporan", "5 November 2026"),
         ("Baseline audit", "ABBA_OS_IDAROH_Full_Source_Audit_2026-11-02.md — 109 temuan: 16 P0, 75 P1, 18 P2"),
-        ("Commit terakhir", "aa6b6f3 — fix(ui): close audit follow-up gaps — setelah bf8106c auth/task hardening"),
+        ("Commit terakhir", "3037259 — fix(quality): surface query failures and validate actions — setelah 7f97c99 report publication"),
         ("Status verifikasi", "Typecheck, lint, 48 unit test, dan build lokal lulus; browser E2E perlu dijalankan ulang setelah perbaikan login server-side"),
     ]
     for row, (key, value) in zip(meta.rows, rows):
@@ -312,7 +311,7 @@ def main():
     summary_rows = [
         ("Selesai di source", str(len(completed)), "Perbaikan implementasi sudah ditemukan pada source/migration dan didukung commit tertentu."),
         ("Sebagian / perlu verifikasi", str(len(partial)), "Ada implementasi, tetapi acceptance test, production behavior, atau cakupan fitur belum lengkap."),
-        ("Belum selesai", str(len(open_items)), "Belum ada bukti implementasi lengkap pada source saat laporan ini dibuat."),
+        ("Belum selesai", str(len(open_items)), "Tidak ada item terbuka pada source saat laporan ini dibuat." if not open_items else "Belum ada bukti implementasi lengkap pada source saat laporan ini dibuat."),
     ]
     for index, values in enumerate(summary_rows):
         cells = summary.add_row().cells
@@ -400,15 +399,17 @@ def main():
         "UI-05": "Filter scope pada audit UI belum dibuktikan benar-benar diterapkan ke query backend.",
         "UI-06": "Navigasi desktop/mobile untuk koordinator belum seluruhnya konsisten.",
         "PLAT-04": "PWA offline/service worker belum diputuskan dan diimplementasikan secara lengkap.",
-        "QUAL-04": "Error query yang dipetakan menjadi array kosong/null masih perlu audit dan perbaikan menyeluruh.",
         "QUAL-05": "Validasi input server dan pengurangan tipe any belum selesai sebagai hardening menyeluruh.",
         "QUAL-06": "CSP masih perlu menghapus unsafe-eval bila memungkinkan dan menambahkan HSTS pada deployment yang tepat.",
         "QUAL-07": "Pagination dan batas data belum konsisten pada seluruh modul.",
         "QUAL-08": "Seed/placeholder belum seluruhnya dipisahkan dari data operasional production.",
         "REP-06": "Tab Unassigned masih perlu diperbaiki dan diuji agar menampilkan laporan tanpa reviewer secara akurat.",
     }
-    for fid, title_text in open_items:
-        add_status_paragraph(doc, fid, title_text, "BELUM SELESAI", open_details.get(fid, "Belum ada bukti implementasi lengkap pada source saat laporan ini dibuat."))
+    if open_items:
+        for fid, title_text in open_items:
+            add_status_paragraph(doc, fid, title_text, "BELUM SELESAI", open_details.get(fid, "Belum ada bukti implementasi lengkap pada source saat laporan ini dibuat."))
+    else:
+        doc.add_paragraph("Tidak ada temuan yang berstatus BELUM SELESAI pada source saat laporan ini dibuat. Temuan partial tetap memerlukan acceptance test atau verifikasi environment nyata.")
 
     doc.add_heading("Sebagian selesai atau perlu verifikasi", level=2)
     partial_details = {
@@ -427,6 +428,7 @@ def main():
         "UI-07": "Status sync/online/migration sudah sebagian memakai data nyata, tetapi masih ada klaim statis yang perlu dihapus atau disambungkan.",
         "PPL-08": "CRUD dasar people/team dan riwayat sudah ada, tetapi struktur organisasi lengkap sesuai PRD belum seluruhnya tersedia.",
         "SCH-02": "Recurrence dan lifecycle jadwal sudah ada, tetapi kalender mingguan dan quick date jump belum terverifikasi sebagai pengalaman lengkap.",
+        "QUAL-05": "Validasi runtime sudah ditambahkan pada task/project, laporan, impor CSV, pustaka, dan kebijakan. Hardening lintas seluruh Server Action, pengurangan `any`, serta kontrak schema typed database masih perlu diselesaikan dan diuji langsung dengan payload invalid.",
     }
     for fid, title_text in partial:
         add_status_paragraph(doc, fid, title_text, "SEBAGIAN / PERLU VERIFIKASI", partial_details.get(fid, "Implementasi ada, tetapi bukti acceptance belum cukup."))
@@ -480,7 +482,7 @@ def main():
         "Android: assembleRelease sebelumnya lulus dengan JDK 17; artefak release yang sudah ada tidak dihapus atau ditimpa.",
         "Supabase: migration list production sebelumnya sinkron sampai migration app schema grants; CI disposable Supabase berhasil menjalankan seluruh migration dari nol dan 7 assertion RLS.",
         "CI run 41600038498: validate lulus, migration-check lulus, RLS matrix lulus, tetapi browser E2E gagal pada test user aktif yang seharusnya masuk dashboard; karenanya CI belum boleh disebut hijau penuh.",
-        "Perubahan source terakhir berada pada commit b67b376 setelah 386227f, aa6b6f3, dan bf8106c; seluruhnya akan dipush bersama laporan ini. Artefak lokal android/app/release dan supabase/.temp tidak disertakan.",
+        "Perubahan source terakhir berada pada commit 3037259 setelah 7f97c99, b67b376, 386227f, aa6b6f3, dan bf8106c; artefak lokal android/app/release dan supabase/.temp tidak disertakan.",
     ]
     for item in verification:
         add_bullet(doc, item)
@@ -489,7 +491,7 @@ def main():
     priorities = [
         "P0: jalankan ulang browser E2E login user aktif setelah route login server-side; CI sebelumnya gagal pada login dan belum boleh disebut hijau sebelum run baru lulus.",
         "P0/P1: verifikasi CSV member provisioning pada environment nyata dari import → konfirmasi email → approval → login; status batch sudah diperbaiki di source.",
-        "P1: selesaikan QUAL-04 (error state lintas modul) dan QUAL-05 (schema/validasi server lintas action).",
+        "P1: selesaikan QUAL-05 (schema/validasi server lintas action) dan lakukan verifikasi langsung terhadap payload invalid pada setiap Server Action.",
         "P1/P2: lakukan acceptance test production untuk E2E login, import→approval→login, backup/restore, role matrix, FCM device, dan pagination skala besar.",
         "Production: jalankan backup/restore drill nyata, uji role matrix lintas akun di Supabase production, dan uji FCM pada APK release di perangkat Android nyata.",
         "Release: setelah source dan E2E stabil, rebuild signed APK dengan branding/config terbaru lalu buat GitHub Release baru dengan artefak yang benar.",
