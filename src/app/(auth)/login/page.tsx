@@ -12,6 +12,11 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +85,11 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form
+          action="javascript:void(0)"
+          onSubmit={handleLogin}
+          className="space-y-4"
+        >
           <Input
             label="Alamat Email"
             type="email"
@@ -108,7 +117,7 @@ export default function LoginPage() {
             variant="primary"
             size="lg"
             className="w-full mt-2"
-            disabled={isLoading}
+            disabled={isLoading || !isMounted}
           >
             {isLoading ? "Memproses Autentikasi..." : "Masuk ke Sistem"}
           </Button>
