@@ -30,8 +30,10 @@ const ROLE_PRIORITY: Record<UserRole, number> = {
   santri: 1,
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { roles: _unusedRoles, ...defaultMockWithoutRoles } = DEFAULT_MOCK_USER;
 const TEST_ACTION_USER: UserProfile = {
-  ...DEFAULT_MOCK_USER,
+  ...defaultMockWithoutRoles,
   roles: ['santri', 'koordinator', 'pengurus', 'yayasan', 'super_admin'],
 };
 

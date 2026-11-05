@@ -39,3 +39,8 @@ android/.idea
 android/app/release/
 supabase/.temp/
 test-results/
+
+# cloudflare & open-next
+.open-next/
+.wrangler/
+.dev.vars

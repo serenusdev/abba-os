@@ -1,5 +1,5 @@
 {
-  "name": "pondok-os",
+  "name": "abba-os",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -25,7 +25,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.477.0",
-    "next": "15.5.28",
+    "next": "15.5.29",
     "pdf-lib": "1.17.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -40,7 +40,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.21.0",
-    "eslint-config-next": "15.5.28",
+    "eslint-config-next": "15.5.29",
     "postcss": "8.5.32",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
