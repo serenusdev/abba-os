@@ -1,4 +1,4 @@
-const CACHE_NAME = "idaroh-shell-v1";
+const CACHE_NAME = "idaroh-shell-v2";
 const SHELL = ["/", "/idaroh-icon-192.png", "/idaroh-icon-512.png"];
 
 self.addEventListener("install", (event) => {

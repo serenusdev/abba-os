@@ -19,7 +19,8 @@ export async function getPeopleAction(): Promise<PersonProfile[]> {
       .from("profiles")
       .select("id, email, full_name, phone_number, avatar_url, status, member_type, team_name, notes, created_at, updated_at, last_seen_at")
       .eq("status", "active")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(500);
 
     if (!error && profiles) {
       if (profiles.length === 0) return [];

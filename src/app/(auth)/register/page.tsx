@@ -104,7 +104,7 @@ export default function RegisterPage() {
               Pengajuan Akun Pondok OS
             </h2>
             <p className="font-body-sm text-[13px] text-muted-foreground mt-1">
-              Pendaftaran santri baru atau pengurus wajib melalui verifikasi Super Admin
+              Pendaftaran akun santri wajib melalui verifikasi pengurus sebelum dapat digunakan
             </p>
           </div>
 

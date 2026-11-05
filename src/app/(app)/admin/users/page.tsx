@@ -73,6 +73,7 @@ export default function AdminUsersPage() {
   const [importFeedback, setImportFeedback] = React.useState<string | null>(null);
   const [isImporting, setIsImporting] = React.useState(false);
   const [isExportingUsers, setIsExportingUsers] = React.useState(false);
+  const [exportFeedback, setExportFeedback] = React.useState<string | null>(null);
 
   // Role select per applicant
   const [applicantRoles, setApplicantRoles] = React.useState<Record<string, string>>({});
@@ -95,9 +96,16 @@ export default function AdminUsersPage() {
 
   const exportUsers = async () => {
     setIsExportingUsers(true);
+    setExportFeedback(null);
     try {
       const result = await exportAuditedDataAction("csv", "users", currentUser?.full_name);
-      if (result.success && result.downloadUrl) window.location.assign(result.downloadUrl);
+      if (result.success && result.downloadUrl) {
+        window.location.assign(result.downloadUrl);
+      } else {
+        setExportFeedback(result.message || "Ekspor rekap akun gagal.");
+      }
+    } catch {
+      setExportFeedback("Ekspor rekap akun gagal. Silakan coba lagi.");
     } finally {
       setIsExportingUsers(false);
     }
@@ -797,6 +805,9 @@ export default function AdminUsersPage() {
             Log Audit IAM
           </Link>
         </div>
+        {exportFeedback && (
+          <p className="text-center text-xs text-error" role="alert">{exportFeedback}</p>
+        )}
 
         <p className="text-center font-mono text-[11px] text-muted-foreground mt-1">
           Pondok OS IAM Module v2.0 • Sesuai standar ISO/IEC 27001 Access Control
