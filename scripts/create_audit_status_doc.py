@@ -450,7 +450,6 @@ def main():
         for run in cell.paragraphs[0].runs:
             run.bold = True
             run.font.color.rgb = RGBColor(255, 255, 255)
-    repeat_table_header(table.rows[0])
     prevent_row_split(table.rows[0])
     for index, (fid, title_text) in enumerate(findings):
         status = "BELUM SELESAI" if fid in OPEN else "SEBAGIAN / VERIFIKASI" if fid in PARTIAL else "SELESAI DI SOURCE"
@@ -481,7 +480,7 @@ def main():
         "Android: assembleRelease sebelumnya lulus dengan JDK 17; artefak release yang sudah ada tidak dihapus atau ditimpa.",
         "Supabase: migration list production sebelumnya sinkron sampai migration app schema grants; CI disposable Supabase berhasil menjalankan seluruh migration dari nol dan 7 assertion RLS.",
         "CI run 41600038498: validate lulus, migration-check lulus, RLS matrix lulus, tetapi browser E2E gagal pada test user aktif yang seharusnya masuk dashboard; karenanya CI belum boleh disebut hijau penuh.",
-        "Perubahan terakhir sudah dipush ke GitHub pada origin/main commit 2afe95e. Working tree hanya menyisakan artefak lokal android/app/release dan supabase/.temp yang dipertahankan.",
+        "Perubahan source terakhir berada pada commit b67b376 setelah 386227f, aa6b6f3, dan bf8106c; seluruhnya akan dipush bersama laporan ini. Artefak lokal android/app/release dan supabase/.temp tidak disertakan.",
     ]
     for item in verification:
         add_bullet(doc, item)
@@ -490,8 +489,8 @@ def main():
     priorities = [
         "P0: jalankan ulang browser E2E login user aktif setelah route login server-side; CI sebelumnya gagal pada login dan belum boleh disebut hijau sebelum run baru lulus.",
         "P0/P1: verifikasi CSV member provisioning pada environment nyata dari import → konfirmasi email → approval → login; status batch sudah diperbaiki di source.",
-        "P1: selesaikan task pribadi/team, tab Unassigned, account export, audit scope filter, dan quick date jump.",
-        "P1/P2: lakukan review menyeluruh error handling, validation, pagination, CSP/HSTS, dan pemisahan seed/placeholder.",
+        "P1: selesaikan QUAL-04 (error state lintas modul) dan QUAL-05 (schema/validasi server lintas action).",
+        "P1/P2: lakukan acceptance test production untuk E2E login, import→approval→login, backup/restore, role matrix, FCM device, dan pagination skala besar.",
         "Production: jalankan backup/restore drill nyata, uji role matrix lintas akun di Supabase production, dan uji FCM pada APK release di perangkat Android nyata.",
         "Release: setelah source dan E2E stabil, rebuild signed APK dengan branding/config terbaru lalu buat GitHub Release baru dengan artefak yang benar.",
     ]
