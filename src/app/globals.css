@@ -6,21 +6,22 @@
   :root {
     --font-hanken-grotesk: "Hanken Grotesk";
     --font-ibm-plex-mono: "IBM Plex Mono";
-    --background: #f6f9fa;
-    --foreground: #13262c;
-    --card: #ffffff;
-    --card-foreground: #13262c;
-    --muted: #e9f0f2;
-    --muted-foreground: #4c6168;
-    --primary: #005451;
-    --primary-foreground: #ffffff;
-    --secondary: #546161;
-    --secondary-foreground: #ffffff;
-    --accent: #d6ecea;
-    --accent-foreground: #0a4d4a;
-    --border: rgba(19, 38, 44, 0.11);
-    --input: rgba(19, 38, 44, 0.26);
-    --ring: #0b6e6a;
+    --background: #f3ebdd;
+    --foreground: #12382c;
+    --card: #fffdf8;
+    --card-foreground: #12382c;
+    --muted: #e6e0d4;
+    --muted-foreground: #52615a;
+    --primary: #185c45;
+    --primary-foreground: #fffdf8;
+    --secondary: #3d6b58;
+    --secondary-foreground: #fffdf8;
+    --accent: #ede5ff;
+    --accent-foreground: #5b21b6;
+    --electric: #7c3aed;
+    --border: rgba(18, 56, 44, 0.14);
+    --input: rgba(18, 56, 44, 0.28);
+    --ring: #7c3aed;
     --destructive: #b42f3a;
     --destructive-foreground: #ffffff;
     --success: #1e7a4c;
@@ -28,21 +29,22 @@
   }
 
   .dark {
-    --background: #0c1a1e;
-    --foreground: #e8f3f3;
-    --card: #122429;
-    --card-foreground: #e8f3f3;
-    --muted: #18303a;
-    --muted-foreground: #97b2b6;
-    --primary: #4fc4bd;
-    --primary-foreground: #052321;
-    --secondary: #1b3840;
-    --secondary-foreground: #d3ecea;
-    --accent: #1f4a4d;
-    --accent-foreground: #d0f2ef;
-    --border: rgba(190, 230, 230, 0.12);
-    --input: rgba(190, 230, 230, 0.26);
-    --ring: #4fc4bd;
+    --background: #12251c;
+    --foreground: #f4f0e8;
+    --card: #193126;
+    --card-foreground: #f4f0e8;
+    --muted: #244334;
+    --muted-foreground: #b6c8bc;
+    --primary: #5faf87;
+    --primary-foreground: #0d251a;
+    --secondary: #355f4a;
+    --secondary-foreground: #f4f0e8;
+    --accent: #33244d;
+    --accent-foreground: #d9c3ff;
+    --electric: #b18cff;
+    --border: rgba(220, 239, 225, 0.16);
+    --input: rgba(220, 239, 225, 0.28);
+    --ring: #b18cff;
     --destructive: #ff8a93;
     --destructive-foreground: #310609;
     --success: #58d39a;
@@ -54,8 +56,8 @@
     width: 100%;
     margin: 0;
     padding: 0;
-    background-color: #f6f9fa;
-    color: #0a1e24;
+    background-color: #f3ebdd;
+    color: #12382c;
     font-family: var(--font-hanken-grotesk), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
@@ -83,7 +85,7 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(19, 38, 44, 0.15);
+  background: rgba(18, 56, 44, 0.2);
   border-radius: 9999px;
 }
 
