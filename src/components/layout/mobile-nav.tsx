@@ -25,8 +25,7 @@ export function MobileNav({ user }: MobileNavProps) {
   const isAdminOrPengurus =
     user.role === "super_admin" ||
     user.role === "yayasan" ||
-    user.role === "pengurus" ||
-    user.role === "koordinator";
+    user.role === "pengurus";
 
   const navItems = isAdminOrPengurus
     ? [

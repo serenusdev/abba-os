@@ -79,6 +79,7 @@ export default function AdminAuditPage() {
       }
     } catch (err) {
       console.error("Failed to load audit or policy:", err);
+      setToastMessage("Data audit atau kebijakan belum dapat dimuat. Silakan coba lagi.");
     }
   }, [scope, auditPage, searchLogQuery]);
 
