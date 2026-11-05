@@ -46,12 +46,8 @@ PARTIAL = {
 }
 
 OPEN = {
-    "IAM-02",
-    "LIB-07",
     "QUAL-04",
     "QUAL-05",
-    "QUAL-08",
-    "REP-06",
 }
 
 
@@ -344,12 +340,14 @@ def main():
             "Approval/rejection akun, email verification, logout, device token revoke, role resolution, session status, dan password recovery diperbaiki.",
             "CSV import anggota memakai status processing/completed/failed dan tidak mengabaikan kegagalan pencatatan hasil akhir.",
             "Koreksi presensi, effective attendance, hari non-operasional, duty flag, review queue, dan validasi tanggal laporan ditambahkan.",
+            "Tab Unassigned review menghitung laporan submitted tanpa reviewer dan memfilter hanya item yang benar-benar belum ditugaskan.",
             "Task/project memiliki deadline, assignee relation, checklist, attachment, discussion, mention, history, state transition, edit, archive, dan review guard.",
             "Jadwal/event dan pengumuman memiliki recurrence, revision, audience, lifecycle publish/archive/cancel, dan validasi waktu.",
             "People/team memakai membership aktif, heartbeat presence, RPC coordinator, dan reviewer assignment.",
         ]),
         ("Resource, notifikasi, dan admin", [
             "Resource Library memiliki filter published/visibility, favorite backend, search/tag, share URL, admin lifecycle, revision, archive, dan import resource.",
+            "Importer resource mendukung legacy_record_id, deduplikasi slug/legacy ID, validasi batch, row-level error report, dan revision snapshot.",
             "Notification inbox durable, unread count, FCM device registration, idempotent cron, serta halaman uji push admin tersedia.",
             "Analytics, dashboard role, export mapping/download, CSV formula protection, audit hash verification, policy activation, dan policy seed diperbaiki.",
             "PDF export diubah menjadi Unicode-safe dan multi-page; migration `20261103000003_app_schema_grants.sql` diterapkan ke Supabase production.",
@@ -361,6 +359,7 @@ def main():
             "Ekspor rekap akun memiliki feedback kegagalan; registrasi publik hanya menjanjikan role santri.",
             "PWA memaksa update service worker/cache version; query people dibatasi 500 baris; quick date jump kalender sudah terhubung ke date picker.",
             "Filter scope audit sudah diteruskan ke query server, CSP tidak lagi memakai unsafe-eval, dan HSTS sudah dikonfigurasi.",
+            "Data kategori laporan produksi tidak lagi jatuh ke ID demo ketika query database kosong; fallback demo tetap dibatasi untuk Vitest.",
             "Dependency runtime high-severity audit bersih; lint, typecheck, unit test, Next build, dan Android release build sebelumnya lulus.",
             "CI sekarang menjalankan lint, typecheck, test, audit, build, migration dry-run, disposable Supabase reset, pgTAP RLS matrix, dan browser E2E.",
             "Seed E2E sudah menggunakan REST-only, memverifikasi profile active dan role santri, serta menyimpan log server saat E2E gagal.",

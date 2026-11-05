@@ -60,7 +60,10 @@ export default function ReviewPage() {
       if (activeTab === "resubmitted" && (rep.revisionNo <= 1 || rep.reviewStatus !== "not_reviewed"))
         return false;
       if (activeTab === "approved" && rep.reviewStatus !== "approved") return false;
-      if (activeTab === "unassigned" && (rep.reviewStatus === "approved" || rep.reviewerId)) return false;
+      if (
+        activeTab === "unassigned" &&
+        (rep.submissionStatus !== "submitted" || rep.reviewStatus === "approved" || rep.reviewerId)
+      ) return false;
 
       // Search matching
       if (searchQuery.trim()) {

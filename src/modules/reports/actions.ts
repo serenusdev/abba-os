@@ -62,7 +62,7 @@ export async function getReportCategoriesAction(): Promise<ReportCategory[]> {
   } catch (err) {
     console.error("Failed to query report categories:", err);
   }
-  return REPORT_CATEGORIES;
+  return [];
 }
 
 /**
@@ -124,8 +124,8 @@ export async function getTodayReportAction(): Promise<DailyReport> {
         revisionNo: report.revision_no || 1,
         items: (report.report_items || []).map((it: any) => ({
           id: it.id,
-          categoryId: it.category_id || "digital-teknologi",
-          categoryName: it.report_categories?.name || "Aktivitas Santri",
+          categoryId: it.category_id || "",
+          categoryName: it.report_categories?.name || "Pilih kategori",
           title: it.title,
           description: it.description,
           resultProgress: it.result_progress || "",
@@ -166,8 +166,8 @@ export async function getTodayReportAction(): Promise<DailyReport> {
     items: [
       {
         id: `item-${Date.now()}`,
-        categoryId: "digital-teknologi",
-        categoryName: "Digital & Teknologi",
+        categoryId: "",
+        categoryName: "Pilih kategori",
         title: "",
         description: "",
         resultProgress: "",

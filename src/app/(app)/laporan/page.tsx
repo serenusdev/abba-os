@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import { Illustration } from "@/components/ui/illustration";
-import { REPORT_CATEGORIES } from "@/modules/reports/data";
-import { DailyReport, ReportItem } from "@/modules/reports/types";
+import { DailyReport, ReportCategory, ReportItem } from "@/modules/reports/types";
 import {
   saveReportDraftAction,
   submitReportAction,
@@ -36,8 +35,8 @@ const BLANK_REPORT: DailyReport = {
   items: [
     {
       id: "item-init",
-      categoryId: REPORT_CATEGORIES[0].id,
-      categoryName: REPORT_CATEGORIES[0].name,
+      categoryId: "",
+      categoryName: "Pilih kategori",
       title: "",
       description: "",
       resultProgress: "",
@@ -50,7 +49,7 @@ const BLANK_REPORT: DailyReport = {
 
 export default function LaporanPage() {
   const [report, setReport] = React.useState<DailyReport>(BLANK_REPORT);
-  const [reportCategories, setReportCategories] = React.useState(REPORT_CATEGORIES);
+  const [reportCategories, setReportCategories] = React.useState<ReportCategory[]>([]);
   const [policy, setPolicy] = React.useState<PolicySettingItem | null>(null);
   const [feedback, setFeedback] = React.useState<{
     type: "success" | "error" | "info";
@@ -90,8 +89,8 @@ export default function LaporanPage() {
   const handleAddItem = () => {
     const newItem: ReportItem = {
       id: `item-${Date.now()}`,
-      categoryId: reportCategories[0]?.id || REPORT_CATEGORIES[0].id,
-      categoryName: reportCategories[0]?.name || REPORT_CATEGORIES[0].name,
+      categoryId: reportCategories[0]?.id || "",
+      categoryName: reportCategories[0]?.name || "Pilih kategori",
       title: "",
       description: "",
       resultProgress: "",
